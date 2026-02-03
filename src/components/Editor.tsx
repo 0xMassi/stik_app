@@ -10,15 +10,17 @@ interface EditorProps {
   content: string;
   onChange: (content: string) => void;
   placeholder?: string;
+  initialContent?: string;
 }
 
 export interface EditorRef {
   focus: () => void;
   clear: () => void;
+  setContent: (content: string) => void;
 }
 
 const Editor = forwardRef<EditorRef, EditorProps>(
-  ({ onChange, placeholder }, ref) => {
+  ({ onChange, placeholder, initialContent }, ref) => {
     const editor = useEditor({
       extensions: [
         StarterKit.configure({
@@ -31,7 +33,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         TaskItem.configure({ nested: true }),
         Link.configure({ openOnClick: false }),
       ],
-      content: "",
+      content: initialContent || "",
       onUpdate: ({ editor }) => {
         onChange(editor.getText());
       },
@@ -42,9 +44,17 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       },
     });
 
+    // Set initial content when editor is ready and initialContent changes
+    useEffect(() => {
+      if (editor && initialContent && !editor.getText()) {
+        editor.commands.setContent(initialContent);
+      }
+    }, [editor, initialContent]);
+
     useImperativeHandle(ref, () => ({
       focus: () => editor?.commands.focus(),
       clear: () => editor?.commands.clearContent(),
+      setContent: (content: string) => editor?.commands.setContent(content),
     }));
 
     return <EditorContent editor={editor} className="h-full" />;
