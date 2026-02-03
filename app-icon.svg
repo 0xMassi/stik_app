@@ -1,0 +1,10 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="coral-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E8705F"/>
+      <stop offset="100%" style="stop-color:#D6604F"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="220" fill="url(#coral-gradient)"/>
+  <text x="512" y="620" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="520" font-weight="800" fill="white">S</text>
+</svg>
