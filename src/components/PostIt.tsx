@@ -143,8 +143,9 @@ export default function PostIt({
               : "bg-coral-light text-coral"
           }`}
         >
-          <span className="text-[10px]">📁</span>
+          <span className="text-[8px] text-coral">●</span>
           <span>{folder}</span>
+          <span className="text-[8px] opacity-50">▼</span>
         </button>
 
         <div className="text-[10px] text-stone">

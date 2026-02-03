@@ -60,35 +60,35 @@ export default function FolderPicker({
   }, [filteredFolders, selectedIndex, onSelect, onClose]);
 
   return (
-    <div className="absolute top-2 left-3 right-3 bg-surface rounded-[10px] shadow-lg border border-line overflow-hidden z-10">
-      <div className="px-3 py-2 border-b border-line">
-        <span className="text-[10px] font-semibold text-stone uppercase tracking-wider">
-          Select folder
-        </span>
-      </div>
-
+    <div className="absolute top-2 left-3 right-3 bg-bg rounded-[10px] shadow-stik border border-line/50 overflow-hidden z-10">
       {filteredFolders.length > 0 ? (
-        <div className="max-h-[160px] overflow-y-auto">
-          {filteredFolders.slice(0, 6).map((folder, i) => (
+        <div className="py-1">
+          {filteredFolders.slice(0, 5).map((folder, i) => (
             <button
               key={folder}
               onClick={() => onSelect(folder)}
               onMouseEnter={() => setSelectedIndex(i)}
-              className={`w-full px-3 py-2 flex items-center gap-2 text-left transition-colors ${
-                i === selectedIndex ? "bg-coral-light" : "hover:bg-line/50"
+              className={`w-full px-3 py-2 flex items-center gap-2.5 text-left transition-all ${
+                i === selectedIndex
+                  ? "bg-coral text-white"
+                  : "hover:bg-line/50 text-ink"
               }`}
             >
-              <span className="text-[11px]">📁</span>
-              <span className="flex-1 text-[13px] text-ink">{folder}</span>
+              <span className={`text-[10px] ${i === selectedIndex ? "text-white/80" : "text-coral"}`}>
+                ●
+              </span>
+              <span className="flex-1 text-[13px] font-medium">{folder}</span>
               {i === selectedIndex && (
-                <span className="text-[10px] text-stone">↵</span>
+                <kbd className="text-[9px] px-1.5 py-0.5 bg-white/20 rounded text-white/90 font-mono">
+                  enter
+                </kbd>
               )}
             </button>
           ))}
         </div>
       ) : (
-        <div className="px-3 py-3 text-center text-[12px] text-stone">
-          No matching folders
+        <div className="px-3 py-4 text-center text-[12px] text-stone">
+          No folders found
         </div>
       )}
     </div>
