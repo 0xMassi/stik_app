@@ -140,6 +140,32 @@ cd src-tauri && cargo fmt
 cd src-tauri && cargo check
 ```
 
+## Releasing
+
+We use [Semantic Versioning](https://semver.org/). To create a new release:
+
+```bash
+# Patch release (bug fixes): 0.1.0 -> 0.1.1
+npm run release:patch
+
+# Minor release (new features): 0.1.0 -> 0.2.0
+npm run release:minor
+
+# Major release (breaking changes): 0.1.0 -> 1.0.0
+npm run release:major
+
+# Or explicit version
+npm run release 1.2.3
+```
+
+This will:
+1. Update version in `package.json` and `Cargo.toml`
+2. Update `CHANGELOG.md` with release date
+3. Create a git commit and tag
+4. Show next steps for pushing and building
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
+
 ## Tech Stack
 
 - **Frontend**: React 19, TypeScript, Tailwind CSS, Tiptap (editor)
