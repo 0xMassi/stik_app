@@ -4,6 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
 import PostIt from "./components/PostIt";
 import FolderSelectorModal from "./components/FolderSelectorModal";
 import SettingsModal from "./components/SettingsModal";
+import SearchModal from "./components/SearchModal";
+import ManagerModal from "./components/ManagerModal";
 
 interface StickedNote {
   id: string;
@@ -15,9 +17,9 @@ interface StickedNote {
   updated_at: string;
 }
 
-type WindowType = "postit" | "folder-selector" | "sticked" | "settings";
+type WindowType = "postit" | "folder-selector" | "sticked" | "settings" | "search" | "manager";
 
-function getWindowInfo(): { type: WindowType; id?: string } {
+function getWindowInfo(): { type: WindowType; id?: string; viewing?: boolean } {
   const params = new URLSearchParams(window.location.search);
   const windowType = params.get("window");
 
@@ -26,11 +28,23 @@ function getWindowInfo(): { type: WindowType; id?: string } {
   }
 
   if (windowType === "sticked") {
-    return { type: "sticked", id: params.get("id") || undefined };
+    return {
+      type: "sticked",
+      id: params.get("id") || undefined,
+      viewing: params.get("viewing") === "true"
+    };
   }
 
   if (windowType === "settings") {
     return { type: "settings" };
+  }
+
+  if (windowType === "search") {
+    return { type: "search" };
+  }
+
+  if (windowType === "manager") {
+    return { type: "manager" };
   }
 
   return { type: "postit" };
@@ -45,6 +59,34 @@ export default function App() {
   useEffect(() => {
     if (windowInfo.type !== "sticked" || !windowInfo.id) return;
 
+    // If viewing mode, fetch content via command
+    if (windowInfo.viewing) {
+      const fetchViewingContent = async () => {
+        try {
+          const data = await invoke<{ id: string; content: string; folder: string }>(
+            "get_viewing_note_content",
+            { id: windowInfo.id }
+          );
+          setStickedNote({
+            id: data.id,
+            content: data.content,
+            folder: data.folder,
+            position: null,
+            size: null,
+            created_at: "",
+            updated_at: "",
+          });
+          setCurrentFolder(data.folder);
+        } catch (error) {
+          console.error("Failed to load viewing note content:", error);
+        }
+      };
+
+      fetchViewingContent();
+      return;
+    }
+
+    // Regular sticked note - load from storage
     invoke<StickedNote>("get_sticked_note", { id: windowInfo.id })
       .then((note) => {
         setStickedNote(note);
@@ -53,7 +95,7 @@ export default function App() {
       .catch((error) => {
         console.error("Failed to load sticked note:", error);
       });
-  }, [windowInfo.type, windowInfo.id]);
+  }, [windowInfo.type, windowInfo.id, windowInfo.viewing]);
 
   // Listen for shortcut triggers from Rust backend
   useEffect(() => {
@@ -146,6 +188,16 @@ export default function App() {
     return <SettingsModal isOpen={true} onClose={() => {}} isWindow={true} />;
   }
 
+  // Render search if this is that window type
+  if (windowInfo.type === "search") {
+    return <SearchModal />;
+  }
+
+  // Render manager if this is that window type
+  if (windowInfo.type === "manager") {
+    return <ManagerModal />;
+  }
+
   // Render sticked note if this is a sticked window
   if (windowInfo.type === "sticked") {
     if (!stickedNote) {
@@ -165,6 +217,7 @@ export default function App() {
         isSticked={true}
         stickedId={stickedNote.id}
         initialContent={stickedNote.content}
+        isViewing={windowInfo.viewing}
       />
     );
   }

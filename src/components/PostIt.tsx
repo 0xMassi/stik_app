@@ -4,6 +4,16 @@ import { invoke } from "@tauri-apps/api/core";
 import Editor, { type EditorRef } from "./Editor";
 import FolderPicker from "./FolderPicker";
 
+interface StickedNote {
+  id: string;
+  content: string;
+  folder: string;
+  position: [number, number] | null;
+  size: [number, number] | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface PostItProps {
   folder: string;
   onSave: (content: string) => Promise<void>;
@@ -13,6 +23,7 @@ interface PostItProps {
   isSticked?: boolean;
   stickedId?: string;
   initialContent?: string;
+  isViewing?: boolean;
 }
 
 export default function PostIt({
@@ -24,12 +35,16 @@ export default function PostIt({
   isSticked = false,
   stickedId,
   initialContent = "",
+  isViewing = false,
 }: PostItProps) {
   const [content, setContent] = useState(initialContent);
   const [showPicker, setShowPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
-  const [isPinned, setIsPinned] = useState(isSticked);
+  // Viewing mode starts unpinned, regular sticked notes start pinned
+  const [isPinned, setIsPinned] = useState(isSticked && !isViewing);
+  // Track the actual sticked note ID (can change when pinning a viewing note)
+  const [currentStickedId, setCurrentStickedId] = useState(stickedId);
   const editorRef = useRef<EditorRef | null>(null);
 
   // Sync content state with initialContent (for sticked notes)
@@ -101,53 +116,72 @@ export default function PostIt({
 
   // Toggle pin state for sticked notes
   const handleTogglePin = useCallback(async () => {
-    if (!stickedId) return;
+    if (!currentStickedId && !isViewing) return;
 
     if (isPinned) {
       // Unpin: remove from persistence but keep window open
       try {
-        await invoke("close_sticked_note", {
-          id: stickedId,
-          saveToFolder: false,
-        });
+        if (currentStickedId) {
+          await invoke("close_sticked_note", {
+            id: currentStickedId,
+            saveToFolder: false,
+          });
+        }
         setIsPinned(false);
       } catch (error) {
+        // May fail for viewing notes that were never pinned - that's ok
         console.error("Failed to unpin note:", error);
+        setIsPinned(false);
       }
     } else {
-      // Re-pin: create new sticked note entry
+      // Pin: create new sticked note entry and proper window
       try {
         const window = getCurrentWindow();
         const position = await window.outerPosition();
+        const size = await window.outerSize();
+        const oldId = currentStickedId || stickedId;
 
-        await invoke("create_sticked_note", {
+        // Create the sticked note with position and size
+        const newNote = await invoke<StickedNote>("create_sticked_note", {
           content,
           folder,
           position: [position.x, position.y],
         });
-        setIsPinned(true);
+
+        // If this is a viewing note, close current window and create proper one
+        if (isViewing && oldId) {
+          // Create the proper sticked window
+          await invoke("create_sticked_window", { note: newNote });
+          // Close this viewing window
+          await invoke("close_sticked_window", { id: oldId });
+        } else {
+          // Update the tracked ID to the newly created note
+          setCurrentStickedId(newNote.id);
+          setIsPinned(true);
+        }
       } catch (error) {
-        console.error("Failed to re-pin note:", error);
+        console.error("Failed to pin note:", error);
       }
     }
-  }, [stickedId, isPinned, content, folder]);
+  }, [currentStickedId, stickedId, isPinned, content, folder, isViewing]);
 
   // Save & Close sticked note (saves content to folder file)
   const handleSaveAndCloseSticked = useCallback(async () => {
-    if (!stickedId) return;
+    const idToClose = currentStickedId || stickedId;
+    if (!idToClose) return;
 
     // Only show save animation if there's content
     if (content.trim()) {
       setIsSaving(true);
       try {
         // If still pinned, close from sticked notes
-        if (isPinned) {
+        if (isPinned && currentStickedId) {
           await invoke("close_sticked_note", {
-            id: stickedId,
+            id: currentStickedId,
             saveToFolder: true,
           });
         } else {
-          // If unpinned, just save to folder directly
+          // If unpinned or viewing, just save to folder directly
           await invoke("save_note", {
             folder,
             content,
@@ -155,7 +189,7 @@ export default function PostIt({
         }
         // Wait for save animation before closing
         setTimeout(async () => {
-          await invoke("close_sticked_window", { id: stickedId });
+          await invoke("close_sticked_window", { id: idToClose });
         }, 600);
       } catch (error) {
         console.error("Failed to save and close sticked note:", error);
@@ -164,35 +198,36 @@ export default function PostIt({
     } else {
       // No content, just close without animation
       try {
-        if (isPinned) {
+        if (isPinned && currentStickedId) {
           await invoke("close_sticked_note", {
-            id: stickedId,
+            id: currentStickedId,
             saveToFolder: false,
           });
         }
-        await invoke("close_sticked_window", { id: stickedId });
+        await invoke("close_sticked_window", { id: idToClose });
       } catch (error) {
         console.error("Failed to close sticked note:", error);
       }
     }
-  }, [stickedId, isPinned, content, folder]);
+  }, [stickedId, currentStickedId, isPinned, content, folder]);
 
   // Close without saving
   const handleCloseWithoutSaving = useCallback(async () => {
-    if (!stickedId) return;
+    const idToClose = currentStickedId || stickedId;
+    if (!idToClose) return;
 
     try {
-      if (isPinned) {
+      if (isPinned && currentStickedId) {
         await invoke("close_sticked_note", {
-          id: stickedId,
+          id: currentStickedId,
           saveToFolder: false,
         });
       }
-      await invoke("close_sticked_window", { id: stickedId });
+      await invoke("close_sticked_window", { id: idToClose });
     } catch (error) {
       console.error("Failed to close sticked note:", error);
     }
-  }, [stickedId, isPinned]);
+  }, [stickedId, currentStickedId, isPinned]);
 
   const handleContentChange = useCallback((newContent: string) => {
     setContent(newContent);
@@ -235,7 +270,8 @@ export default function PostIt({
 
   // Save position when dragging ends (for sticked notes that are pinned)
   useEffect(() => {
-    if (!isSticked || !stickedId || !isPinned) return;
+    // Only save position for pinned notes with a valid ID in storage
+    if (!isSticked || !currentStickedId || !isPinned) return;
 
     const savePosition = async () => {
       try {
@@ -243,7 +279,7 @@ export default function PostIt({
         const position = await window.outerPosition();
         const size = await window.outerSize();
         await invoke("update_sticked_note", {
-          id: stickedId,
+          id: currentStickedId,
           content,
           folder: null,
           position: [position.x, position.y],
@@ -265,7 +301,7 @@ export default function PostIt({
       window.removeEventListener("mouseup", handleMove);
       clearTimeout(timeout);
     };
-  }, [isSticked, stickedId, isPinned, content]);
+  }, [isSticked, currentStickedId, isPinned, content]);
 
   // Show save animation
   if (isSaving) {

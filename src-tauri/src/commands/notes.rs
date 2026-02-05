@@ -21,6 +21,16 @@ pub struct NoteInfo {
     pub created: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchResult {
+    pub path: String,
+    pub filename: String,
+    pub folder: String,
+    pub content: String,
+    pub snippet: String,
+    pub created: String,
+}
+
 /// Generate a slug from content (first 5 words, max 40 chars)
 fn generate_slug(content: &str) -> String {
     let cleaned: String = content
@@ -142,4 +152,172 @@ pub fn list_notes(folder: Option<String>) -> Result<Vec<NoteInfo>, String> {
     notes.sort_by(|a, b| b.created.cmp(&a.created));
 
     Ok(notes)
+}
+
+/// Extract a snippet around the match
+fn extract_snippet(content: &str, query: &str, max_len: usize) -> String {
+    let content_lower = content.to_lowercase();
+    let query_lower = query.to_lowercase();
+
+    if let Some(pos) = content_lower.find(&query_lower) {
+        let start = pos.saturating_sub(30);
+        let end = (pos + query.len() + 50).min(content.len());
+
+        let mut snippet = String::new();
+        if start > 0 {
+            snippet.push_str("...");
+        }
+        snippet.push_str(&content[start..end].replace('\n', " "));
+        if end < content.len() {
+            snippet.push_str("...");
+        }
+        snippet
+    } else {
+        // Return first part of content as snippet
+        let end = max_len.min(content.len());
+        let mut snippet = content[..end].replace('\n', " ");
+        if end < content.len() {
+            snippet.push_str("...");
+        }
+        snippet
+    }
+}
+
+#[tauri::command]
+pub fn search_notes(query: String) -> Result<Vec<SearchResult>, String> {
+    if query.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let stik_folder = get_stik_folder()?;
+    let query_lower = query.to_lowercase();
+
+    let folders: Vec<PathBuf> = fs::read_dir(&stik_folder)
+        .map_err(|e| e.to_string())?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().is_dir())
+        .map(|entry| entry.path())
+        .collect();
+
+    let mut results = Vec::new();
+
+    for folder_path in folders {
+        let folder_name = folder_path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+
+        if let Ok(entries) = fs::read_dir(&folder_path) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if path.extension().map_or(false, |ext| ext == "md") {
+                    if let Ok(content) = fs::read_to_string(&path) {
+                        // Case-insensitive search
+                        if content.to_lowercase().contains(&query_lower) {
+                            let filename = path
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string();
+
+                            let created = filename
+                                .split('-')
+                                .take(2)
+                                .collect::<Vec<_>>()
+                                .join("-");
+
+                            let snippet = extract_snippet(&content, &query, 100);
+
+                            results.push(SearchResult {
+                                path: path.to_string_lossy().to_string(),
+                                filename,
+                                folder: folder_name.clone(),
+                                content,
+                                snippet,
+                                created,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort by created date, newest first
+    results.sort_by(|a, b| b.created.cmp(&a.created));
+
+    Ok(results)
+}
+
+#[tauri::command]
+pub fn delete_note(path: String) -> Result<bool, String> {
+    let stik_folder = get_stik_folder()?;
+    let note_path = PathBuf::from(&path);
+
+    // Validate path is within Stik folder
+    if !note_path.starts_with(&stik_folder) {
+        return Err("Invalid path: note must be within Stik folder".to_string());
+    }
+
+    // Check file exists
+    if !note_path.exists() {
+        return Err("Note file does not exist".to_string());
+    }
+
+    // Delete the file
+    fs::remove_file(&note_path).map_err(|e| format!("Failed to delete note: {}", e))?;
+
+    Ok(true)
+}
+
+#[tauri::command]
+pub fn move_note(path: String, target_folder: String) -> Result<NoteInfo, String> {
+    let stik_folder = get_stik_folder()?;
+    let source_path = PathBuf::from(&path);
+
+    // Validate source path is within Stik folder
+    if !source_path.starts_with(&stik_folder) {
+        return Err("Invalid path: note must be within Stik folder".to_string());
+    }
+
+    // Check source file exists
+    if !source_path.exists() {
+        return Err("Note file does not exist".to_string());
+    }
+
+    // Ensure target folder exists
+    let target_folder_path = stik_folder.join(&target_folder);
+    fs::create_dir_all(&target_folder_path).map_err(|e| e.to_string())?;
+
+    // Get filename from source
+    let filename = source_path
+        .file_name()
+        .ok_or("Invalid filename")?
+        .to_string_lossy()
+        .to_string();
+
+    // Build target path
+    let target_path = target_folder_path.join(&filename);
+
+    // Read content before moving
+    let content = fs::read_to_string(&source_path).map_err(|e| e.to_string())?;
+
+    // Move the file
+    fs::rename(&source_path, &target_path).map_err(|e| format!("Failed to move note: {}", e))?;
+
+    // Extract created date from filename
+    let created = filename
+        .split('-')
+        .take(2)
+        .collect::<Vec<_>>()
+        .join("-");
+
+    Ok(NoteInfo {
+        path: target_path.to_string_lossy().to_string(),
+        filename,
+        folder: target_folder,
+        content,
+        created,
+    })
 }

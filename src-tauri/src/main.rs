@@ -15,8 +15,15 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
+struct ViewingNoteContent {
+    id: String,
+    content: String,
+    folder: String,
+}
+
 struct AppState {
     shortcut_to_folder: Mutex<HashMap<String, String>>,
+    viewing_notes: Mutex<HashMap<String, ViewingNoteContent>>,
 }
 
 #[tauri::command]
@@ -24,11 +31,60 @@ fn hide_window(window: tauri::Window) {
     let _ = window.hide();
 }
 
+fn show_search(app: &AppHandle) {
+    // Check if window already exists
+    if let Some(window) = app.get_webview_window("search") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        let _ = window.emit("search-opened", ());
+        return;
+    }
+
+    // Create new search window
+    let window = WebviewWindowBuilder::new(
+        app,
+        "search",
+        WebviewUrl::App("index.html?window=search".into()),
+    )
+    .title("Search Notes")
+    .inner_size(550.0, 450.0)
+    .resizable(false)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .center()
+    .build();
+
+    if let Ok(win) = window {
+        let w = win.clone();
+        let app_handle = app.clone();
+        win.on_window_event(move |event| {
+            match event {
+                tauri::WindowEvent::Focused(focused) => {
+                    if !focused {
+                        let _ = w.close();
+                    }
+                }
+                tauri::WindowEvent::Destroyed => {
+                    // Re-show postit when search closes
+                    if let Some(postit) = app_handle.get_webview_window("postit") {
+                        let _ = postit.show();
+                        let _ = postit.set_focus();
+                    }
+                }
+                _ => {}
+            }
+        });
+    }
+}
+
 fn shortcut_key_to_code(key: &str) -> Option<Code> {
     match key {
         "S" | "KeyS" => Some(Code::KeyS),
         "F" | "KeyF" => Some(Code::KeyF),
         "P" | "KeyP" => Some(Code::KeyP),
+        "M" | "KeyM" => Some(Code::KeyM),
         "1" | "Digit1" => Some(Code::Digit1),
         "2" | "Digit2" => Some(Code::Digit2),
         "3" | "Digit3" => Some(Code::Digit3),
@@ -89,6 +145,7 @@ fn shortcut_to_string(shortcut: &Shortcut) -> String {
         Code::KeyS => "S",
         Code::KeyF => "F",
         Code::KeyP => "P",
+        Code::KeyM => "M",
         Code::Digit1 => "1",
         Code::Digit2 => "2",
         Code::Digit3 => "3",
@@ -128,6 +185,14 @@ fn register_shortcuts_from_settings(app: &AppHandle, settings: &StikSettings) {
     let folder_selector_shortcut =
         Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyF);
     let _ = app.global_shortcut().register(folder_selector_shortcut);
+
+    // Always register the search shortcut (Cmd+Shift+P)
+    let search_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyP);
+    let _ = app.global_shortcut().register(search_shortcut);
+
+    // Always register the manager shortcut (Cmd+Shift+M)
+    let manager_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyM);
+    let _ = app.global_shortcut().register(manager_shortcut);
 }
 
 #[tauri::command]
@@ -240,6 +305,54 @@ fn show_folder_selector(app: &AppHandle) {
     }
 }
 
+fn show_manager(app: &AppHandle) {
+    // Check if window already exists
+    if let Some(window) = app.get_webview_window("manager") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        let _ = window.emit("manager-opened", ());
+        return;
+    }
+
+    // Create new manager window
+    let window = WebviewWindowBuilder::new(
+        app,
+        "manager",
+        WebviewUrl::App("index.html?window=manager".into()),
+    )
+    .title("Manage Notes")
+    .inner_size(500.0, 450.0)
+    .resizable(false)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .center()
+    .build();
+
+    if let Ok(win) = window {
+        let w = win.clone();
+        let app_handle = app.clone();
+        win.on_window_event(move |event| {
+            match event {
+                tauri::WindowEvent::Focused(focused) => {
+                    if !focused {
+                        let _ = w.close();
+                    }
+                }
+                tauri::WindowEvent::Destroyed => {
+                    // Re-show postit when manager closes
+                    if let Some(postit) = app_handle.get_webview_window("postit") {
+                        let _ = postit.show();
+                        let _ = postit.set_focus();
+                    }
+                }
+                _ => {}
+            }
+        });
+    }
+}
+
 #[tauri::command]
 fn create_sticked_window(app: AppHandle, note: StickedNote) -> Result<bool, String> {
     let window_label = format!("sticked-{}", note.id);
@@ -257,7 +370,40 @@ fn create_sticked_window(app: AppHandle, note: StickedNote) -> Result<bool, Stri
     let window = WebviewWindowBuilder::new(&app, &window_label, WebviewUrl::App(url.into()))
         .title("Sticked Note")
         .inner_size(width, height)
+        .min_inner_size(320.0, 200.0)
+        .max_inner_size(800.0, 600.0)
         .position(x, y)
+        .resizable(true)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .build();
+
+    if let Err(e) = window {
+        return Err(format!("Failed to create sticked window: {}", e));
+    }
+
+    Ok(true)
+}
+
+fn create_sticked_window_centered(app: AppHandle, note: StickedNote) -> Result<bool, String> {
+    let window_label = format!("sticked-{}", note.id);
+
+    // Check if window already exists
+    if app.get_webview_window(&window_label).is_some() {
+        return Ok(true);
+    }
+
+    let (width, height) = note.size.unwrap_or((400.0, 280.0));
+    let url = format!("index.html?window=sticked&id={}", note.id);
+
+    let window = WebviewWindowBuilder::new(&app, &window_label, WebviewUrl::App(url.into()))
+        .title("Sticked Note")
+        .inner_size(width, height)
+        .min_inner_size(320.0, 200.0)
+        .max_inner_size(800.0, 600.0)
+        .center()  // Center on current screen instead of using position
         .resizable(true)
         .decorations(false)
         .transparent(true)
@@ -289,21 +435,11 @@ async fn pin_capture_note(
     content: String,
     folder: String,
 ) -> Result<StickedNote, String> {
-    // Get postit window position to place sticked note nearby
-    let position = if let Some(window) = app.get_webview_window("postit") {
-        window
-            .outer_position()
-            .ok()
-            .map(|p| (p.x as f64, p.y as f64))
-    } else {
-        None
-    };
+    // Create the sticked note in storage (position will be set by center())
+    let note = sticked_notes::create_sticked_note(content, folder, None)?;
 
-    // Create the sticked note in storage
-    let note = sticked_notes::create_sticked_note(content, folder, position)?;
-
-    // Create the window
-    create_sticked_window(app.clone(), note.clone())?;
+    // Create the window (centered)
+    create_sticked_window_centered(app.clone(), note.clone())?;
 
     // Hide the capture window
     if let Some(window) = app.get_webview_window("postit") {
@@ -311,6 +447,75 @@ async fn pin_capture_note(
     }
 
     Ok(note)
+}
+
+#[tauri::command]
+async fn open_note_for_viewing(
+    app: AppHandle,
+    content: String,
+    folder: String,
+    path: String,
+) -> Result<bool, String> {
+    // Generate a unique ID for the viewing window based on the file path
+    let id = format!("view-{}", path.replace(['/', '\\', '.', ' '], "-"));
+    let window_label = format!("sticked-{}", id);
+
+    // Check if window already exists
+    if app.get_webview_window(&window_label).is_some() {
+        return Ok(true);
+    }
+
+    // Store content in app state for the window to retrieve when ready
+    {
+        let state = app.state::<AppState>();
+        let mut viewing_notes = state.viewing_notes.lock().unwrap();
+        viewing_notes.insert(
+            id.clone(),
+            ViewingNoteContent {
+                id: id.clone(),
+                content,
+                folder,
+            },
+        );
+    }
+
+    // Create the viewing window
+    let url = format!("index.html?window=sticked&id={}&viewing=true", id);
+
+    let window = WebviewWindowBuilder::new(&app, &window_label, WebviewUrl::App(url.into()))
+        .title("View Note")
+        .inner_size(450.0, 320.0)
+        .min_inner_size(320.0, 200.0)
+        .max_inner_size(800.0, 600.0)
+        .resizable(true)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .center()
+        .build();
+
+    if let Err(e) = window {
+        return Err(format!("Failed to create viewing window: {}", e));
+    }
+
+    Ok(true)
+}
+
+#[tauri::command]
+fn get_viewing_note_content(app: AppHandle, id: String) -> Result<serde_json::Value, String> {
+    let state = app.state::<AppState>();
+    let viewing_notes = state.viewing_notes.lock().unwrap();
+
+    if let Some(note) = viewing_notes.get(&id) {
+        Ok(serde_json::json!({
+            "id": note.id,
+            "content": note.content,
+            "folder": note.folder
+        }))
+    } else {
+        Err("Viewing note content not found".to_string())
+    }
 }
 
 fn restore_sticked_notes(app: &AppHandle) {
@@ -325,6 +530,7 @@ fn main() {
     tauri::Builder::default()
         .manage(AppState {
             shortcut_to_folder: Mutex::new(HashMap::new()),
+            viewing_notes: Mutex::new(HashMap::new()),
         })
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -336,6 +542,18 @@ fn main() {
                     // Check for folder selector shortcut (Cmd+Shift+F)
                     if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyF) {
                         show_folder_selector(app);
+                        return;
+                    }
+
+                    // Check for search shortcut (Cmd+Shift+P)
+                    if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyP) {
+                        show_search(app);
+                        return;
+                    }
+
+                    // Check for manager shortcut (Cmd+Shift+M)
+                    if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyM) {
+                        show_manager(app);
                         return;
                     }
 
@@ -355,8 +573,14 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             notes::save_note,
             notes::list_notes,
+            notes::search_notes,
+            notes::delete_note,
+            notes::move_note,
             folders::list_folders,
             folders::create_folder,
+            folders::delete_folder,
+            folders::rename_folder,
+            folders::get_folder_stats,
             settings::get_settings,
             settings::save_settings,
             settings::get_shortcut_mappings,
@@ -372,6 +596,8 @@ fn main() {
             create_sticked_window,
             close_sticked_window,
             pin_capture_note,
+            open_note_for_viewing,
+            get_viewing_note_content,
             open_settings,
         ])
         .setup(|app| {
