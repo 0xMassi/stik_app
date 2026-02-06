@@ -4,6 +4,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Link from "@tiptap/extension-link";
+import { Markdown } from "tiptap-markdown";
 import { forwardRef, useImperativeHandle, useEffect } from "react";
 
 interface EditorProps {
@@ -33,10 +34,14 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         TaskList,
         TaskItem.configure({ nested: true }),
         Link.configure({ openOnClick: false }),
+        Markdown.configure({
+          transformPastedText: true,
+          transformCopiedText: true,
+        }),
       ],
       content: initialContent || "",
       onUpdate: ({ editor }) => {
-        onChange(editor.getText());
+        onChange(editor.storage.markdown.getMarkdown());
       },
       editorProps: {
         attributes: {

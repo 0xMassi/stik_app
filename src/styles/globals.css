@@ -95,9 +95,15 @@ body,
   text-decoration: underline;
 }
 
-/* Lists */
-.stik-editor ul,
+/* Lists — Tailwind Preflight sets list-style:none, restore it here */
+.stik-editor ul {
+  list-style-type: disc;
+  padding-left: 1.2em;
+  margin: 0.3em 0;
+}
+
 .stik-editor ol {
+  list-style-type: decimal;
   padding-left: 1.2em;
   margin: 0.3em 0;
 }
