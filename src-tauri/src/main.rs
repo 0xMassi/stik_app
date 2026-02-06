@@ -76,14 +76,19 @@ fn show_search(app: &AppHandle) {
     .center()
     .build();
 
+    // Search window does NOT close on blur — preserves state when switching windows
     if let Ok(win) = window {
-        let w = win.clone();
         let app_handle = app.clone();
         win.on_window_event(move |event| {
             match event {
                 tauri::WindowEvent::Focused(focused) => {
                     if !focused {
-                        let _ = w.close();
+                        // Restore sticked windows when search loses focus
+                        for (label, window) in app_handle.webview_windows() {
+                            if label.starts_with("sticked-") {
+                                let _ = window.set_always_on_top(true);
+                            }
+                        }
                     }
                 }
                 tauri::WindowEvent::Destroyed => {
@@ -610,14 +615,19 @@ fn show_manager(app: &AppHandle) {
     .center()
     .build();
 
+    // Manager window does NOT close on blur — preserves state when switching windows
     if let Ok(win) = window {
-        let w = win.clone();
         let app_handle = app.clone();
         win.on_window_event(move |event| {
             match event {
                 tauri::WindowEvent::Focused(focused) => {
                     if !focused {
-                        let _ = w.close();
+                        // Restore sticked windows when manager loses focus
+                        for (label, window) in app_handle.webview_windows() {
+                            if label.starts_with("sticked-") {
+                                let _ = window.set_always_on_top(true);
+                            }
+                        }
                     }
                 }
                 tauri::WindowEvent::Destroyed => {
