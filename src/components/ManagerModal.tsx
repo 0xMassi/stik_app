@@ -30,6 +30,8 @@ export default function ManagerModal() {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
 
   const loadFolderStats = useCallback(async () => {
     try {
@@ -157,6 +159,26 @@ export default function ManagerModal() {
     }
   };
 
+  const handleCreateFolder = async (name: string) => {
+    if (!name.trim()) {
+      setIsCreating(false);
+      setNewFolderName("");
+      return;
+    }
+
+    try {
+      await invoke("create_folder", { name: name.trim() });
+      setIsCreating(false);
+      setNewFolderName("");
+      await loadFolderStats();
+      // Select the new folder
+      setSelectedItem({ type: "folder", name: name.trim() });
+    } catch (error) {
+      console.error("Failed to create folder:", error);
+      alert(error);
+    }
+  };
+
   // Focus container on mount
   useEffect(() => {
     containerRef.current?.focus();
@@ -185,6 +207,9 @@ export default function ManagerModal() {
         } else if (isRenaming) {
           setIsRenaming(false);
           setRenameValue("");
+        } else if (isCreating) {
+          setIsCreating(false);
+          setNewFolderName("");
         } else {
           closeManager();
         }
@@ -211,10 +236,26 @@ export default function ManagerModal() {
         return;
       }
 
+      // Handle create mode
+      if (isCreating) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleCreateFolder(newFolderName);
+        }
+        return;
+      }
+
       const visibleItems = getVisibleItems();
       const currentIndex = findItemIndex(visibleItems, selectedItem);
 
       switch (e.key) {
+        case "n":
+          if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            setIsCreating(true);
+            setNewFolderName("");
+          }
+          break;
 
         case "ArrowDown":
           e.preventDefault();
@@ -279,7 +320,7 @@ export default function ManagerModal() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedItem, expandedFolders, folderStats, folderNotes, confirmDelete, isRenaming, renameValue, closeManager]);
+  }, [selectedItem, expandedFolders, folderStats, folderNotes, confirmDelete, isRenaming, renameValue, isCreating, newFolderName, closeManager]);
 
   const startDrag = useCallback(async (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("input") || (e.target as HTMLElement).closest("button")) {
@@ -307,7 +348,15 @@ export default function ManagerModal() {
     return (
       <div className="w-full h-full bg-bg rounded-[14px] flex flex-col overflow-hidden">
         <div className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="text-2xl mb-3">🗑️</div>
+          <div className="w-10 h-10 mb-3 text-coral">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18" />
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+              <line x1="10" y1="11" x2="10" y2="17" />
+              <line x1="14" y1="11" x2="14" y2="17" />
+            </svg>
+          </div>
           <h2 className="text-sm font-semibold text-ink mb-2">
             Delete {isFolder ? "folder" : "note"}?
           </h2>
@@ -360,6 +409,9 @@ export default function ManagerModal() {
           } else if (isRenaming) {
             setIsRenaming(false);
             setRenameValue("");
+          } else if (isCreating) {
+            setIsCreating(false);
+            setNewFolderName("");
           } else {
             closeManager();
           }
@@ -372,7 +424,9 @@ export default function ManagerModal() {
         className="px-4 py-3 border-b border-line drag-handle flex items-center justify-between"
       >
         <div className="flex items-center gap-2">
-          <span className="text-coral">📁</span>
+          <svg className="w-4 h-4 text-coral" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
           <h2 className="text-sm font-semibold text-ink">Manage Notes</h2>
         </div>
         <button
@@ -387,6 +441,37 @@ export default function ManagerModal() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto py-1">
+        {/* Create new folder input */}
+        {isCreating && (
+          <div className="px-4 py-2.5 flex items-center gap-3 bg-coral/10 border-b border-coral/20">
+            <svg className="w-4 h-4 text-coral" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              <line x1="12" y1="11" x2="12" y2="17" />
+              <line x1="9" y1="14" x2="15" y2="14" />
+            </svg>
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="New folder name..."
+              autoFocus
+              className="flex-1 text-[13px] font-medium bg-transparent text-ink placeholder:text-stone outline-none"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleCreateFolder(newFolderName);
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setIsCreating(false);
+                  setNewFolderName("");
+                }
+                e.stopPropagation();
+              }}
+            />
+            <span className="text-[10px] text-stone">enter to create</span>
+          </div>
+        )}
+
         {folderStats.map((folder) => {
           const isExpanded = expandedFolders.has(folder.name);
           const isFolderSelected =
@@ -423,6 +508,17 @@ export default function ManagerModal() {
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
                     onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleRename(folder.name, renameValue);
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        setIsRenaming(false);
+                        setRenameValue("");
+                      }
+                    }}
                     autoFocus
                     className="flex-1 text-[13px] font-medium bg-white/20 rounded px-2 py-0.5 outline-none"
                   />
@@ -472,13 +568,22 @@ export default function ManagerModal() {
                               : "hover:bg-line/30 text-ink"
                           }`}
                         >
-                          <span
-                            className={`text-[10px] ${
+                          <svg
+                            className={`w-3 h-3 ${
                               isNoteSelected ? "text-white/70" : "text-stone"
                             }`}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
                           >
-                            📝
-                          </span>
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                          </svg>
                           <span className="flex-1 text-[12px] truncate">
                             {getNotePreview(note)}
                           </span>
@@ -527,8 +632,16 @@ export default function ManagerModal() {
             expand
           </span>
           <span>
+            <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px] font-mono">⌘N</kbd>{" "}
+            new
+          </span>
+          <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px] font-mono">⌫</kbd>{" "}
             delete
+          </span>
+          <span>
+            <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px] font-mono">⌘R</kbd>{" "}
+            rename
           </span>
         </div>
       </div>
