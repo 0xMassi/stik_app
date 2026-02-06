@@ -9,6 +9,24 @@ export const RESERVED_SHORTCUTS = [
   "CommandOrControl+Shift+Comma", // Settings
 ];
 
+function remoteToWebUrl(remoteUrl: string): string | null {
+  const trimmed = remoteUrl.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed.replace(/\.git$/i, "");
+  }
+
+  const sshMatch = trimmed.match(/^git@([^:]+):(.+)$/);
+  if (sshMatch) {
+    const host = sshMatch[1];
+    const repoPath = sshMatch[2].replace(/\.git$/i, "");
+    return `https://${host}/${repoPath}`;
+  }
+
+  return null;
+}
+
 interface DropdownProps {
   value: string;
   options: { value: string; label: string }[];
@@ -91,8 +109,10 @@ interface SettingsContentProps {
   gitSyncStatus: GitSyncStatus | null;
   isPreparingGitRepo: boolean;
   isSyncingGitNow: boolean;
+  isOpeningGitRemote: boolean;
   onPrepareGitRepository: () => Promise<void>;
   onSyncGitNow: () => Promise<void>;
+  onOpenGitRemote: () => Promise<void>;
 }
 
 export default function SettingsContent({
@@ -112,9 +132,17 @@ export default function SettingsContent({
   gitSyncStatus,
   isPreparingGitRepo,
   isSyncingGitNow,
+  isOpeningGitRemote,
   onPrepareGitRepository,
   onSyncGitNow,
+  onOpenGitRemote,
 }: SettingsContentProps) {
+  const remoteWebUrl = remoteToWebUrl(settings.git_sharing.remote_url);
+  const linkedRepoPath =
+    settings.git_sharing.repository_layout === "stik_root"
+      ? "~/Documents/Stik"
+      : `~/Documents/Stik/${settings.git_sharing.shared_folder || "Inbox"}`;
+
   const updateMapping = (index: number, updates: Partial<ShortcutMapping>) => {
     const newMappings = [...settings.shortcut_mappings];
     newMappings[index] = { ...newMappings[index], ...updates };
@@ -282,13 +310,38 @@ export default function SettingsContent({
           </label>
 
           <div>
-            <p className="text-[12px] text-stone mb-1.5">Shared folder</p>
+            <p className="text-[12px] text-stone mb-1.5">Repository layout</p>
             <Dropdown
-              value={settings.git_sharing.shared_folder}
-              options={folders.map((f) => ({ value: f, label: f }))}
-              onChange={(value) => updateGitSharing({ shared_folder: value })}
+              value={settings.git_sharing.repository_layout}
+              options={[
+                { value: "folder_root", label: "Selected folder is repo root" },
+                { value: "stik_root", label: "Whole Stik folder is repo root" },
+              ]}
+              onChange={(value) =>
+                updateGitSharing({
+                  repository_layout: value as "folder_root" | "stik_root",
+                })
+              }
             />
           </div>
+
+          {settings.git_sharing.repository_layout === "folder_root" ? (
+            <div>
+              <p className="text-[12px] text-stone mb-1.5">Shared folder</p>
+              <Dropdown
+                value={settings.git_sharing.shared_folder}
+                options={folders.map((f) => ({ value: f, label: f }))}
+                onChange={(value) => updateGitSharing({ shared_folder: value })}
+              />
+            </div>
+          ) : (
+            <p className="text-[12px] text-stone leading-relaxed">
+              Notes are synced from your full Stik root, so GitHub will show folders like
+              <span className="mx-1 text-ink">Inbox/</span>
+              <span className="text-ink">Work/</span>
+              <span className="mx-1 text-ink">Ideas/</span>.
+            </p>
+          )}
 
           <div>
             <p className="text-[12px] text-stone mb-1.5">Remote URL</p>
@@ -333,18 +386,42 @@ export default function SettingsContent({
           <div className="flex items-center gap-2 pt-1">
             <button
               onClick={onPrepareGitRepository}
-              disabled={isPreparingGitRepo}
+              disabled={isPreparingGitRepo || isSyncingGitNow}
               className="px-3 py-2 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors disabled:opacity-50"
             >
-              {isPreparingGitRepo ? "Linking..." : "Link repository"}
+              {isPreparingGitRepo ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="animate-spin">↻</span>
+                  <span>Linking...</span>
+                </span>
+              ) : (
+                "Link repository"
+              )}
             </button>
             <button
               onClick={onSyncGitNow}
               disabled={isSyncingGitNow}
               className="px-3 py-2 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors disabled:opacity-50"
             >
-              {isSyncingGitNow ? "Syncing..." : "Sync now"}
+              {isSyncingGitNow ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="animate-spin">↻</span>
+                  <span>Syncing...</span>
+                </span>
+              ) : (
+                "Sync now"
+              )}
             </button>
+            {remoteWebUrl && (
+              <button
+                type="button"
+                onClick={onOpenGitRemote}
+                disabled={isOpeningGitRemote}
+                className="px-3 py-2 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors"
+              >
+                {isOpeningGitRemote ? "Opening..." : "Open remote"}
+              </button>
+            )}
           </div>
 
           <div className="text-[12px] text-stone leading-relaxed space-y-0.5">
@@ -363,6 +440,20 @@ export default function SettingsContent({
             <p>
               Auto-sync commits and pushes changes ~30s after note edits in the shared folder.
             </p>
+          </div>
+
+          <div className="p-3 bg-coral-light/35 border border-coral/20 rounded-xl space-y-1">
+            <p className="text-[12px] font-semibold text-ink">GitHub account setup</p>
+            <p className="text-[12px] text-stone leading-relaxed">
+              Stik uses your existing Git credentials on this Mac (SSH key or HTTPS credential
+              helper). Stik does not ask for or store GitHub tokens.
+            </p>
+            <p className="text-[12px] text-stone leading-relaxed">
+              If auth fails once, run this in Terminal to complete login:
+            </p>
+            <code className="block px-2.5 py-2 text-[11px] rounded-lg bg-bg border border-line text-ink break-all">
+              git -C "{linkedRepoPath}" push
+            </code>
           </div>
         </div>
       </div>

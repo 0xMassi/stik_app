@@ -79,6 +79,7 @@ fn main() {
             git_share::git_prepare_repository,
             git_share::git_sync_now,
             git_share::git_get_sync_status,
+            git_share::git_open_remote_url,
             on_this_day::check_on_this_day_now,
             share::build_clipboard_payload,
             share::copy_note_image_to_clipboard,

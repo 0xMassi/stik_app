@@ -24,6 +24,7 @@ pub struct GitSyncStatus {
     pub linked_folder: Option<String>,
     pub remote_url: Option<String>,
     pub branch: String,
+    pub repository_layout: String,
     pub repo_initialized: bool,
     pub pending_changes: bool,
     pub syncing: bool,
@@ -185,9 +186,14 @@ fn is_folder_linked_for_sync(folder: &str) -> bool {
         Err(_) => return false,
     };
     let config = settings.git_sharing;
-    config.enabled
-        && !config.remote_url.trim().is_empty()
-        && config.shared_folder.trim().eq(folder.trim())
+    if !config.enabled || config.remote_url.trim().is_empty() {
+        return false;
+    }
+
+    match normalized_repository_layout(&config.repository_layout) {
+        "stik_root" => true,
+        _ => config.shared_folder.trim().eq(folder.trim()),
+    }
 }
 
 fn run_sync_from_saved_settings(app: &tauri::AppHandle, trigger: SyncTrigger) {
@@ -261,29 +267,42 @@ fn run_sync_operation(config: &GitSharingSettings, trigger: SyncTrigger) -> Resu
 }
 
 #[tauri::command]
-pub fn git_prepare_repository(
+pub async fn git_prepare_repository(
     folder: String,
     remote_url: String,
     branch: Option<String>,
+    repository_layout: Option<String>,
 ) -> Result<GitSyncStatus, String> {
-    let config = build_ad_hoc_config(folder, remote_url, branch);
-    validate_git_config_fields(&config)?;
-    let repo_path = linked_folder_path(&config)?;
-    ensure_repository_ready(&repo_path, &config)?;
-    Ok(status_for_config(Some(&config)))
+    let config = build_ad_hoc_config(folder, remote_url, branch, repository_layout);
+    let config_for_worker = config.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        validate_git_config_fields(&config_for_worker)?;
+        let repo_path = linked_folder_path(&config_for_worker)?;
+        ensure_repository_ready(&repo_path, &config_for_worker)?;
+        Ok(status_for_config(Some(&config_for_worker)))
+    })
+    .await
+    .map_err(|e| format!("Failed to prepare git repository: {}", e))?
 }
 
 #[tauri::command]
-pub fn git_sync_now(
+pub async fn git_sync_now(
     app: tauri::AppHandle,
     folder: String,
     remote_url: String,
     branch: Option<String>,
+    repository_layout: Option<String>,
 ) -> Result<GitSyncStatus, String> {
-    let config = build_ad_hoc_config(folder, remote_url, branch);
-    run_sync_operation(&config, SyncTrigger::Manual)?;
-    rebuild_note_index(&app);
-    Ok(status_for_config(Some(&config)))
+    let config = build_ad_hoc_config(folder, remote_url, branch, repository_layout);
+    let app_for_worker = app.clone();
+    let config_for_worker = config.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        run_sync_operation(&config_for_worker, SyncTrigger::Manual)?;
+        rebuild_note_index(&app_for_worker);
+        Ok(status_for_config(Some(&config_for_worker)))
+    })
+    .await
+    .map_err(|e| format!("Failed to sync repository: {}", e))?
 }
 
 #[tauri::command]
@@ -296,6 +315,7 @@ fn build_ad_hoc_config(
     folder: String,
     remote_url: String,
     branch: Option<String>,
+    repository_layout: Option<String>,
 ) -> GitSharingSettings {
     let defaults = GitSharingSettings::default();
     GitSharingSettings {
@@ -306,6 +326,10 @@ fn build_ad_hoc_config(
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
             .unwrap_or(defaults.branch),
+        repository_layout: repository_layout
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or(defaults.repository_layout),
         sync_interval_seconds: defaults.sync_interval_seconds,
     }
 }
@@ -316,10 +340,10 @@ fn status_for_config(config: Option<&GitSharingSettings>) -> GitSyncStatus {
     let normalized_folder = normalized_optional(&config.shared_folder);
     let normalized_remote = normalized_optional(&config.remote_url);
     let branch = normalized_branch(&config.branch);
+    let repository_layout = normalized_repository_layout(&config.repository_layout).to_string();
 
-    let repo_initialized = normalized_folder
-        .as_deref()
-        .and_then(|folder| resolve_folder_path(folder).ok())
+    let repo_initialized = linked_folder_path(&config)
+        .ok()
         .map(|path| path.join(".git").exists())
         .unwrap_or(false);
 
@@ -328,6 +352,7 @@ fn status_for_config(config: Option<&GitSharingSettings>) -> GitSyncStatus {
         linked_folder: normalized_folder,
         remote_url: normalized_remote,
         branch,
+        repository_layout,
         repo_initialized,
         pending_changes: runtime.pending_changes,
         syncing: runtime.syncing,
@@ -337,20 +362,26 @@ fn status_for_config(config: Option<&GitSharingSettings>) -> GitSyncStatus {
 }
 
 fn validate_git_config_fields(config: &GitSharingSettings) -> Result<(), String> {
-    if config.shared_folder.trim().is_empty() {
-        return Err("Pick a folder to link before enabling Git sharing".to_string());
-    }
     if config.remote_url.trim().is_empty() {
         return Err("Remote URL is required for Git sharing".to_string());
     }
     if config.branch.trim().is_empty() {
         return Err("Branch cannot be empty".to_string());
     }
-    validate_name(config.shared_folder.trim())
+    if normalized_repository_layout(&config.repository_layout) == "folder_root" {
+        if config.shared_folder.trim().is_empty() {
+            return Err("Pick a folder to link before enabling Git sharing".to_string());
+        }
+        validate_name(config.shared_folder.trim())?;
+    }
+    Ok(())
 }
 
 fn linked_folder_path(config: &GitSharingSettings) -> Result<PathBuf, String> {
-    resolve_folder_path(config.shared_folder.trim())
+    match normalized_repository_layout(&config.repository_layout) {
+        "stik_root" => get_stik_folder(),
+        _ => resolve_folder_path(config.shared_folder.trim()),
+    }
 }
 
 fn resolve_folder_path(folder: &str) -> Result<PathBuf, String> {
@@ -740,6 +771,91 @@ fn normalized_branch(branch: &str) -> String {
     }
 }
 
+fn normalized_repository_layout(layout: &str) -> &'static str {
+    if layout.trim().eq_ignore_ascii_case("stik_root") {
+        "stik_root"
+    } else {
+        "folder_root"
+    }
+}
+
+fn remote_to_browser_url(remote_url: &str) -> Result<String, String> {
+    let trimmed = remote_url.trim();
+    if trimmed.is_empty() {
+        return Err("Remote URL is empty".to_string());
+    }
+
+    if trimmed.starts_with("https://") || trimmed.starts_with("http://") {
+        return Ok(trimmed.trim_end_matches(".git").to_string());
+    }
+
+    if let Some(rest) = trimmed.strip_prefix("git@") {
+        if let Some((host, path)) = rest.split_once(':') {
+            let cleaned_path = path.trim_end_matches(".git");
+            if host.is_empty() || cleaned_path.is_empty() {
+                return Err("Invalid SSH remote URL".to_string());
+            }
+            return Ok(format!("https://{}/{}", host, cleaned_path));
+        }
+    }
+
+    if let Some(rest) = trimmed.strip_prefix("ssh://") {
+        let without_user = match rest.split_once('@') {
+            Some((_, after_at)) => after_at,
+            None => rest,
+        };
+        if let Some((host, path)) = without_user.split_once('/') {
+            let cleaned_path = path.trim_end_matches(".git");
+            if host.is_empty() || cleaned_path.is_empty() {
+                return Err("Invalid SSH remote URL".to_string());
+            }
+            return Ok(format!("https://{}/{}", host, cleaned_path));
+        }
+    }
+
+    Err("Unsupported remote URL format".to_string())
+}
+
+fn open_external_url(url: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut cmd = Command::new("open");
+        cmd.arg(url);
+        cmd
+    };
+
+    #[cfg(target_os = "linux")]
+    let mut command = {
+        let mut cmd = Command::new("xdg-open");
+        cmd.arg(url);
+        cmd
+    };
+
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut cmd = Command::new("cmd");
+        cmd.args(["/C", "start", "", url]);
+        cmd
+    };
+
+    let status = command
+        .status()
+        .map_err(|e| format!("Failed to open browser: {}", e))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err("Failed to open browser for remote URL".to_string())
+    }
+}
+
+#[tauri::command]
+pub fn git_open_remote_url(remote_url: String) -> Result<String, String> {
+    let browser_url = remote_to_browser_url(&remote_url)?;
+    open_external_url(&browser_url)?;
+    Ok(browser_url)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -768,10 +884,31 @@ mod tests {
             " Inbox ".to_string(),
             " https://example.com/team.git ".to_string(),
             Some(" main ".to_string()),
+            Some(" stik_root ".to_string()),
         );
         assert_eq!(config.shared_folder, "Inbox");
         assert_eq!(config.remote_url, "https://example.com/team.git");
         assert_eq!(config.branch, "main");
+        assert_eq!(config.repository_layout, "stik_root");
         assert!(config.enabled);
+    }
+
+    #[test]
+    fn normalizes_unknown_layout_to_folder_root() {
+        assert_eq!(normalized_repository_layout("folder_root"), "folder_root");
+        assert_eq!(normalized_repository_layout("stik_root"), "stik_root");
+        assert_eq!(normalized_repository_layout("something_else"), "folder_root");
+    }
+
+    #[test]
+    fn converts_git_ssh_remote_to_browser_url() {
+        let url = remote_to_browser_url("git@github.com:0xMassi/stik_notes.git").unwrap();
+        assert_eq!(url, "https://github.com/0xMassi/stik_notes");
+    }
+
+    #[test]
+    fn converts_https_remote_to_browser_url() {
+        let url = remote_to_browser_url("https://github.com/0xMassi/stik_notes.git").unwrap();
+        assert_eq!(url, "https://github.com/0xMassi/stik_notes");
     }
 }

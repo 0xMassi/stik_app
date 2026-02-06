@@ -8,6 +8,11 @@ pub struct FolderStats {
     pub note_count: usize,
 }
 
+fn is_visible_folder_name(name: &str) -> bool {
+    let trimmed = name.trim();
+    !trimmed.is_empty() && !trimmed.starts_with('.')
+}
+
 /// Validate a name for path traversal attacks
 pub fn validate_name(name: &str) -> Result<(), String> {
     if name.contains("..") || name.contains('/') || name.contains('\\') || name.contains('\0') {
@@ -15,6 +20,9 @@ pub fn validate_name(name: &str) -> Result<(), String> {
     }
     if name.trim().is_empty() {
         return Err("Name cannot be empty".to_string());
+    }
+    if !is_visible_folder_name(name) {
+        return Err("Invalid name: hidden folders are not supported".to_string());
     }
     Ok(())
 }
@@ -56,6 +64,7 @@ pub fn list_folders() -> Result<Vec<String>, String> {
         .filter_map(|entry| entry.ok())
         .filter(|entry| entry.path().is_dir())
         .map(|entry| entry.file_name().to_string_lossy().to_string())
+        .filter(|name| is_visible_folder_name(name))
         .collect();
 
     // Sort with Inbox first, then alphabetically
@@ -85,6 +94,8 @@ pub fn create_folder(name: String) -> Result<bool, String> {
 
 #[tauri::command]
 pub fn delete_folder(name: String) -> Result<bool, String> {
+    validate_name(&name)?;
+
     // Prevent deletion of Inbox
     if name == "Inbox" {
         return Err("Cannot delete the Inbox folder".to_string());
@@ -106,6 +117,8 @@ pub fn delete_folder(name: String) -> Result<bool, String> {
 
 #[tauri::command]
 pub fn rename_folder(old_name: String, new_name: String) -> Result<bool, String> {
+    validate_name(&old_name)?;
+
     // Prevent renaming of Inbox
     if old_name == "Inbox" {
         return Err("Cannot rename the Inbox folder".to_string());
@@ -159,6 +172,7 @@ pub fn get_folder_stats() -> Result<Vec<FolderStats>, String> {
 
             FolderStats { name, note_count }
         })
+        .filter(|stat| is_visible_folder_name(&stat.name))
         .collect();
 
     // Sort with Inbox first, then alphabetically
@@ -173,4 +187,22 @@ pub fn get_folder_stats() -> Result<Vec<FolderStats>, String> {
     });
 
     Ok(stats)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_visible_folder_name, validate_name};
+
+    #[test]
+    fn rejects_hidden_folder_names() {
+        assert!(validate_name(".git").is_err());
+        assert!(validate_name(".private").is_err());
+    }
+
+    #[test]
+    fn folder_visibility_hides_dot_directories() {
+        assert!(is_visible_folder_name("Inbox"));
+        assert!(!is_visible_folder_name(".git"));
+        assert!(!is_visible_folder_name(".cache"));
+    }
 }

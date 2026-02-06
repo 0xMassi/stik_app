@@ -17,6 +17,7 @@ pub struct GitSharingSettings {
     pub shared_folder: String,
     pub remote_url: String,
     pub branch: String,
+    pub repository_layout: String,
     pub sync_interval_seconds: u64,
 }
 
@@ -27,6 +28,7 @@ impl Default for GitSharingSettings {
             shared_folder: "Inbox".to_string(),
             remote_url: String::new(),
             branch: "main".to_string(),
+            repository_layout: "folder_root".to_string(),
             sync_interval_seconds: 300,
         }
     }

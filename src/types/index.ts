@@ -20,6 +20,7 @@ export interface GitSharingSettings {
   shared_folder: string;
   remote_url: string;
   branch: string;
+  repository_layout: "folder_root" | "stik_root";
   sync_interval_seconds: number;
 }
 
@@ -73,6 +74,7 @@ export interface GitSyncStatus {
   linked_folder: string | null;
   remote_url: string | null;
   branch: string;
+  repository_layout: "folder_root" | "stik_root";
   repo_initialized: boolean;
   pending_changes: boolean;
   syncing: boolean;

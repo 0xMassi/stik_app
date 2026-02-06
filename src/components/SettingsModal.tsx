@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { flushSync } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import SettingsContent from "./SettingsContent";
 import type { CaptureStreakStatus, GitSyncStatus, OnThisDayStatus, StikSettings } from "@/types";
@@ -20,6 +21,12 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   const [gitSyncStatus, setGitSyncStatus] = useState<GitSyncStatus | null>(null);
   const [isPreparingGitRepo, setIsPreparingGitRepo] = useState(false);
   const [isSyncingGitNow, setIsSyncingGitNow] = useState(false);
+  const [isOpeningGitRemote, setIsOpeningGitRemote] = useState(false);
+
+  const waitForPaint = () =>
+    new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
 
   const loadCaptureStreak = async () => {
     setIsRefreshingStreak(true);
@@ -66,12 +73,14 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   const prepareGitRepository = async () => {
     if (!settings) return;
 
-    setIsPreparingGitRepo(true);
+    flushSync(() => setIsPreparingGitRepo(true));
+    await waitForPaint();
     try {
       const status = await invoke<GitSyncStatus>("git_prepare_repository", {
         folder: settings.git_sharing.shared_folder,
         remoteUrl: settings.git_sharing.remote_url,
         branch: settings.git_sharing.branch,
+        repositoryLayout: settings.git_sharing.repository_layout,
       });
       setGitSyncStatus(status);
     } catch (error) {
@@ -85,12 +94,14 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   const syncGitNow = async () => {
     if (!settings) return;
 
-    setIsSyncingGitNow(true);
+    flushSync(() => setIsSyncingGitNow(true));
+    await waitForPaint();
     try {
       const status = await invoke<GitSyncStatus>("git_sync_now", {
         folder: settings.git_sharing.shared_folder,
         remoteUrl: settings.git_sharing.remote_url,
         branch: settings.git_sharing.branch,
+        repositoryLayout: settings.git_sharing.repository_layout,
       });
       setGitSyncStatus(status);
     } catch (error) {
@@ -98,6 +109,21 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
       await loadGitSyncStatus();
     } finally {
       setIsSyncingGitNow(false);
+    }
+  };
+
+  const openGitRemote = async () => {
+    if (!settings?.git_sharing.remote_url.trim()) return;
+
+    setIsOpeningGitRemote(true);
+    try {
+      await invoke("git_open_remote_url", {
+        remoteUrl: settings.git_sharing.remote_url,
+      });
+    } catch (error) {
+      console.error("Failed to open remote URL:", error);
+    } finally {
+      setIsOpeningGitRemote(false);
     }
   };
 
@@ -206,8 +232,10 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
             gitSyncStatus={gitSyncStatus}
             isPreparingGitRepo={isPreparingGitRepo}
             isSyncingGitNow={isSyncingGitNow}
+            isOpeningGitRemote={isOpeningGitRemote}
             onPrepareGitRepository={prepareGitRepository}
             onSyncGitNow={syncGitNow}
+            onOpenGitRemote={openGitRemote}
           />
         </div>
         <div className="flex items-center justify-end px-5 py-4 border-t border-line bg-line/10">
@@ -247,8 +275,10 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
             gitSyncStatus={gitSyncStatus}
             isPreparingGitRepo={isPreparingGitRepo}
             isSyncingGitNow={isSyncingGitNow}
+            isOpeningGitRemote={isOpeningGitRemote}
             onPrepareGitRepository={prepareGitRepository}
             onSyncGitNow={syncGitNow}
+            onOpenGitRemote={openGitRemote}
           />
         </div>
         <div className="flex items-center justify-end px-5 py-4 border-t border-line bg-line/10">
