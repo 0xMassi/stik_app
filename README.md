@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-  <video src="https://github.com/0xMassi/stik_app/raw/main/.github/assets/hero.mp4" width="600" autoplay loop muted playsinline></video>
+  <img src=".github/assets/hero.gif" width="600" alt="Stik demo">
 </p>
 
 ---
