@@ -1,3 +1,5 @@
+pub mod darwinkit;
+pub mod embeddings;
 pub mod folders;
 pub mod git_share;
 pub mod index;

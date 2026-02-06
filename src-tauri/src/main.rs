@@ -7,8 +7,12 @@ mod state;
 mod tray;
 mod windows;
 
+use commands::embeddings::EmbeddingIndex;
 use commands::index::NoteIndex;
-use commands::{folders, git_share, notes, on_this_day, settings, share, stats, sticked_notes};
+use commands::{
+    darwinkit, embeddings, folders, git_share, notes, on_this_day, settings, share, stats,
+    sticked_notes,
+};
 use shortcuts::shortcut_to_string;
 use state::AppState;
 use tauri::{Emitter, Manager};
@@ -19,6 +23,7 @@ fn main() {
     tauri::Builder::default()
         .manage(AppState::new())
         .manage(NoteIndex::new())
+        .manage(EmbeddingIndex::new())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -61,6 +66,7 @@ fn main() {
                 .build(),
         )
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             notes::save_note,
             notes::update_note,
@@ -101,6 +107,10 @@ fn main() {
             shortcuts::reload_shortcuts,
             shortcuts::pause_shortcuts,
             shortcuts::resume_shortcuts,
+            darwinkit::darwinkit_status,
+            darwinkit::darwinkit_call,
+            darwinkit::semantic_search,
+            darwinkit::suggest_folder,
         ])
         .setup(|app| {
             // Build in-memory note index for fast search/list
@@ -119,6 +129,20 @@ fn main() {
             windows::restore_sticked_notes(app.handle());
             tray::setup_tray(app)?;
             git_share::start_background_worker(app.handle().clone());
+
+            // Start DarwinKit sidecar bridge + background embedding build
+            darwinkit::start_bridge(app.handle().clone());
+            {
+                let handle = app.handle().clone();
+                std::thread::Builder::new()
+                    .name("stik-embeddings".to_string())
+                    .spawn(move || {
+                        let index = handle.state::<NoteIndex>();
+                        let emb = handle.state::<EmbeddingIndex>();
+                        embeddings::build_embeddings(&index, &emb);
+                    })
+                    .ok();
+            }
 
             // Postit window: emit blur event so frontend can decide whether to hide
             let window = app.get_webview_window("postit").unwrap();

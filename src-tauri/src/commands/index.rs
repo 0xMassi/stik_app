@@ -108,6 +108,11 @@ impl NoteIndex {
         }
     }
 
+    pub fn get(&self, path: &str) -> Option<NoteEntry> {
+        let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        entries.get(path).cloned()
+    }
+
     pub fn list(&self, folder: Option<&str>) -> Result<Vec<NoteEntry>, String> {
         self.ensure_fresh()?;
         let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());

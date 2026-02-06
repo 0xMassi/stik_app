@@ -15,6 +15,10 @@
     "core:event:default",
     "global-shortcut:default",
     {
+      "identifier": "shell:allow-spawn",
+      "allow": [{ "name": "binaries/darwinkit", "sidecar": true }]
+    },
+    {
       "identifier": "fs:allow-read-text-file",
       "allow": [
         { "path": "$DOCUMENT/Stik/**" },

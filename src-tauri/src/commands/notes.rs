@@ -4,6 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::State;
 
+use super::embeddings::{self, EmbeddingIndex};
 use super::folders::get_stik_folder;
 use super::git_share;
 use super::index::NoteIndex;
@@ -102,12 +103,17 @@ pub fn save_note(
     folder: String,
     content: String,
     index: State<'_, NoteIndex>,
+    emb_index: State<'_, EmbeddingIndex>,
 ) -> Result<NoteSaved, String> {
-    let result = save_note_inner(folder, content)?;
+    let result = save_note_inner(folder, content.clone())?;
 
     if !result.path.is_empty() {
         index.add(&result.path, &result.folder);
         git_share::notify_note_changed(&result.folder);
+        if let Some(emb) = embeddings::embed_content(&content) {
+            emb_index.add_entry(&result.path, emb);
+            let _ = emb_index.save();
+        }
     }
 
     Ok(result)
@@ -175,6 +181,7 @@ pub fn update_note(
     path: String,
     content: String,
     index: State<'_, NoteIndex>,
+    emb_index: State<'_, EmbeddingIndex>,
 ) -> Result<NoteSaved, String> {
     let stik_folder = get_stik_folder()?;
     let note_path = PathBuf::from(&path);
@@ -193,6 +200,8 @@ pub fn update_note(
     if content.trim().is_empty() {
         fs::remove_file(&note_path).map_err(|e| format!("Failed to delete note: {}", e))?;
         index.remove(&path);
+        emb_index.remove_entry(&path);
+        let _ = emb_index.save();
         return Ok(NoteSaved {
             path: String::new(),
             folder: String::new(),
@@ -218,6 +227,10 @@ pub fn update_note(
     // Re-index with updated content
     index.add(&path, &folder);
     git_share::notify_note_changed(&folder);
+    if let Some(emb) = embeddings::embed_content(&content) {
+        emb_index.add_entry(&path, emb);
+        let _ = emb_index.save();
+    }
 
     Ok(NoteSaved {
         path: note_path.to_string_lossy().to_string(),
@@ -227,7 +240,11 @@ pub fn update_note(
 }
 
 #[tauri::command]
-pub fn delete_note(path: String, index: State<'_, NoteIndex>) -> Result<bool, String> {
+pub fn delete_note(
+    path: String,
+    index: State<'_, NoteIndex>,
+    emb_index: State<'_, EmbeddingIndex>,
+) -> Result<bool, String> {
     let stik_folder = get_stik_folder()?;
     let note_path = PathBuf::from(&path);
 
@@ -250,6 +267,8 @@ pub fn delete_note(path: String, index: State<'_, NoteIndex>) -> Result<bool, St
     // Delete the file
     fs::remove_file(&note_path).map_err(|e| format!("Failed to delete note: {}", e))?;
     index.remove(&path);
+    emb_index.remove_entry(&path);
+    let _ = emb_index.save();
     git_share::notify_note_changed(&folder);
 
     Ok(true)
@@ -260,6 +279,7 @@ pub fn move_note(
     path: String,
     target_folder: String,
     index: State<'_, NoteIndex>,
+    emb_index: State<'_, EmbeddingIndex>,
 ) -> Result<NoteInfo, String> {
     let stik_folder = get_stik_folder()?;
     let source_path = PathBuf::from(&path);
@@ -301,6 +321,8 @@ pub fn move_note(
 
     let new_path_str = target_path.to_string_lossy().to_string();
     index.move_entry(&path, &new_path_str, &target_folder);
+    emb_index.move_entry(&path, &new_path_str);
+    let _ = emb_index.save();
     git_share::notify_note_changed(&source_folder);
     git_share::notify_note_changed(&target_folder);
 

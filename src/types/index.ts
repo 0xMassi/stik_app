@@ -46,6 +46,15 @@ export interface SearchResult {
   created: string;
 }
 
+export interface SemanticResult {
+  path: string;
+  filename: string;
+  folder: string;
+  snippet: string;
+  created: string;
+  similarity: number;
+}
+
 export interface FolderStats {
   name: string;
   note_count: number;

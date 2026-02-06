@@ -131,8 +131,9 @@ pub fn show_settings(app: &AppHandle) {
         WebviewUrl::App("index.html?window=settings".into()),
     )
     .title("Settings")
-    .inner_size(500.0, 600.0)
-    .resizable(false)
+    .inner_size(620.0, 700.0)
+    .min_inner_size(520.0, 500.0)
+    .resizable(true)
     .decorations(false)
     .transparent(true)
     .always_on_top(true)

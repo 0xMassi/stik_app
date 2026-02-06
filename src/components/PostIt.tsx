@@ -83,6 +83,7 @@ export default function PostIt({
 }: PostItProps) {
   const [content, setContent] = useState(initialContent);
   const [showPicker, setShowPicker] = useState(false);
+  const [suggestedFolder, setSuggestedFolder] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -574,6 +575,33 @@ export default function PostIt({
     return () => clearTimeout(timer);
   }, [isSticked, currentStickedId, isPinned, content]);
 
+  // Folder suggestion (capture mode only, debounced 1.5s)
+  useEffect(() => {
+    if (isSticked || content.length < 30) {
+      setSuggestedFolder(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const suggestion = await invoke<string | null>("suggest_folder", {
+          content,
+          currentFolder: folder,
+        });
+        setSuggestedFolder(suggestion);
+      } catch {
+        setSuggestedFolder(null);
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [content, folder, isSticked]);
+
+  // Clear suggestion when folder changes
+  useEffect(() => {
+    setSuggestedFolder(null);
+  }, [folder]);
+
   // Show save animation
   if (isSaving) {
     return (
@@ -691,6 +719,19 @@ export default function PostIt({
             <span>{folder}</span>
             <span className="text-[8px] opacity-50">▼</span>
           </button>
+
+          {suggestedFolder && (
+            <button
+              onClick={() => {
+                onFolderChange(suggestedFolder);
+                setSuggestedFolder(null);
+              }}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-pill text-[10px] font-medium bg-coral/10 text-coral hover:bg-coral/20 transition-colors"
+            >
+              <span>→</span>
+              <span>{suggestedFolder}?</span>
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3 text-[10px] text-stone">
