@@ -19,6 +19,7 @@ struct ViewingNoteContent {
     id: String,
     content: String,
     folder: String,
+    path: String,
 }
 
 struct AppState {
@@ -583,10 +584,16 @@ fn show_manager(app: &AppHandle) {
                             let _ = window.set_always_on_top(true);
                         }
                     }
-                    // Re-show postit when manager closes
-                    if let Some(postit) = app_handle.get_webview_window("postit") {
-                        let _ = postit.show();
-                        let _ = postit.set_focus();
+                    // Only show postit if no viewing notes are open
+                    let has_viewing_windows = app_handle
+                        .webview_windows()
+                        .iter()
+                        .any(|(label, _)| label.starts_with("sticked-view-"));
+                    if !has_viewing_windows {
+                        if let Some(postit) = app_handle.get_webview_window("postit") {
+                            let _ = postit.show();
+                            let _ = postit.set_focus();
+                        }
                     }
                 }
                 _ => {}
@@ -717,6 +724,7 @@ async fn open_note_for_viewing(
                 id: id.clone(),
                 content,
                 folder,
+                path: path.clone(),
             },
         );
     }
@@ -753,7 +761,8 @@ fn get_viewing_note_content(app: AppHandle, id: String) -> Result<serde_json::Va
         Ok(serde_json::json!({
             "id": note.id,
             "content": note.content,
-            "folder": note.folder
+            "folder": note.folder,
+            "path": note.path
         }))
     } else {
         Err("Viewing note content not found".to_string())
@@ -831,6 +840,7 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             notes::save_note,
+            notes::update_note,
             notes::list_notes,
             notes::search_notes,
             notes::delete_note,

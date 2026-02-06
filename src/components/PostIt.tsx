@@ -25,6 +25,7 @@ interface PostItProps {
   stickedId?: string;
   initialContent?: string;
   isViewing?: boolean;
+  originalPath?: string; // For viewing notes - the original file path to update
 }
 
 export default function PostIt({
@@ -37,6 +38,7 @@ export default function PostIt({
   stickedId,
   initialContent = "",
   isViewing = false,
+  originalPath,
 }: PostItProps) {
   const [content, setContent] = useState(initialContent);
   const [showPicker, setShowPicker] = useState(false);
@@ -209,8 +211,14 @@ export default function PostIt({
             id: currentStickedId,
             saveToFolder: true,
           });
+        } else if (isViewing && originalPath) {
+          // Viewing note - update the existing file
+          await invoke("update_note", {
+            path: originalPath,
+            content,
+          });
         } else {
-          // If unpinned or viewing, just save to folder directly
+          // If unpinned (not viewing), save as new file
           await invoke("save_note", {
             folder,
             content,

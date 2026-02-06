@@ -251,6 +251,53 @@ pub fn search_notes(query: String) -> Result<Vec<SearchResult>, String> {
 }
 
 #[tauri::command]
+pub fn update_note(path: String, content: String) -> Result<NoteSaved, String> {
+    let stik_folder = get_stik_folder()?;
+    let note_path = PathBuf::from(&path);
+
+    // Validate path is within Stik folder
+    if !note_path.starts_with(&stik_folder) {
+        return Err("Invalid path: note must be within Stik folder".to_string());
+    }
+
+    // Check file exists
+    if !note_path.exists() {
+        return Err("Note file does not exist".to_string());
+    }
+
+    // Don't save empty notes - delete instead
+    if content.trim().is_empty() {
+        fs::remove_file(&note_path).map_err(|e| format!("Failed to delete note: {}", e))?;
+        return Ok(NoteSaved {
+            path: String::new(),
+            folder: String::new(),
+            filename: String::new(),
+        });
+    }
+
+    // Get folder name from path
+    let folder = note_path
+        .parent()
+        .and_then(|p| p.file_name())
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let filename = note_path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    // Write updated content
+    fs::write(&note_path, &content).map_err(|e| e.to_string())?;
+
+    Ok(NoteSaved {
+        path: note_path.to_string_lossy().to_string(),
+        folder,
+        filename,
+    })
+}
+
+#[tauri::command]
 pub fn delete_note(path: String) -> Result<bool, String> {
     let stik_folder = get_stik_folder()?;
     let note_path = PathBuf::from(&path);

@@ -15,6 +15,7 @@ interface StickedNote {
   size: [number, number] | null;
   created_at: string;
   updated_at: string;
+  originalPath?: string; // For viewing notes - the original file path
 }
 
 type WindowType = "postit" | "folder-selector" | "sticked" | "settings" | "search" | "manager";
@@ -63,7 +64,7 @@ export default function App() {
     if (windowInfo.viewing) {
       const fetchViewingContent = async () => {
         try {
-          const data = await invoke<{ id: string; content: string; folder: string }>(
+          const data = await invoke<{ id: string; content: string; folder: string; path: string }>(
             "get_viewing_note_content",
             { id: windowInfo.id }
           );
@@ -75,6 +76,7 @@ export default function App() {
             size: null,
             created_at: "",
             updated_at: "",
+            originalPath: data.path,
           });
           setCurrentFolder(data.folder);
         } catch (error) {
@@ -218,6 +220,7 @@ export default function App() {
         stickedId={stickedNote.id}
         initialContent={stickedNote.content}
         isViewing={windowInfo.viewing}
+        originalPath={stickedNote.originalPath}
       />
     );
   }
