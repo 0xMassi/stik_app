@@ -22,6 +22,14 @@ chrono = "0.4"
 dirs = "5"
 uuid = { version = "1", features = ["v4"] }
 pulldown-cmark = "0.12"
+arboard = "3"
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6.3", default-features = false, features = ["std"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSView", "NSBitmapImageRep", "NSImageRep"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["NSData", "NSDictionary", "NSGeometry"] }
 
 [profile.release]
 panic = "abort"

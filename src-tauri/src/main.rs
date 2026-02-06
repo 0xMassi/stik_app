@@ -75,6 +75,8 @@ fn main() {
             settings::save_settings,
             on_this_day::check_on_this_day_now,
             share::build_clipboard_payload,
+            share::copy_note_image_to_clipboard,
+            share::copy_visible_note_image_to_clipboard,
             stats::get_capture_streak,
             sticked_notes::list_sticked_notes,
             sticked_notes::create_sticked_note,

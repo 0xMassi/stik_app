@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { flushSync } from "react-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
@@ -39,231 +40,6 @@ function normalizeMarkdownForCopy(markdown: string): string {
 }
 
 type CopyMode = "markdown" | "rich" | "image";
-type MarkdownLineKind = "h1" | "h2" | "h3" | "body";
-
-interface MarkdownLine {
-  kind: MarkdownLineKind;
-  text: string;
-}
-
-interface MarkdownLineStyle {
-  fontSize: number;
-  fontWeight: number;
-  lineHeight: number;
-  blockGap: number;
-}
-
-const MARKDOWN_LINE_STYLES: Record<MarkdownLineKind, MarkdownLineStyle> = {
-  h1: { fontSize: 52, fontWeight: 700, lineHeight: 62, blockGap: 18 },
-  h2: { fontSize: 42, fontWeight: 700, lineHeight: 52, blockGap: 16 },
-  h3: { fontSize: 34, fontWeight: 700, lineHeight: 44, blockGap: 14 },
-  body: { fontSize: 30, fontWeight: 500, lineHeight: 40, blockGap: 10 },
-};
-
-const NOTE_IMAGE_FONT_FAMILY = "\"Avenir Next\", \"SF Pro Text\", \"Helvetica Neue\", Arial, sans-serif";
-
-function parseMarkdownLine(rawLine: string): MarkdownLine {
-  if (/^###\s+/.test(rawLine)) {
-    return { kind: "h3", text: rawLine.replace(/^###\s+/, "") };
-  }
-  if (/^##\s+/.test(rawLine)) {
-    return { kind: "h2", text: rawLine.replace(/^##\s+/, "") };
-  }
-  if (/^#\s+/.test(rawLine)) {
-    return { kind: "h1", text: rawLine.replace(/^#\s+/, "") };
-  }
-  return { kind: "body", text: rawLine };
-}
-
-function setCanvasFont(
-  ctx: CanvasRenderingContext2D,
-  style: MarkdownLineStyle
-) {
-  ctx.font = `${style.fontWeight} ${style.fontSize}px ${NOTE_IMAGE_FONT_FAMILY}`;
-}
-
-function splitLongWord(
-  ctx: CanvasRenderingContext2D,
-  word: string,
-  maxWidth: number
-): string[] {
-  if (!word) return [""];
-
-  const parts: string[] = [];
-  let current = "";
-  for (const char of word) {
-    const next = current + char;
-    if (!current || ctx.measureText(next).width <= maxWidth) {
-      current = next;
-      continue;
-    }
-    parts.push(current);
-    current = char;
-  }
-
-  if (current) {
-    parts.push(current);
-  }
-
-  return parts;
-}
-
-function wrapTextForCanvas(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number
-): string[] {
-  if (!text.trim()) return [""];
-
-  const words = text.trim().split(/\s+/);
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    if (!current) {
-      if (ctx.measureText(word).width <= maxWidth) {
-        current = word;
-      } else {
-        const chunks = splitLongWord(ctx, word, maxWidth);
-        lines.push(...chunks.slice(0, -1));
-        current = chunks[chunks.length - 1] || "";
-      }
-      continue;
-    }
-
-    const candidate = `${current} ${word}`;
-    if (ctx.measureText(candidate).width <= maxWidth) {
-      current = candidate;
-      continue;
-    }
-
-    lines.push(current);
-    if (ctx.measureText(word).width <= maxWidth) {
-      current = word;
-    } else {
-      const chunks = splitLongWord(ctx, word, maxWidth);
-      lines.push(...chunks.slice(0, -1));
-      current = chunks[chunks.length - 1] || "";
-    }
-  }
-
-  if (current) {
-    lines.push(current);
-  }
-
-  return lines.length > 0 ? lines : [""];
-}
-
-function drawRoundedRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number
-) {
-  const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
-  ctx.beginPath();
-  ctx.moveTo(x + safeRadius, y);
-  ctx.arcTo(x + width, y, x + width, y + height, safeRadius);
-  ctx.arcTo(x + width, y + height, x, y + height, safeRadius);
-  ctx.arcTo(x, y + height, x, y, safeRadius);
-  ctx.arcTo(x, y, x + width, y, safeRadius);
-  ctx.closePath();
-}
-
-async function createNoteImageBlob(markdown: string, folder: string): Promise<Blob> {
-  const normalized = normalizeMarkdownForCopy(markdown);
-  const lines = (normalized || "").split("\n").map(parseMarkdownLine);
-
-  const width = 1200;
-  const topBarHeight = 82;
-  const footerHeight = 86;
-  const paddingX = 72;
-  const paddingTop = 58;
-  const minHeight = 700;
-  const maxTextWidth = width - paddingX * 2;
-
-  const measureCanvas = document.createElement("canvas");
-  const measureCtx = measureCanvas.getContext("2d");
-  if (!measureCtx) {
-    throw new Error("Image copy is unavailable on this platform");
-  }
-
-  const blocks = lines.length > 0 ? lines : [{ kind: "body" as const, text: "" }];
-  let contentHeight = 0;
-  for (const line of blocks) {
-    const style = MARKDOWN_LINE_STYLES[line.kind];
-    setCanvasFont(measureCtx, style);
-    const wrapped = wrapTextForCanvas(measureCtx, line.text, maxTextWidth);
-    contentHeight += wrapped.length * style.lineHeight + style.blockGap;
-  }
-
-  const totalHeight = Math.max(minHeight, topBarHeight + paddingTop + contentHeight + footerHeight);
-  const dpr = window.devicePixelRatio || 1;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(width * dpr);
-  canvas.height = Math.round(totalHeight * dpr);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    throw new Error("Image copy is unavailable on this platform");
-  }
-
-  ctx.scale(dpr, dpr);
-  ctx.imageSmoothingEnabled = true;
-
-  drawRoundedRect(ctx, 0.5, 0.5, width - 1, totalHeight - 1, 28);
-  ctx.fillStyle = "#FFFDF8";
-  ctx.fill();
-  ctx.strokeStyle = "#EDE6DC";
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  ctx.strokeStyle = "#EEE8DD";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, topBarHeight);
-  ctx.lineTo(width, topBarHeight);
-  ctx.moveTo(0, totalHeight - footerHeight);
-  ctx.lineTo(width, totalHeight - footerHeight);
-  ctx.stroke();
-
-  ctx.fillStyle = "#E8705F";
-  ctx.beginPath();
-  ctx.arc(56, topBarHeight / 2, 9, 0, Math.PI * 2);
-  ctx.fill();
-
-  let cursorY = topBarHeight + paddingTop;
-  for (const line of blocks) {
-    const style = MARKDOWN_LINE_STYLES[line.kind];
-    setCanvasFont(ctx, style);
-    ctx.fillStyle = "#111318";
-    ctx.textBaseline = "top";
-    const wrapped = wrapTextForCanvas(ctx, line.text, maxTextWidth);
-    for (const part of wrapped) {
-      ctx.fillText(part, paddingX, cursorY);
-      cursorY += style.lineHeight;
-    }
-    cursorY += style.blockGap;
-  }
-
-  ctx.font = `600 38px ${NOTE_IMAGE_FONT_FAMILY}`;
-  ctx.fillStyle = "#7E7F86";
-  ctx.fillText("~ /Stik/", 40, totalHeight - 36);
-  ctx.fillStyle = "#E8705F";
-  ctx.fillText(folder, 208, totalHeight - 36);
-
-  const blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob((generatedBlob) => resolve(generatedBlob), "image/png");
-  });
-
-  if (!blob) {
-    throw new Error("Failed to generate note image");
-  }
-
-  return blob;
-}
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   const [isVisible, setIsVisible] = useState(false);
@@ -468,9 +244,11 @@ export default function PostIt({
   const handleCopy = useCallback(async (mode: CopyMode) => {
     if (!content.trim() || isCopying) return;
 
-    setIsCopying(true);
-    setCopyMode(mode);
-    setIsCopyMenuOpen(false);
+    flushSync(() => {
+      setIsCopying(true);
+      setCopyMode(mode);
+      setIsCopyMenuOpen(false);
+    });
 
     try {
       if (mode === "rich") {
@@ -511,15 +289,10 @@ export default function PostIt({
         }
         showToast("Copied as markdown");
       } else {
-        if (!navigator.clipboard || typeof navigator.clipboard.write !== "function" || typeof ClipboardItem === "undefined") {
-          throw new Error("Image copy is not supported in this environment");
-        }
-
-        const imageBlob = await createNoteImageBlob(content, folder);
-        const item = new ClipboardItem({
-          "image/png": imageBlob,
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
         });
-        await navigator.clipboard.write([item]);
+        await invoke("copy_visible_note_image_to_clipboard");
         showToast("Copied as image");
       }
     } catch (error) {
