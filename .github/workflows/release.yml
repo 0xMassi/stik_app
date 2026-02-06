@@ -105,12 +105,13 @@ jobs:
       - name: Update Homebrew tap
         if: success()
         env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
 
-          # Download DMGs and compute SHA256
-          gh release download "$GITHUB_REF_NAME" --pattern "*.dmg" --dir "$RUNNER_TEMP"
+          # Download DMGs using repo-scoped GITHUB_TOKEN
+          GH_TOKEN="$GITHUB_TOKEN" gh release download "$GITHUB_REF_NAME" --pattern "*.dmg" --dir "$RUNNER_TEMP"
           SHA_ARM=$(shasum -a 256 "$RUNNER_TEMP/Stik_${VERSION}_aarch64.dmg" | cut -d' ' -f1)
           SHA_INTEL=$(shasum -a 256 "$RUNNER_TEMP/Stik_${VERSION}_x64.dmg" | cut -d' ' -f1)
 
@@ -145,10 +146,10 @@ jobs:
           CONTENT=$(base64 -i "$RUNNER_TEMP/stik.rb")
 
           # Get current file SHA from GitHub API (needed for update)
-          FILE_SHA=$(gh api repos/0xMassi/homebrew-stik/contents/Casks/stik.rb --jq '.sha')
+          FILE_SHA=$(GH_TOKEN="$HOMEBREW_TAP_TOKEN" gh api repos/0xMassi/homebrew-stik/contents/Casks/stik.rb --jq '.sha')
 
           # Push updated cask to tap repo
-          gh api repos/0xMassi/homebrew-stik/contents/Casks/stik.rb \
+          GH_TOKEN="$HOMEBREW_TAP_TOKEN" gh api repos/0xMassi/homebrew-stik/contents/Casks/stik.rb \
             --method PUT \
             -f message="Update Stik to v${VERSION}" \
             -f sha="$FILE_SHA" \
