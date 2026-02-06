@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import ShortcutRecorder from "./ShortcutRecorder";
 
 interface ShortcutMapping {
   shortcut: string;
@@ -18,17 +19,12 @@ interface SettingsModalProps {
   isWindow?: boolean;
 }
 
-const AVAILABLE_SHORTCUTS = [
-  { key: "S", display: "⌘⇧S", value: "CommandOrControl+Shift+S" },
-  { key: "1", display: "⌘⇧1", value: "CommandOrControl+Shift+1" },
-  { key: "2", display: "⌘⇧2", value: "CommandOrControl+Shift+2" },
-  { key: "3", display: "⌘⇧3", value: "CommandOrControl+Shift+3" },
-  { key: "4", display: "⌘⇧4", value: "CommandOrControl+Shift+4" },
-  { key: "5", display: "⌘⇧5", value: "CommandOrControl+Shift+5" },
-  { key: "6", display: "⌘⇧6", value: "CommandOrControl+Shift+6" },
-  { key: "7", display: "⌘⇧7", value: "CommandOrControl+Shift+7" },
-  { key: "8", display: "⌘⇧8", value: "CommandOrControl+Shift+8" },
-  { key: "9", display: "⌘⇧9", value: "CommandOrControl+Shift+9" },
+// Reserved shortcuts that Stik uses internally
+const RESERVED_SHORTCUTS = [
+  "CommandOrControl+Shift+F", // Folder selector
+  "CommandOrControl+Shift+P", // Search
+  "CommandOrControl+Shift+M", // Manager
+  "CommandOrControl+Shift+Comma", // Settings
 ];
 
 interface DropdownProps {
@@ -162,15 +158,22 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   const addMapping = () => {
     if (!settings) return;
 
+    // Generate a default shortcut that's not already used
     const usedShortcuts = settings.shortcut_mappings.map((m) => m.shortcut);
-    const availableShortcut = AVAILABLE_SHORTCUTS.find(
-      (s) => !usedShortcuts.includes(s.value)
-    );
+    let defaultShortcut = "CommandOrControl+Shift+S";
 
-    if (!availableShortcut) return;
+    // Find an unused shortcut
+    const letters = "ABCDEFGHIJKLNOQRTUVWXYZ".split(""); // Excluding F, M, P (reserved)
+    for (const letter of letters) {
+      const shortcut = `CommandOrControl+Shift+${letter}`;
+      if (!usedShortcuts.includes(shortcut) && !RESERVED_SHORTCUTS.includes(shortcut)) {
+        defaultShortcut = shortcut;
+        break;
+      }
+    }
 
     const newMapping: ShortcutMapping = {
-      shortcut: availableShortcut.value,
+      shortcut: defaultShortcut,
       folder: folders[0] || "Inbox",
       enabled: true,
     };
@@ -181,31 +184,12 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     });
   };
 
-  const getAvailableShortcutOptions = (currentShortcut: string) => {
-    if (!settings) {
-      return AVAILABLE_SHORTCUTS.map((s) => ({ value: s.value, label: s.display }));
-    }
-
-    const usedShortcuts = settings.shortcut_mappings
-      .map((m) => m.shortcut)
-      .filter((s) => s !== currentShortcut);
-
-    // Always include the current shortcut first, then add available ones
-    const currentShortcutData = AVAILABLE_SHORTCUTS.find(
-      (s) => s.value === currentShortcut
-    );
-    const available = AVAILABLE_SHORTCUTS.filter(
-      (s) => !usedShortcuts.includes(s.value) && s.value !== currentShortcut
-    );
-
-    const options = available.map((s) => ({ value: s.value, label: s.display }));
-
-    // Add current shortcut at the beginning if it exists
-    if (currentShortcutData) {
-      options.unshift({ value: currentShortcutData.value, label: currentShortcutData.display });
-    }
-
-    return options;
+  // Get all existing shortcuts for validation
+  const getExistingShortcuts = (excludeIndex?: number) => {
+    if (!settings) return [];
+    return settings.shortcut_mappings
+      .filter((_, i) => i !== excludeIndex)
+      .map((m) => m.shortcut);
   };
 
   if (!isOpen || !settings) return null;
@@ -248,11 +232,12 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
                   key={index}
                   className="flex items-center gap-3 p-3 bg-line/30 rounded-xl border border-line/50"
                 >
-                  <div className="w-20">
-                    <Dropdown
+                  <div className="w-28">
+                    <ShortcutRecorder
                       value={mapping.shortcut}
-                      options={getAvailableShortcutOptions(mapping.shortcut)}
                       onChange={(value) => updateMapping(index, { shortcut: value })}
+                      reservedShortcuts={RESERVED_SHORTCUTS}
+                      existingShortcuts={getExistingShortcuts(index)}
                     />
                   </div>
                   <span className="text-coral text-sm">→</span>
@@ -278,15 +263,13 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
               ))}
             </div>
 
-            {settings.shortcut_mappings.length < AVAILABLE_SHORTCUTS.length && (
-              <button
-                onClick={addMapping}
-                className="mt-4 w-full px-4 py-3 text-[13px] text-coral hover:bg-coral-light rounded-xl transition-colors flex items-center justify-center gap-2 border border-dashed border-coral/30 hover:border-coral/50"
-              >
-                <span className="text-lg">+</span>
-                <span>Add shortcut</span>
-              </button>
-            )}
+            <button
+              onClick={addMapping}
+              className="mt-4 w-full px-4 py-3 text-[13px] text-coral hover:bg-coral-light rounded-xl transition-colors flex items-center justify-center gap-2 border border-dashed border-coral/30 hover:border-coral/50"
+            >
+              <span className="text-lg">+</span>
+              <span>Add shortcut</span>
+            </button>
           </div>
 
           <div className="border-t border-line/50" />
@@ -390,12 +373,13 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
                   key={index}
                   className="flex items-center gap-3 p-3 bg-line/30 rounded-xl border border-line/50"
                 >
-                  {/* Shortcut display */}
-                  <div className="w-20">
-                    <Dropdown
+                  {/* Shortcut recorder */}
+                  <div className="w-28">
+                    <ShortcutRecorder
                       value={mapping.shortcut}
-                      options={getAvailableShortcutOptions(mapping.shortcut)}
                       onChange={(value) => updateMapping(index, { shortcut: value })}
+                      reservedShortcuts={RESERVED_SHORTCUTS}
+                      existingShortcuts={getExistingShortcuts(index)}
                     />
                   </div>
 
@@ -437,15 +421,13 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
             </div>
 
             {/* Add shortcut button */}
-            {settings.shortcut_mappings.length < AVAILABLE_SHORTCUTS.length && (
-              <button
-                onClick={addMapping}
-                className="mt-4 w-full px-4 py-3 text-[13px] text-coral hover:bg-coral-light rounded-xl transition-colors flex items-center justify-center gap-2 border border-dashed border-coral/30 hover:border-coral/50"
-              >
-                <span className="text-lg">+</span>
-                <span>Add shortcut</span>
-              </button>
-            )}
+            <button
+              onClick={addMapping}
+              className="mt-4 w-full px-4 py-3 text-[13px] text-coral hover:bg-coral-light rounded-xl transition-colors flex items-center justify-center gap-2 border border-dashed border-coral/30 hover:border-coral/50"
+            >
+              <span className="text-lg">+</span>
+              <span>Add shortcut</span>
+            </button>
           </div>
 
           {/* Divider */}

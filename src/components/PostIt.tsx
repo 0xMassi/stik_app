@@ -138,7 +138,6 @@ export default function PostIt({
       try {
         const window = getCurrentWindow();
         const position = await window.outerPosition();
-        const size = await window.outerSize();
         const oldId = currentStickedId || stickedId;
 
         // Create the sticked note with position and size

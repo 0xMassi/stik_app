@@ -81,10 +81,35 @@ fn show_search(app: &AppHandle) {
 
 fn shortcut_key_to_code(key: &str) -> Option<Code> {
     match key {
-        "S" | "KeyS" => Some(Code::KeyS),
+        // Letters
+        "A" | "KeyA" => Some(Code::KeyA),
+        "B" | "KeyB" => Some(Code::KeyB),
+        "C" | "KeyC" => Some(Code::KeyC),
+        "D" | "KeyD" => Some(Code::KeyD),
+        "E" | "KeyE" => Some(Code::KeyE),
         "F" | "KeyF" => Some(Code::KeyF),
-        "P" | "KeyP" => Some(Code::KeyP),
+        "G" | "KeyG" => Some(Code::KeyG),
+        "H" | "KeyH" => Some(Code::KeyH),
+        "I" | "KeyI" => Some(Code::KeyI),
+        "J" | "KeyJ" => Some(Code::KeyJ),
+        "K" | "KeyK" => Some(Code::KeyK),
+        "L" | "KeyL" => Some(Code::KeyL),
         "M" | "KeyM" => Some(Code::KeyM),
+        "N" | "KeyN" => Some(Code::KeyN),
+        "O" | "KeyO" => Some(Code::KeyO),
+        "P" | "KeyP" => Some(Code::KeyP),
+        "Q" | "KeyQ" => Some(Code::KeyQ),
+        "R" | "KeyR" => Some(Code::KeyR),
+        "S" | "KeyS" => Some(Code::KeyS),
+        "T" | "KeyT" => Some(Code::KeyT),
+        "U" | "KeyU" => Some(Code::KeyU),
+        "V" | "KeyV" => Some(Code::KeyV),
+        "W" | "KeyW" => Some(Code::KeyW),
+        "X" | "KeyX" => Some(Code::KeyX),
+        "Y" | "KeyY" => Some(Code::KeyY),
+        "Z" | "KeyZ" => Some(Code::KeyZ),
+        // Numbers
+        "0" | "Digit0" => Some(Code::Digit0),
         "1" | "Digit1" => Some(Code::Digit1),
         "2" | "Digit2" => Some(Code::Digit2),
         "3" | "Digit3" => Some(Code::Digit3),
@@ -94,7 +119,42 @@ fn shortcut_key_to_code(key: &str) -> Option<Code> {
         "7" | "Digit7" => Some(Code::Digit7),
         "8" | "Digit8" => Some(Code::Digit8),
         "9" | "Digit9" => Some(Code::Digit9),
+        // Function keys
+        "F1" => Some(Code::F1),
+        "F2" => Some(Code::F2),
+        "F3" => Some(Code::F3),
+        "F4" => Some(Code::F4),
+        "F5" => Some(Code::F5),
+        "F6" => Some(Code::F6),
+        "F7" => Some(Code::F7),
+        "F8" => Some(Code::F8),
+        "F9" => Some(Code::F9),
+        "F10" => Some(Code::F10),
+        "F11" => Some(Code::F11),
+        "F12" => Some(Code::F12),
+        // Special keys
+        "Space" => Some(Code::Space),
+        "Enter" => Some(Code::Enter),
+        "Tab" => Some(Code::Tab),
+        "Backspace" => Some(Code::Backspace),
+        "Escape" => Some(Code::Escape),
+        // Arrow keys
+        "Up" | "ArrowUp" => Some(Code::ArrowUp),
+        "Down" | "ArrowDown" => Some(Code::ArrowDown),
+        "Left" | "ArrowLeft" => Some(Code::ArrowLeft),
+        "Right" | "ArrowRight" => Some(Code::ArrowRight),
+        // Punctuation
         "Comma" => Some(Code::Comma),
+        "Period" => Some(Code::Period),
+        "Slash" => Some(Code::Slash),
+        "Backslash" => Some(Code::Backslash),
+        "BracketLeft" => Some(Code::BracketLeft),
+        "BracketRight" => Some(Code::BracketRight),
+        "Semicolon" => Some(Code::Semicolon),
+        "Quote" => Some(Code::Quote),
+        "Backquote" => Some(Code::Backquote),
+        "Minus" => Some(Code::Minus),
+        "Equal" => Some(Code::Equal),
         _ => None,
     }
 }
@@ -142,10 +202,35 @@ fn shortcut_to_string(shortcut: &Shortcut) -> String {
     }
 
     let key = match shortcut.key {
-        Code::KeyS => "S",
+        // Letters
+        Code::KeyA => "A",
+        Code::KeyB => "B",
+        Code::KeyC => "C",
+        Code::KeyD => "D",
+        Code::KeyE => "E",
         Code::KeyF => "F",
-        Code::KeyP => "P",
+        Code::KeyG => "G",
+        Code::KeyH => "H",
+        Code::KeyI => "I",
+        Code::KeyJ => "J",
+        Code::KeyK => "K",
+        Code::KeyL => "L",
         Code::KeyM => "M",
+        Code::KeyN => "N",
+        Code::KeyO => "O",
+        Code::KeyP => "P",
+        Code::KeyQ => "Q",
+        Code::KeyR => "R",
+        Code::KeyS => "S",
+        Code::KeyT => "T",
+        Code::KeyU => "U",
+        Code::KeyV => "V",
+        Code::KeyW => "W",
+        Code::KeyX => "X",
+        Code::KeyY => "Y",
+        Code::KeyZ => "Z",
+        // Numbers
+        Code::Digit0 => "0",
         Code::Digit1 => "1",
         Code::Digit2 => "2",
         Code::Digit3 => "3",
@@ -155,7 +240,42 @@ fn shortcut_to_string(shortcut: &Shortcut) -> String {
         Code::Digit7 => "7",
         Code::Digit8 => "8",
         Code::Digit9 => "9",
+        // Function keys
+        Code::F1 => "F1",
+        Code::F2 => "F2",
+        Code::F3 => "F3",
+        Code::F4 => "F4",
+        Code::F5 => "F5",
+        Code::F6 => "F6",
+        Code::F7 => "F7",
+        Code::F8 => "F8",
+        Code::F9 => "F9",
+        Code::F10 => "F10",
+        Code::F11 => "F11",
+        Code::F12 => "F12",
+        // Special keys
+        Code::Space => "Space",
+        Code::Enter => "Enter",
+        Code::Tab => "Tab",
+        Code::Backspace => "Backspace",
+        Code::Escape => "Escape",
+        // Arrow keys
+        Code::ArrowUp => "Up",
+        Code::ArrowDown => "Down",
+        Code::ArrowLeft => "Left",
+        Code::ArrowRight => "Right",
+        // Punctuation
         Code::Comma => "Comma",
+        Code::Period => "Period",
+        Code::Slash => "Slash",
+        Code::Backslash => "Backslash",
+        Code::BracketLeft => "BracketLeft",
+        Code::BracketRight => "BracketRight",
+        Code::Semicolon => "Semicolon",
+        Code::Quote => "Quote",
+        Code::Backquote => "Backquote",
+        Code::Minus => "Minus",
+        Code::Equal => "Equal",
         _ => "Unknown",
     };
     parts.push(key);
@@ -193,6 +313,14 @@ fn register_shortcuts_from_settings(app: &AppHandle, settings: &StikSettings) {
     // Always register the manager shortcut (Cmd+Shift+M)
     let manager_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyM);
     let _ = app.global_shortcut().register(manager_shortcut);
+
+    // Debug: Register devtools shortcut (Cmd+Option+I)
+    #[cfg(debug_assertions)]
+    {
+        let devtools_shortcut =
+            Shortcut::new(Some(Modifiers::SUPER | Modifiers::ALT), Code::KeyI);
+        let _ = app.global_shortcut().register(devtools_shortcut);
+    }
 }
 
 #[tauri::command]
@@ -204,6 +332,21 @@ fn reload_shortcuts(app: AppHandle) -> Result<bool, String> {
     let settings = settings::get_settings()?;
     register_shortcuts_from_settings(&app, &settings);
 
+    Ok(true)
+}
+
+#[tauri::command]
+fn pause_shortcuts(app: AppHandle) -> Result<bool, String> {
+    // Temporarily unregister all shortcuts (for shortcut recording)
+    let _ = app.global_shortcut().unregister_all();
+    Ok(true)
+}
+
+#[tauri::command]
+fn resume_shortcuts(app: AppHandle) -> Result<bool, String> {
+    // Re-register all shortcuts after recording
+    let settings = settings::get_settings()?;
+    register_shortcuts_from_settings(&app, &settings);
     Ok(true)
 }
 
@@ -239,24 +382,16 @@ fn show_settings(app: &AppHandle) {
     .center()
     .build();
 
+    // Settings window does NOT close on blur (user needs to interact with it)
     if let Ok(win) = window {
-        let w = win.clone();
         let app_handle = app.clone();
         win.on_window_event(move |event| {
-            match event {
-                tauri::WindowEvent::Focused(focused) => {
-                    if !focused {
-                        let _ = w.close();
-                    }
+            if let tauri::WindowEvent::Destroyed = event {
+                // Re-show postit when settings closes
+                if let Some(postit) = app_handle.get_webview_window("postit") {
+                    let _ = postit.show();
+                    let _ = postit.set_focus();
                 }
-                tauri::WindowEvent::Destroyed => {
-                    // Re-show postit when settings closes
-                    if let Some(postit) = app_handle.get_webview_window("postit") {
-                        let _ = postit.show();
-                        let _ = postit.set_focus();
-                    }
-                }
-                _ => {}
             }
         });
     }
@@ -557,6 +692,16 @@ fn main() {
                         return;
                     }
 
+                    // Debug: Check for devtools shortcut (Cmd+Option+I)
+                    #[cfg(debug_assertions)]
+                    if shortcut.matches(Modifiers::SUPER | Modifiers::ALT, Code::KeyI) {
+                        // Open devtools for all windows
+                        for (_, window) in app.webview_windows() {
+                            window.open_devtools();
+                        }
+                        return;
+                    }
+
                     // Check registered folder shortcuts
                     let state = app.state::<AppState>();
                     let map = state.shortcut_to_folder.lock().unwrap();
@@ -593,6 +738,8 @@ fn main() {
             sticked_notes::get_sticked_note,
             hide_window,
             reload_shortcuts,
+            pause_shortcuts,
+            resume_shortcuts,
             create_sticked_window,
             close_sticked_window,
             pin_capture_note,
