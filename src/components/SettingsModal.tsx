@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import SettingsContent from "./SettingsContent";
-import type { CaptureStreakStatus, StikSettings } from "@/types";
+import type { CaptureStreakStatus, OnThisDayStatus, StikSettings } from "@/types";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -15,6 +15,8 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   const [isSaving, setIsSaving] = useState(false);
   const [captureStreak, setCaptureStreak] = useState<CaptureStreakStatus | null>(null);
   const [isRefreshingStreak, setIsRefreshingStreak] = useState(false);
+  const [onThisDayStatus, setOnThisDayStatus] = useState<OnThisDayStatus | null>(null);
+  const [isCheckingOnThisDay, setIsCheckingOnThisDay] = useState(false);
 
   const loadCaptureStreak = async () => {
     setIsRefreshingStreak(true);
@@ -29,11 +31,31 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     }
   };
 
+  const checkOnThisDay = async () => {
+    setIsCheckingOnThisDay(true);
+    try {
+      const status = await invoke<OnThisDayStatus>("check_on_this_day_now");
+      setOnThisDayStatus(status);
+    } catch (error) {
+      console.error("Failed to check On This Day:", error);
+      setOnThisDayStatus({
+        found: false,
+        message: "Unable to check On This Day",
+        date: null,
+        folder: null,
+        preview: null,
+      });
+    } finally {
+      setIsCheckingOnThisDay(false);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       invoke<StikSettings>("get_settings").then(setSettings);
       invoke<string[]>("list_folders").then(setFolders);
       loadCaptureStreak();
+      checkOnThisDay();
     }
   }, [isOpen]);
 
@@ -123,6 +145,12 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
             captureStreakDays={captureStreak?.days ?? null}
             isRefreshingStreak={isRefreshingStreak}
             onRefreshCaptureStreak={loadCaptureStreak}
+            onThisDayMessage={onThisDayStatus?.message ?? "No On This Day check yet"}
+            onThisDayPreview={onThisDayStatus?.preview ?? null}
+            onThisDayDate={onThisDayStatus?.date ?? null}
+            onThisDayFolder={onThisDayStatus?.folder ?? null}
+            isCheckingOnThisDay={isCheckingOnThisDay}
+            onCheckOnThisDay={checkOnThisDay}
           />
         </div>
         <div className="flex items-center justify-end px-5 py-4 border-t border-line bg-line/10">
@@ -153,6 +181,12 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
             captureStreakDays={captureStreak?.days ?? null}
             isRefreshingStreak={isRefreshingStreak}
             onRefreshCaptureStreak={loadCaptureStreak}
+            onThisDayMessage={onThisDayStatus?.message ?? "No On This Day check yet"}
+            onThisDayPreview={onThisDayStatus?.preview ?? null}
+            onThisDayDate={onThisDayStatus?.date ?? null}
+            onThisDayFolder={onThisDayStatus?.folder ?? null}
+            isCheckingOnThisDay={isCheckingOnThisDay}
+            onCheckOnThisDay={checkOnThisDay}
           />
         </div>
         <div className="flex items-center justify-end px-5 py-4 border-t border-line bg-line/10">

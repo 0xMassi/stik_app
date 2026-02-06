@@ -45,3 +45,16 @@ export interface CaptureStreakStatus {
   days: number;
   label: string;
 }
+
+export interface OnThisDayStatus {
+  found: boolean;
+  message: string;
+  date: string | null;
+  folder: string | null;
+  preview: string | null;
+}
+
+export interface ClipboardPayload {
+  plain_text: string;
+  html: string;
+}

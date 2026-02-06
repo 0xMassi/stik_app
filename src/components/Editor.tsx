@@ -19,6 +19,8 @@ export interface EditorRef {
   clear: () => void;
   setContent: (content: string) => void;
   moveToEnd: () => void;
+  getHTML: () => string;
+  getText: () => string;
 }
 
 const Editor = forwardRef<EditorRef, EditorProps>(
@@ -62,6 +64,8 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       clear: () => editor?.commands.clearContent(),
       setContent: (content: string) => editor?.commands.setContent(content),
       moveToEnd: () => editor?.commands.focus("end"),
+      getHTML: () => editor?.getHTML() || "",
+      getText: () => editor?.getText({ blockSeparator: "\n" }) || "",
     }));
 
     return <EditorContent editor={editor} className="h-full" />;

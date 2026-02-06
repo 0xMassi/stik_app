@@ -8,7 +8,7 @@ mod tray;
 mod windows;
 
 use commands::index::NoteIndex;
-use commands::{folders, notes, settings, stats, sticked_notes};
+use commands::{folders, notes, on_this_day, settings, share, stats, sticked_notes};
 use shortcuts::shortcut_to_string;
 use state::AppState;
 use tauri::{Emitter, Manager};
@@ -73,6 +73,8 @@ fn main() {
             folders::get_folder_stats,
             settings::get_settings,
             settings::save_settings,
+            on_this_day::check_on_this_day_now,
+            share::build_clipboard_payload,
             stats::get_capture_streak,
             sticked_notes::list_sticked_notes,
             sticked_notes::create_sticked_note,
@@ -100,6 +102,10 @@ fn main() {
 
             let settings = settings::get_settings().unwrap_or_default();
             shortcuts::register_shortcuts_from_settings(app.handle(), &settings);
+
+            if let Err(e) = on_this_day::maybe_show_on_this_day_notification() {
+                eprintln!("Failed to check On This Day notification: {}", e);
+            }
 
             windows::restore_sticked_notes(app.handle());
             tray::setup_tray(app)?;

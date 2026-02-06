@@ -179,6 +179,25 @@ Then verify in either place:
 - Stik menu bar tray menu: look for `Streak: N days`
 - Stik Settings: open `Cmd+Shift+,` and check the `Capture Streak` section (use `Refresh`)
 
+## Testing On This Day
+
+Generate fixture notes on today's month/day for previous years:
+
+```bash
+./scripts/seed-on-this-day-fixture.sh 3 Inbox
+```
+
+Then open `Cmd+Shift+,` and use `On This Day -> Check now`.
+You should get a result with date/folder/preview and a macOS notification.
+
+## Testing Share as Clipboard
+
+1. Open any note (capture or viewing window) with content.
+2. Click the `Copy` button in the note header.
+3. Paste into:
+   - Notes/TextEdit to verify plain markdown text
+   - Mail/Slack/editor with rich text to verify formatted output
+
 ## Releasing
 
 We use [Semantic Versioning](https://semver.org/). To create a new release:

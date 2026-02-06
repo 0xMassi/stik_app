@@ -82,6 +82,12 @@ interface SettingsContentProps {
   captureStreakDays: number | null;
   isRefreshingStreak: boolean;
   onRefreshCaptureStreak: () => Promise<void>;
+  onThisDayMessage: string;
+  onThisDayPreview: string | null;
+  onThisDayDate: string | null;
+  onThisDayFolder: string | null;
+  isCheckingOnThisDay: boolean;
+  onCheckOnThisDay: () => Promise<void>;
 }
 
 export default function SettingsContent({
@@ -92,6 +98,12 @@ export default function SettingsContent({
   captureStreakDays,
   isRefreshingStreak,
   onRefreshCaptureStreak,
+  onThisDayMessage,
+  onThisDayPreview,
+  onThisDayDate,
+  onThisDayFolder,
+  isCheckingOnThisDay,
+  onCheckOnThisDay,
 }: SettingsContentProps) {
   const updateMapping = (index: number, updates: Partial<ShortcutMapping>) => {
     const newMappings = [...settings.shortcut_mappings];
@@ -244,6 +256,37 @@ export default function SettingsContent({
             className="px-3 py-2 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors disabled:opacity-50"
           >
             {isRefreshingStreak ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+      </div>
+
+      <div className="border-t border-line/50" />
+
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-coral">☼</span>
+          <h3 className="text-[13px] font-semibold text-stone uppercase tracking-wide">
+            On This Day
+          </h3>
+        </div>
+
+        <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-2">
+          <p className="text-[14px] font-semibold text-ink">{onThisDayMessage}</p>
+          {(onThisDayDate || onThisDayFolder) && (
+            <p className="text-[12px] text-stone">
+              {onThisDayFolder || "Folder unknown"} • {onThisDayDate || "Date unknown"}
+            </p>
+          )}
+          {onThisDayPreview && (
+            <p className="text-[12px] text-stone leading-relaxed">{onThisDayPreview}</p>
+          )}
+
+          <button
+            onClick={onCheckOnThisDay}
+            disabled={isCheckingOnThisDay}
+            className="mt-2 px-3 py-2 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors disabled:opacity-50"
+          >
+            {isCheckingOnThisDay ? "Checking..." : "Check now"}
           </button>
         </div>
       </div>
