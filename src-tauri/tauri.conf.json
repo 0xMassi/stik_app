@@ -42,6 +42,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": "v1Compatible",
     "externalBin": ["binaries/darwinkit"],
     "icon": [
       "icons/32x32.png",
@@ -51,8 +52,17 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "minimumSystemVersion": "10.15"
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-",
+      "entitlements": "Entitlements.plist"
     }
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE1NEY0NEQ3MjhDOTdFMDQKUldRRWZza28xMFJQRlV4azBUMDNXT1dmWllBVlI0NVhubDBBT056Z2dIY2FqUE1OU21SMzl4NE0K",
+      "endpoints": [
+        "https://github.com/0xMassi/stik_app/releases/latest/download/latest.json"
+      ]
+    }
+  }
 }

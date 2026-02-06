@@ -105,7 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/YOUR_USERNAME/stik/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/YOUR_USERNAME/stik/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/YOUR_USERNAME/stik/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/YOUR_USERNAME/stik/releases/tag/v0.1.0
+[Unreleased]: https://github.com/0xMassi/stik/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/0xMassi/stik/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/0xMassi/stik/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/0xMassi/stik/releases/tag/v0.1.0

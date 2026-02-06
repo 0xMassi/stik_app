@@ -22,6 +22,9 @@ npm-debug.log*
 # Env
 .env*
 
+# Internal strategy docs (not public)
+.internal/
+
 # Agent skills (installed via npx skills add)
 .agent/
 .agents/

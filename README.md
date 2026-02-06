@@ -1,254 +1,136 @@
-# Stik
+<p align="center">
+  <img src="app-icon.svg" width="128" height="128" alt="Stik icon">
+</p>
 
-**Instant thought capture for macOS.** One shortcut, post-it appears, type, gone.
+<h1 align="center">Stik</h1>
 
-Stik lives in your menu bar, always ready. Hit a shortcut, capture your thought, and get back to what you were doing. Notes are saved as markdown files in `~/Documents/Stik/`.
+<p align="center">
+  <strong>Instant thought capture for macOS.</strong><br>
+  Press a shortcut. Type your thought. Get back to work.<br>
+  Under 3 seconds. Every time.
+</p>
+
+<p align="center">
+  <a href="https://www.stik.ink">Website</a> &middot;
+  <a href="https://github.com/0xMassi/stik_app/releases">Download</a> &middot;
+  <a href="ROADMAP.md">Roadmap</a> &middot;
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/v/release/0xMassi/stik_app?style=flat-square&color=E8705F" alt="Latest release">
+  <img src="https://img.shields.io/github/license/0xMassi/stik_app?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/platform-macOS-000?style=flat-square&logo=apple" alt="macOS">
+</p>
+
+<!-- TODO: Add a hero screenshot or GIF here showing the capture flow -->
+<!-- <p align="center"><img src=".github/assets/hero.gif" width="600" alt="Stik demo"></p> -->
+
+---
+
+## Why Stik?
+
+Every note app wants to be your second brain. Stik just wants to catch your thought before it disappears.
+
+No onboarding. No account. No sync setup. Hit `Cmd+Shift+S`, type, close. Your note is saved as a plain markdown file. That's it.
+
+## Install
+
+### Homebrew (Recommended)
+
+```bash
+brew install --cask stik
+```
+
+### Direct Download
+
+Grab the latest `.dmg` from [GitHub Releases](https://github.com/0xMassi/stik_app/releases).
+
+> Requires **macOS 10.15+**. On first launch, grant Accessibility permissions when prompted (needed for global shortcuts).
 
 ## Features
 
-- **Instant Capture** - Global shortcuts to summon a post-it from anywhere
-- **Folder Organization** - Organize notes into folders (Inbox, Work, Ideas, etc.)
-- **Quick Search** - Find any note instantly with `Cmd+Shift+P`
-- **Pin Notes** - Keep important notes floating on your desktop
-- **File Manager** - Browse and manage all notes with `Cmd+Shift+M`
-- **Markdown Files** - Your notes are plain `.md` files, no lock-in
-- **On-Device AI** - Semantic search, folder suggestions, and note embeddings powered by Apple's NaturalLanguage framework (no cloud, no API keys)
-- **Git Sharing** - Sync folders via git repositories with automatic background sync
-- **Capture Streak** - Track consecutive days of note-taking
-- **On This Day** - Daily resurfacing of notes from the same date in prior years
-- **Share as Clipboard** - Copy notes as rich text, markdown, or image snapshots
+**Capture** -- Global shortcuts summon a floating post-it from anywhere. Type, close, done. Notes are saved as markdown in `~/Documents/Stik/`.
+
+**Organize** -- Folders (Inbox, Work, Ideas, or your own). Move notes with a keystroke. Search everything instantly.
+
+**Pin** -- Keep important notes floating on your desktop as sticky notes.
+
+**On-Device AI** -- Semantic search, smart folder suggestions, and note embeddings. Powered by Apple's NaturalLanguage framework. Everything runs locally -- no cloud, no API keys, no data leaves your Mac.
+
+**Share** -- Copy notes as rich text, markdown, or image. Sync folders via git with background auto-sync.
+
+**Remember** -- Capture streak tracks your daily note-taking habit. "On This Day" resurfaces notes from past years.
 
 ## Keyboard Shortcuts
 
+All shortcuts are customizable in Settings.
+
 | Shortcut | Action |
 |----------|--------|
-| `Cmd+Shift+S` | New note (default folder) |
+| `Cmd+Shift+S` | Capture a new note |
 | `Cmd+Shift+P` | Search all notes |
-| `Cmd+Shift+M` | Manage notes & folders |
+| `Cmd+Shift+M` | Manage notes and folders |
 | `Cmd+Shift+,` | Open settings |
 
-### In Search (`Cmd+Shift+P`)
-| Shortcut | Action |
-|----------|--------|
-| `Backspace` | Delete selected note |
-| `Cmd+M` | Move note to folder |
+## Your Data, Your Machine
 
-### In Manager (`Cmd+Shift+M`)
-| Shortcut | Action |
-|----------|--------|
-| `Backspace` | Delete selected note/folder |
-| `Cmd+R` | Rename folder |
-| `Cmd+N` | Create new folder |
+- Notes are **plain markdown files** in `~/Documents/Stik/` -- open them in any editor
+- All AI runs **on-device** via Apple frameworks -- nothing is sent anywhere
+- No account, no cloud, no tracking, no telemetry
+- Settings stored locally in `~/.stik/`
+- Want sync? Just enable iCloud Drive for your Documents folder. Stik works automatically with iCloud, Dropbox, Syncthing, or anything that syncs `~/Documents`
 
-## Installation
+## Build from Source
 
-### Quick Start (Recommended)
+### Prerequisites
 
-```bash
-# Clone the repo
-git clone https://github.com/YOUR_USERNAME/stik.git
-cd stik
+- macOS 10.15+
+- [Xcode Command Line Tools](https://developer.apple.com/xcode/resources/) (`xcode-select --install`)
+- [Rust](https://rustup.rs/) 1.70+
+- [Node.js](https://nodejs.org/) 18+
 
-# Run the setup script
-./setup.sh
-```
-
-The setup script will:
-1. Check/install Xcode Command Line Tools
-2. Check/install Rust
-3. Install Node.js dependencies
-4. Start the app in development mode
-
-### Manual Installation
-
-#### Prerequisites
-
-- **macOS** (tested on macOS 13+)
-- **Xcode Command Line Tools**
-  ```bash
-  xcode-select --install
-  ```
-- **Rust** (1.70+)
-  ```bash
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-  source ~/.cargo/env
-  ```
-- **Node.js** (18+)
-  ```bash
-  # Using Homebrew
-  brew install node
-  ```
-
-#### Build & Run
+### Build
 
 ```bash
-# Install dependencies
+git clone https://github.com/0xMassi/stik_app.git
+cd stik_app
 npm install
-
-# Run in development mode
-npm run tauri dev
-
-# Build for production
-npm run tauri build
+npm run tauri dev      # Development with hot reload
+npm run tauri build    # Production .app bundle
 ```
 
-## Project Structure
+## Tech Stack
 
-```
-stik/
-├── src/                        # React frontend
-│   ├── types/index.ts          # Shared TypeScript types
-│   ├── components/
-│   │   ├── PostIt.tsx           # Main capture interface
-│   │   ├── Editor.tsx           # Tiptap rich text editor
-│   │   ├── SearchModal.tsx      # Search with semantic results
-│   │   ├── ManagerModal.tsx     # File browser
-│   │   ├── SettingsModal.tsx    # Settings window (tab bar + chrome)
-│   │   └── SettingsContent.tsx  # Settings tab content renderer
-│   └── App.tsx                  # Window type router
-├── src-tauri/                   # Rust backend
-│   ├── src/
-│   │   ├── main.rs              # App orchestrator (~160 lines)
-│   │   ├── state.rs             # AppState, ViewingNoteContent
-│   │   ├── shortcuts.rs         # Global shortcut management
-│   │   ├── windows.rs           # Window lifecycle
-│   │   ├── tray.rs              # System tray setup
-│   │   └── commands/
-│   │       ├── notes.rs         # Note CRUD + on-demand content
-│   │       ├── folders.rs       # Folder management + validation
-│   │       ├── settings.rs      # Settings read/write
-│   │       ├── sticked_notes.rs # Pinned note persistence
-│   │       ├── index.rs         # In-memory note index
-│   │       ├── versioning.rs    # JSON versioning utilities
-│   │       ├── darwinkit.rs     # DarwinKit sidecar bridge (JSON-RPC)
-│   │       ├── embeddings.rs    # Embedding index + cosine similarity
-│   │       ├── git_share.rs     # Git sharing background worker
-│   │       ├── share.rs         # Clipboard export (rich text + image)
-│   │       ├── on_this_day.rs   # On This Day notifications
-│   │       └── stats.rs         # Capture streak tracking
-│   ├── binaries/                # DarwinKit sidecar binary (gitignored)
-│   └── Cargo.toml
-└── package.json
-```
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, TypeScript, Tailwind CSS, Tiptap |
+| Backend | Rust, Tauri 2.0 |
+| AI | DarwinKit (Swift CLI wrapping Apple NaturalLanguage framework) |
+| Storage | Local filesystem (`.md` files), optional git sync |
 
-## Data Storage
+## Contributing
 
-Notes are stored as markdown files in:
-```
-~/Documents/Stik/
-├── Inbox/
-│   └── 20260205-143022-my-note-title.md
-├── Work/
-├── Ideas/
-├── Personal/
-└── Projects/
-```
-
-Settings and pinned notes are stored in `~/.stik/` as versioned JSON files.
-
-## Sync Across Macs (No Account Needed)
-
-Stik is local-first. Notes are plain markdown files in `~/Documents/Stik/`.
-If your `Documents` folder is already synced, Stik syncs automatically with zero extra setup.
-
-Supported sync setups:
-- **iCloud Drive** (recommended)
-- **Dropbox**
-- **Syncthing**
-- **Any service that syncs `~/Documents`**
-
-For iCloud Drive, enable:
-1. `System Settings > Apple ID > iCloud > iCloud Drive`
-2. `Desktop & Documents Folders` on each Mac
-
-No Stik account is required for sync.
-
-## Development
+Contributions are welcome. Please open an issue first to discuss what you'd like to change.
 
 ```bash
-# Start dev server with hot reload
-npm run tauri dev
-
-# Type check
-npm run build
+# Check Rust code
+cd src-tauri && cargo check
 
 # Format Rust code
 cd src-tauri && cargo fmt
 
-# Check Rust code
-cd src-tauri && cargo check
+# Type check frontend
+npm run build
 ```
-
-## Testing Capture Streak
-
-Verify in either place:
-- Stik menu bar tray menu: look for `Streak: N days`
-- Stik Settings: open `Cmd+Shift+,` and check the `Capture Streak` section (use `Refresh`)
-
-## Testing On This Day
-
-Open `Cmd+Shift+,` and use `On This Day -> Check now`.
-You should get a result with date/folder/preview and a macOS notification.
-
-## Testing Share as Clipboard
-
-1. Open any note (capture or viewing window) with content.
-2. Click the `Copy` button in the note header.
-3. Paste into:
-   - Notes/TextEdit to verify plain markdown text
-   - Mail/Slack/editor with rich text to verify formatted output
-
-## Releasing
-
-We use [Semantic Versioning](https://semver.org/). To create a new release:
-
-```bash
-# Patch release (bug fixes): 0.1.0 -> 0.1.1
-npm run release:patch
-
-# Minor release (new features): 0.1.0 -> 0.2.0
-npm run release:minor
-
-# Major release (breaking changes): 0.1.0 -> 1.0.0
-npm run release:major
-
-# Or explicit version
-npm run release 1.2.3
-```
-
-This will:
-1. Update version in `package.json` and `Cargo.toml`
-2. Update `CHANGELOG.md` with release date
-3. Create a git commit and tag
-4. Show next steps for pushing and building
-
-See [CHANGELOG.md](CHANGELOG.md) for version history.
-
-## Tech Stack
-
-- **Frontend**: React 19, TypeScript, Tailwind CSS, Tiptap (editor)
-- **Backend**: Rust, Tauri 2.0
-- **AI**: DarwinKit sidecar (Swift CLI using Apple NaturalLanguage framework, on-device only)
-- **Storage**: Local filesystem (markdown files), git for sharing
-
-## Security & Privacy
-
-- Restrictive Content Security Policy (CSP) on the webview
-- Filesystem access scoped to `~/Documents/Stik/` and `~/.stik/` only
-- Path traversal validation on all folder/note names
-- Inbox folder protected from deletion and rename
-- AI features run entirely on-device via Apple's NaturalLanguage framework — no data leaves your Mac
-- AI features can be disabled in Settings > AI
-
-## Known Issues
-
-- First launch requires granting Accessibility permissions for global shortcuts
-- Window may briefly flash on first shortcut press
 
 ## License
 
-MIT
+[MIT](LICENSE)
 
 ---
 
-Made with minimal distractions in mind.
+<p align="center">
+  Built by <a href="https://0xmassi.dev">Massi</a><br>
+  <sub>If Stik saves you time, consider leaving a star.</sub>
+</p>

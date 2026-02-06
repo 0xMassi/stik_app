@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { check } from "@tauri-apps/plugin-updater";
 import PostIt from "./components/PostIt";
 import SettingsModal from "./components/SettingsModal";
 import SearchModal from "./components/SearchModal";
@@ -133,6 +134,22 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [windowInfo.type]);
+
+  // Non-blocking update check on startup (postit window only)
+  useEffect(() => {
+    if (windowInfo.type !== "postit") return;
+
+    check()
+      .then((update) => {
+        if (update) {
+          console.log(
+            `Stik update available: v${update.currentVersion} → v${update.version}`
+          );
+          // TODO: Show update prompt UI, then call update.downloadAndInstall()
+        }
+      })
+      .catch((e) => console.debug("Update check skipped:", e));
   }, [windowInfo.type]);
 
   const handleSave = useCallback(

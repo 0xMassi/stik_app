@@ -1,0 +1,3 @@
+[submodule "src-tauri/darwinkit"]
+	path = src-tauri/darwinkit
+	url = git@github.com:0xMassi/darwinkit.git

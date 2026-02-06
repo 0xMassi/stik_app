@@ -18,6 +18,7 @@
       "identifier": "shell:allow-spawn",
       "allow": [{ "name": "binaries/darwinkit", "sidecar": true }]
     },
+    "updater:default",
     {
       "identifier": "fs:allow-read-text-file",
       "allow": [
