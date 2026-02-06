@@ -59,8 +59,10 @@ jobs:
           cd src-tauri/darwinkit
           swift build -c release --arch arm64 --arch x86_64
           mkdir -p ../binaries
-          cp .build/release/darwinkit ../binaries/darwinkit-aarch64-apple-darwin
-          cp .build/release/darwinkit ../binaries/darwinkit-x86_64-apple-darwin
+          BINARY=$(find .build -name darwinkit -type f -perm +111 | grep -i release | head -1)
+          echo "Found binary at: $BINARY"
+          cp "$BINARY" ../binaries/darwinkit-aarch64-apple-darwin
+          cp "$BINARY" ../binaries/darwinkit-x86_64-apple-darwin
 
       - name: Install npm dependencies
         run: npm ci
