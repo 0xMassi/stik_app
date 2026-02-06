@@ -269,12 +269,11 @@ export default function ShortcutRecorder({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isRecording]);
 
-  // Cleanup: ensure shortcuts are resumed if component unmounts while recording
+  // Cleanup: always ensure shortcuts are resumed when component unmounts
   useEffect(() => {
     return () => {
-      if (isRecordingRef.current) {
-        invoke("resume_shortcuts").catch(console.error);
-      }
+      // Always resume - safer than checking state which might be stale
+      invoke("resume_shortcuts").catch(() => {});
     };
   }, []);
 

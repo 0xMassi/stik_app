@@ -107,21 +107,15 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     }
   }, [isOpen]);
 
-  // Handle escape key
+  // ESC key disabled for settings - user must use Cancel or Save buttons
+
+  // Safety: ensure shortcuts are resumed when settings closes/unmounts
   useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }
+    return () => {
+      // Always resume shortcuts when settings modal closes
+      invoke("resume_shortcuts").catch(() => {});
     };
-
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [isOpen, onClose]);
+  }, []);
 
   const handleSave = async () => {
     if (!settings) return;
@@ -199,20 +193,11 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     return (
       <div className="w-full h-full bg-bg rounded-[14px] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-line bg-line/20">
+        <div className="flex items-center px-5 py-4 border-b border-line bg-line/20">
           <div className="flex items-center gap-2.5">
             <span className="text-coral text-lg">⚙</span>
             <h2 className="text-[15px] font-semibold text-ink">Settings</h2>
           </div>
-          <button
-            onClick={async () => {
-              const { getCurrentWindow } = await import("@tauri-apps/api/window");
-              await getCurrentWindow().close();
-            }}
-            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-coral transition-colors"
-          >
-            ✕
-          </button>
         </div>
 
         {/* Content */}
@@ -298,10 +283,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-line bg-line/10">
-          <div className="text-[11px] text-stone">
-            <kbd className="px-2 py-1 bg-line rounded font-mono text-[10px]">esc</kbd> to close
-          </div>
+        <div className="flex items-center justify-end px-5 py-4 border-t border-line bg-line/10">
           <div className="flex items-center gap-3">
             <button
               onClick={async () => {
@@ -343,17 +325,11 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
       <div className="bg-bg rounded-[14px] w-[440px] max-h-[500px] flex flex-col shadow-stik overflow-hidden border border-line/50">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-line bg-line/20">
+        <div className="flex items-center px-5 py-4 border-b border-line bg-line/20">
           <div className="flex items-center gap-2.5">
             <span className="text-coral text-lg">⚙</span>
             <h2 className="text-[15px] font-semibold text-ink">Settings</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-coral transition-colors"
-          >
-            ✕
-          </button>
         </div>
 
         {/* Content */}
@@ -457,10 +433,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-line bg-line/10">
-          <div className="text-[11px] text-stone">
-            <kbd className="px-2 py-1 bg-line rounded font-mono text-[10px]">esc</kbd> to cancel
-          </div>
+        <div className="flex items-center justify-end px-5 py-4 border-t border-line bg-line/10">
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}

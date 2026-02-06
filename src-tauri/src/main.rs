@@ -24,6 +24,7 @@ struct ViewingNoteContent {
 struct AppState {
     shortcut_to_folder: Mutex<HashMap<String, String>>,
     viewing_notes: Mutex<HashMap<String, ViewingNoteContent>>,
+    previous_focused_window: Mutex<Option<String>>,
 }
 
 #[tauri::command]
@@ -32,6 +33,13 @@ fn hide_window(window: tauri::Window) {
 }
 
 fn show_search(app: &AppHandle) {
+    // Temporarily lower sticked windows so search can be on top
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("sticked-") {
+            let _ = window.set_always_on_top(false);
+        }
+    }
+
     // Check if window already exists
     if let Some(window) = app.get_webview_window("search") {
         let _ = window.show();
@@ -67,6 +75,12 @@ fn show_search(app: &AppHandle) {
                     }
                 }
                 tauri::WindowEvent::Destroyed => {
+                    // Restore always_on_top for sticked windows
+                    for (label, window) in app_handle.webview_windows() {
+                        if label.starts_with("sticked-") {
+                            let _ = window.set_always_on_top(true);
+                        }
+                    }
                     // Re-show postit when search closes
                     if let Some(postit) = app_handle.get_webview_window("postit") {
                         let _ = postit.show();
@@ -314,6 +328,10 @@ fn register_shortcuts_from_settings(app: &AppHandle, settings: &StikSettings) {
     let manager_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyM);
     let _ = app.global_shortcut().register(manager_shortcut);
 
+    // Always register the settings shortcut (Cmd+Shift+Comma)
+    let settings_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Comma);
+    let _ = app.global_shortcut().register(settings_shortcut);
+
     // Debug: Register devtools shortcut (Cmd+Option+I)
     #[cfg(debug_assertions)]
     {
@@ -358,7 +376,46 @@ fn show_postit_with_folder(app: &AppHandle, folder: &str) {
     }
 }
 
+#[tauri::command]
+fn transfer_to_capture(app: AppHandle, content: String, folder: String) -> Result<bool, String> {
+    if let Some(window) = app.get_webview_window("postit") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        let _ = window.emit("transfer-content", serde_json::json!({
+            "content": content,
+            "folder": folder
+        }));
+        Ok(true)
+    } else {
+        Err("Postit window not found".to_string())
+    }
+}
+
 fn show_settings(app: &AppHandle) {
+    // Track which sticked window was focused before opening settings
+    {
+        let state = app.state::<AppState>();
+        let mut prev_window = state.previous_focused_window.lock().unwrap();
+        *prev_window = None;
+
+        // Find the focused sticked window
+        for (label, window) in app.webview_windows() {
+            if label.starts_with("sticked-") {
+                if window.is_focused().unwrap_or(false) {
+                    *prev_window = Some(label.clone());
+                    break;
+                }
+            }
+        }
+    }
+
+    // Lower sticked windows temporarily so settings can be on top
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("sticked-") {
+            let _ = window.set_always_on_top(false);
+        }
+    }
+
     // Check if window already exists
     if let Some(window) = app.get_webview_window("settings") {
         let _ = window.show();
@@ -387,10 +444,21 @@ fn show_settings(app: &AppHandle) {
         let app_handle = app.clone();
         win.on_window_event(move |event| {
             if let tauri::WindowEvent::Destroyed = event {
-                // Re-show postit when settings closes
-                if let Some(postit) = app_handle.get_webview_window("postit") {
-                    let _ = postit.show();
-                    let _ = postit.set_focus();
+                // Restore always_on_top for sticked windows
+                for (label, window) in app_handle.webview_windows() {
+                    if label.starts_with("sticked-") {
+                        let _ = window.set_always_on_top(true);
+                    }
+                }
+
+                // Restore focus to the previously focused sticked window
+                let state = app_handle.state::<AppState>();
+                let prev_window = state.previous_focused_window.lock().unwrap();
+                if let Some(label) = prev_window.as_ref() {
+                    if let Some(window) = app_handle.get_webview_window(label) {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
                 }
             }
         });
@@ -404,6 +472,13 @@ fn open_settings(app: AppHandle) -> Result<bool, String> {
 }
 
 fn show_folder_selector(app: &AppHandle) {
+    // Temporarily lower sticked windows so folder selector can be on top
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("sticked-") {
+            let _ = window.set_always_on_top(false);
+        }
+    }
+
     // Check if window already exists
     if let Some(window) = app.get_webview_window("folder-selector") {
         let _ = window.show();
@@ -430,17 +505,36 @@ fn show_folder_selector(app: &AppHandle) {
 
     if let Ok(win) = window {
         let w = win.clone();
+        let app_handle = app.clone();
         win.on_window_event(move |event| {
-            if let tauri::WindowEvent::Focused(focused) = event {
-                if !focused {
-                    let _ = w.close();
+            match event {
+                tauri::WindowEvent::Focused(focused) => {
+                    if !focused {
+                        let _ = w.close();
+                    }
                 }
+                tauri::WindowEvent::Destroyed => {
+                    // Restore always_on_top for sticked windows
+                    for (label, window) in app_handle.webview_windows() {
+                        if label.starts_with("sticked-") {
+                            let _ = window.set_always_on_top(true);
+                        }
+                    }
+                }
+                _ => {}
             }
         });
     }
 }
 
 fn show_manager(app: &AppHandle) {
+    // Temporarily lower sticked windows so manager can be on top
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("sticked-") {
+            let _ = window.set_always_on_top(false);
+        }
+    }
+
     // Check if window already exists
     if let Some(window) = app.get_webview_window("manager") {
         let _ = window.show();
@@ -476,6 +570,12 @@ fn show_manager(app: &AppHandle) {
                     }
                 }
                 tauri::WindowEvent::Destroyed => {
+                    // Restore always_on_top for sticked windows
+                    for (label, window) in app_handle.webview_windows() {
+                        if label.starts_with("sticked-") {
+                            let _ = window.set_always_on_top(true);
+                        }
+                    }
                     // Re-show postit when manager closes
                     if let Some(postit) = app_handle.get_webview_window("postit") {
                         let _ = postit.show();
@@ -666,6 +766,7 @@ fn main() {
         .manage(AppState {
             shortcut_to_folder: Mutex::new(HashMap::new()),
             viewing_notes: Mutex::new(HashMap::new()),
+            previous_focused_window: Mutex::new(None),
         })
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -689,6 +790,12 @@ fn main() {
                     // Check for manager shortcut (Cmd+Shift+M)
                     if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyM) {
                         show_manager(app);
+                        return;
+                    }
+
+                    // Check for settings shortcut (Cmd+Shift+Comma)
+                    if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::Comma) {
+                        show_settings(app);
                         return;
                     }
 
@@ -746,6 +853,7 @@ fn main() {
             open_note_for_viewing,
             get_viewing_note_content,
             open_settings,
+            transfer_to_capture,
         ])
         .setup(|app| {
             // Load settings and register shortcuts

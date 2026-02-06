@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import Editor, { type EditorRef } from "./Editor";
 import FolderPicker from "./FolderPicker";
@@ -58,6 +59,25 @@ export default function PostIt({
   useEffect(() => {
     setTimeout(() => editorRef.current?.focus(), 100);
   }, [folder]);
+
+  // Listen for content transfer from unpinned sticked notes (only in capture mode)
+  useEffect(() => {
+    if (isSticked) return; // Only main capture window listens
+
+    const unlisten = listen<{ content: string; folder: string }>("transfer-content", (event) => {
+      setContent(event.payload.content);
+      onFolderChange(event.payload.folder);
+      // Focus editor and move cursor to end
+      setTimeout(() => {
+        editorRef.current?.focus();
+        editorRef.current?.moveToEnd?.();
+      }, 100);
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [isSticked, onFolderChange]);
 
   // Handle escape to save and close (for capture mode and unpinned sticked notes)
   useEffect(() => {
@@ -119,18 +139,28 @@ export default function PostIt({
     if (!currentStickedId && !isViewing) return;
 
     if (isPinned) {
-      // Unpin: remove from persistence but keep window open
+      // Unpin: transfer content to main capture window and close this one
       try {
+        const idToClose = currentStickedId || stickedId;
+
+        // Remove from persistence
         if (currentStickedId) {
           await invoke("close_sticked_note", {
             id: currentStickedId,
             saveToFolder: false,
           });
         }
-        setIsPinned(false);
+
+        // Transfer content to main postit window
+        await invoke("transfer_to_capture", { content, folder });
+
+        // Close this sticked window
+        if (idToClose) {
+          await invoke("close_sticked_window", { id: idToClose });
+        }
       } catch (error) {
-        // May fail for viewing notes that were never pinned - that's ok
         console.error("Failed to unpin note:", error);
+        // Fallback: just keep window open as unpinned
         setIsPinned(false);
       }
     } else {
@@ -432,8 +462,13 @@ export default function PostIt({
               </button>
               <button
                 onClick={handleSaveAndCloseSticked}
-                className="px-2.5 py-1 rounded-md bg-coral text-white hover:bg-coral/90 transition-colors text-[10px] font-medium"
-                title="Save to folder and close"
+                disabled={!content.trim()}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                  content.trim()
+                    ? "bg-coral text-white hover:bg-coral/90"
+                    : "bg-line text-stone cursor-not-allowed"
+                }`}
+                title={content.trim() ? "Save to folder and close" : "Nothing to save"}
               >
                 Save
               </button>
@@ -492,9 +527,9 @@ export default function PostIt({
               <span className="text-coral">✦</span> markdown supported
             </span>
           )}
-          {onOpenSettings && !isSticked && (
+          {(onOpenSettings || (isSticked && isPinned)) && (
             <button
-              onClick={onOpenSettings}
+              onClick={() => isSticked ? invoke("open_settings") : onOpenSettings?.()}
               className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
               title="Settings (⌘⇧,)"
             >

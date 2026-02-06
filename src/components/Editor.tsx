@@ -17,6 +17,7 @@ export interface EditorRef {
   focus: () => void;
   clear: () => void;
   setContent: (content: string) => void;
+  moveToEnd: () => void;
 }
 
 const Editor = forwardRef<EditorRef, EditorProps>(
@@ -55,6 +56,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       focus: () => editor?.commands.focus(),
       clear: () => editor?.commands.clearContent(),
       setContent: (content: string) => editor?.commands.setContent(content),
+      moveToEnd: () => editor?.commands.focus("end"),
     }));
 
     return <EditorContent editor={editor} className="h-full" />;
