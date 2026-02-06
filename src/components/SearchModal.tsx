@@ -1,15 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-
-interface SearchResult {
-  path: string;
-  filename: string;
-  folder: string;
-  content: string;
-  snippet: string;
-  created: string;
-}
+import type { SearchResult } from "@/types";
 
 export default function SearchModal() {
   const [query, setQuery] = useState("");
@@ -136,8 +128,9 @@ export default function SearchModal() {
 
   const handleSelectResult = useCallback(async (result: SearchResult) => {
     try {
+      const content = await invoke<string>("get_note_content", { path: result.path });
       await invoke("open_note_for_viewing", {
-        content: result.content,
+        content,
         folder: result.folder,
         path: result.path,
       });
@@ -208,11 +201,11 @@ export default function SearchModal() {
   const highlightSnippet = (snippet: string, searchQuery: string) => {
     if (!searchQuery.trim()) return snippet;
 
-    const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    const parts = snippet.split(regex);
+    const escaped = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = snippet.split(new RegExp(`(${escaped})`, 'gi'));
 
     return parts.map((part, i) =>
-      regex.test(part) ? (
+      i % 2 === 1 ? (
         <span key={i} className="bg-coral/30 text-coral font-medium">{part}</span>
       ) : (
         <span key={i}>{part}</span>

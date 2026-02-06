@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import PostIt from "./components/PostIt";
@@ -6,17 +6,7 @@ import FolderSelectorModal from "./components/FolderSelectorModal";
 import SettingsModal from "./components/SettingsModal";
 import SearchModal from "./components/SearchModal";
 import ManagerModal from "./components/ManagerModal";
-
-interface StickedNote {
-  id: string;
-  content: string;
-  folder: string;
-  position: [number, number] | null;
-  size: [number, number] | null;
-  created_at: string;
-  updated_at: string;
-  originalPath?: string; // For viewing notes - the original file path
-}
+import type { StickedNote } from "@/types";
 
 type WindowType = "postit" | "folder-selector" | "sticked" | "settings" | "search" | "manager";
 
@@ -54,6 +44,8 @@ function getWindowInfo(): { type: WindowType; id?: string; viewing?: boolean } {
 export default function App() {
   const [currentFolder, setCurrentFolder] = useState("Inbox");
   const [stickedNote, setStickedNote] = useState<StickedNote | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const contentRef = useRef("");
   const windowInfo = getWindowInfo();
 
   // Load sticked note data if this is a sticked window
@@ -81,6 +73,7 @@ export default function App() {
           setCurrentFolder(data.folder);
         } catch (error) {
           console.error("Failed to load viewing note content:", error);
+          setLoadError(String(error));
         }
       };
 
@@ -96,8 +89,24 @@ export default function App() {
       })
       .catch((error) => {
         console.error("Failed to load sticked note:", error);
+        setLoadError(String(error));
       });
   }, [windowInfo.type, windowInfo.id, windowInfo.viewing]);
+
+  // Hide postit on blur only when editor is empty
+  useEffect(() => {
+    if (windowInfo.type !== "postit") return;
+
+    const unlisten = listen("postit-blur", async () => {
+      if (!contentRef.current.trim()) {
+        await invoke("hide_window");
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [windowInfo.type]);
 
   // Listen for shortcut triggers from Rust backend
   useEffect(() => {
@@ -180,6 +189,10 @@ export default function App() {
     setCurrentFolder(folder);
   }, []);
 
+  const handleContentChange = useCallback((content: string) => {
+    contentRef.current = content;
+  }, []);
+
   // Render folder selector if this is that window type
   if (windowInfo.type === "folder-selector") {
     return <FolderSelectorModal />;
@@ -202,6 +215,24 @@ export default function App() {
 
   // Render sticked note if this is a sticked window
   if (windowInfo.type === "sticked") {
+    if (loadError) {
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center bg-bg rounded-[14px] gap-3 p-6">
+          <div className="text-coral text-sm font-medium">Failed to load note</div>
+          <div className="text-stone text-xs text-center max-w-[280px]">{loadError}</div>
+          <button
+            onClick={async () => {
+              const { getCurrentWindow } = await import("@tauri-apps/api/window");
+              await getCurrentWindow().close();
+            }}
+            className="mt-2 px-4 py-2 text-xs bg-line hover:bg-line/70 text-ink rounded-lg transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      );
+    }
+
     if (!stickedNote) {
       return (
         <div className="w-full h-full flex items-center justify-center bg-bg rounded-[14px]">
@@ -241,6 +272,7 @@ export default function App() {
       onClose={handleClose}
       onFolderChange={handleFolderChange}
       onOpenSettings={handleOpenSettings}
+      onContentChange={handleContentChange}
     />
   );
 }

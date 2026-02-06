@@ -1,3 +1,4 @@
+use super::versioning;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -55,20 +56,19 @@ fn get_settings_path() -> Result<PathBuf, String> {
 fn load_settings_from_file() -> Result<StikSettings, String> {
     let path = get_settings_path()?;
 
-    if !path.exists() {
-        let default_settings = StikSettings::default();
-        save_settings_to_file(&default_settings)?;
-        return Ok(default_settings);
+    match versioning::load_versioned::<StikSettings>(&path)? {
+        Some(settings) => Ok(settings),
+        None => {
+            let default_settings = StikSettings::default();
+            save_settings_to_file(&default_settings)?;
+            Ok(default_settings)
+        }
     }
-
-    let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&content).map_err(|e| e.to_string())
 }
 
 fn save_settings_to_file(settings: &StikSettings) -> Result<(), String> {
     let path = get_settings_path()?;
-    let content = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
-    fs::write(&path, content).map_err(|e| e.to_string())
+    versioning::save_versioned(&path, settings)
 }
 
 #[tauri::command]
@@ -78,39 +78,6 @@ pub fn get_settings() -> Result<StikSettings, String> {
 
 #[tauri::command]
 pub fn save_settings(settings: StikSettings) -> Result<bool, String> {
-    save_settings_to_file(&settings)?;
-    Ok(true)
-}
-
-#[tauri::command]
-pub fn get_shortcut_mappings() -> Result<Vec<ShortcutMapping>, String> {
-    let settings = load_settings_from_file()?;
-    Ok(settings.shortcut_mappings)
-}
-
-#[tauri::command]
-pub fn save_shortcut_mapping(index: usize, mapping: ShortcutMapping) -> Result<bool, String> {
-    let mut settings = load_settings_from_file()?;
-
-    if index >= settings.shortcut_mappings.len() {
-        settings.shortcut_mappings.push(mapping);
-    } else {
-        settings.shortcut_mappings[index] = mapping;
-    }
-
-    save_settings_to_file(&settings)?;
-    Ok(true)
-}
-
-#[tauri::command]
-pub fn set_setting(key: String, value: String) -> Result<bool, String> {
-    let mut settings = load_settings_from_file()?;
-
-    match key.as_str() {
-        "default_folder" => settings.default_folder = value,
-        _ => return Err(format!("Unknown setting key: {}", key)),
-    }
-
     save_settings_to_file(&settings)?;
     Ok(true)
 }

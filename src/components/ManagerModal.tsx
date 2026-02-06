@@ -1,23 +1,38 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-
-interface FolderStats {
-  name: string;
-  note_count: number;
-}
-
-interface NoteInfo {
-  path: string;
-  filename: string;
-  folder: string;
-  content: string;
-  created: string;
-}
+import type { FolderStats, NoteInfo } from "@/types";
 
 type SelectedItem =
   | { type: "folder"; name: string }
   | { type: "note"; folder: string; note: NoteInfo };
+
+function Toast({ message, onDone }: { message: string; onDone: () => void }) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setIsVisible(true));
+    const timer = setTimeout(() => {
+      setIsVisible(false);
+      setTimeout(onDone, 200);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [onDone]);
+
+  return (
+    <div
+      className={`
+        fixed bottom-6 left-1/2 -translate-x-1/2 z-[200]
+        px-4 py-2.5 rounded-xl shadow-stik
+        text-[13px] font-medium bg-ink text-white
+        transition-all duration-200 ease-out
+        ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
+      `}
+    >
+      {message}
+    </div>
+  );
+}
 
 export default function ManagerModal() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,6 +47,7 @@ export default function ManagerModal() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
 
   const loadFolderStats = useCallback(async () => {
     try {
@@ -112,8 +128,10 @@ export default function ManagerModal() {
     try {
       if (item.type === "folder") {
         await invoke("delete_folder", { name: item.name });
+        setSelectedItem(null);
       } else {
         await invoke("delete_note", { path: item.note.path });
+        setSelectedItem({ type: "folder", name: item.folder });
         // Reload notes for this folder
         const notes = await invoke<NoteInfo[]>("list_notes", { folder: item.folder });
         setFolderNotes((prev) => new Map(prev).set(item.folder, notes));
@@ -148,8 +166,9 @@ export default function ManagerModal() {
 
   const openNote = async (note: NoteInfo) => {
     try {
+      const content = await invoke<string>("get_note_content", { path: note.path });
       await invoke("open_note_for_viewing", {
-        content: note.content,
+        content,
         folder: note.folder,
         path: note.path,
       });
@@ -300,8 +319,8 @@ export default function ManagerModal() {
         case "Backspace":
           e.preventDefault();
           if (selectedItem) {
-            // Can't delete Inbox folder
             if (selectedItem.type === "folder" && selectedItem.name === "Inbox") {
+              setToast("Inbox is the default folder and can't be deleted");
               return;
             }
             setConfirmDelete(selectedItem);
@@ -645,6 +664,11 @@ export default function ManagerModal() {
           </span>
         </div>
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <Toast message={toast} onDone={() => setToast(null)} />
+      )}
     </div>
   );
 }

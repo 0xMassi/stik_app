@@ -1,3 +1,4 @@
+use super::versioning;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -28,19 +29,15 @@ fn get_sticked_notes_path() -> Result<PathBuf, String> {
 
 fn load_sticked_notes() -> Result<StickedNotesStore, String> {
     let path = get_sticked_notes_path()?;
-
-    if !path.exists() {
-        return Ok(StickedNotesStore::default());
+    match versioning::load_versioned::<StickedNotesStore>(&path)? {
+        Some(store) => Ok(store),
+        None => Ok(StickedNotesStore::default()),
     }
-
-    let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&content).map_err(|e| e.to_string())
 }
 
 fn save_sticked_notes(store: &StickedNotesStore) -> Result<(), String> {
     let path = get_sticked_notes_path()?;
-    let content = serde_json::to_string_pretty(store).map_err(|e| e.to_string())?;
-    fs::write(&path, content).map_err(|e| e.to_string())
+    versioning::save_versioned(&path, store)
 }
 
 #[tauri::command]
@@ -124,8 +121,8 @@ pub fn close_sticked_note(id: String, save_to_folder: bool) -> Result<bool, Stri
 
     // Save content to folder if requested and has content
     if save_to_folder && !note.content.trim().is_empty() {
-        use crate::commands::notes::save_note;
-        save_note(note.folder, note.content)?;
+        use crate::commands::notes::save_note_inner;
+        save_note_inner(note.folder, note.content)?;
     }
 
     save_sticked_notes(&store)?;

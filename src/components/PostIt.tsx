@@ -4,16 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import Editor, { type EditorRef } from "./Editor";
 import FolderPicker from "./FolderPicker";
-
-interface StickedNote {
-  id: string;
-  content: string;
-  folder: string;
-  position: [number, number] | null;
-  size: [number, number] | null;
-  created_at: string;
-  updated_at: string;
-}
+import type { StickedNote } from "@/types";
 
 interface PostItProps {
   folder: string;
@@ -21,6 +12,7 @@ interface PostItProps {
   onClose: () => void;
   onFolderChange: (folder: string) => void;
   onOpenSettings?: () => void;
+  onContentChange?: (content: string) => void;
   isSticked?: boolean;
   stickedId?: string;
   initialContent?: string;
@@ -34,6 +26,7 @@ export default function PostIt({
   onClose,
   onFolderChange,
   onOpenSettings,
+  onContentChange,
   isSticked = false,
   stickedId,
   initialContent = "",
@@ -109,13 +102,14 @@ export default function PostIt({
       setTimeout(async () => {
         setIsSaving(false);
         setContent("");
+        onContentChange?.("");
         editorRef.current?.clear();
         await onClose();
       }, 600);
     } else {
       await onClose();
     }
-  }, [content, onSave, onClose]);
+  }, [content, onSave, onClose, onContentChange]);
 
   // Pin from capture mode
   const handlePin = useCallback(async () => {
@@ -268,6 +262,7 @@ export default function PostIt({
 
   const handleContentChange = useCallback((newContent: string) => {
     setContent(newContent);
+    onContentChange?.(newContent);
 
     // Check for folder picker trigger (only in capture mode)
     if (!isSticked) {
@@ -307,7 +302,6 @@ export default function PostIt({
 
   // Save position when dragging ends (for sticked notes that are pinned)
   useEffect(() => {
-    // Only save position for pinned notes with a valid ID in storage
     if (!isSticked || !currentStickedId || !isPinned) return;
 
     const savePosition = async () => {
@@ -317,7 +311,7 @@ export default function PostIt({
         const size = await window.outerSize();
         await invoke("update_sticked_note", {
           id: currentStickedId,
-          content,
+          content: null,
           folder: null,
           position: [position.x, position.y],
           size: [size.width, size.height],
@@ -338,6 +332,27 @@ export default function PostIt({
       window.removeEventListener("mouseup", handleMove);
       clearTimeout(timeout);
     };
+  }, [isSticked, currentStickedId, isPinned]);
+
+  // Autosave content for pinned sticked notes (prevents content loss on quit)
+  useEffect(() => {
+    if (!isSticked || !currentStickedId || !isPinned) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        await invoke("update_sticked_note", {
+          id: currentStickedId,
+          content,
+          folder: null,
+          position: null,
+          size: null,
+        });
+      } catch (error) {
+        console.error("Failed to autosave content:", error);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, [isSticked, currentStickedId, isPinned, content]);
 
   // Show save animation

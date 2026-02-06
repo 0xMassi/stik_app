@@ -2,8 +2,10 @@ use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use tauri::State;
 
 use super::folders::get_stik_folder;
+use super::index::NoteIndex;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NoteSaved {
@@ -26,7 +28,6 @@ pub struct SearchResult {
     pub path: String,
     pub filename: String,
     pub folder: String,
-    pub content: String,
     pub snippet: String,
     pub created: String,
 }
@@ -54,16 +55,19 @@ fn generate_slug(content: &str) -> String {
     }
 }
 
-/// Generate timestamp-based filename
+/// Generate timestamp-based filename with UUID suffix to prevent collisions
 fn generate_filename(content: &str) -> String {
     let now = Local::now();
     let timestamp = now.format("%Y%m%d-%H%M%S").to_string();
     let slug = generate_slug(content);
-    format!("{}-{}.md", timestamp, slug)
+    let suffix = &uuid::Uuid::new_v4().to_string()[..4];
+    format!("{}-{}-{}.md", timestamp, slug, suffix)
 }
 
-#[tauri::command]
-pub fn save_note(folder: String, content: String) -> Result<NoteSaved, String> {
+/// Core save logic, callable from other Rust modules without Tauri State
+pub fn save_note_inner(folder: String, content: String) -> Result<NoteSaved, String> {
+    super::folders::validate_name(&folder)?;
+
     // Don't save empty notes
     if content.trim().is_empty() {
         return Ok(NoteSaved {
@@ -93,165 +97,69 @@ pub fn save_note(folder: String, content: String) -> Result<NoteSaved, String> {
 }
 
 #[tauri::command]
-pub fn list_notes(folder: Option<String>) -> Result<Vec<NoteInfo>, String> {
-    let stik_folder = get_stik_folder()?;
+pub fn save_note(folder: String, content: String, index: State<'_, NoteIndex>) -> Result<NoteSaved, String> {
+    let result = save_note_inner(folder, content)?;
 
-    let folders_to_scan: Vec<PathBuf> = if let Some(f) = folder {
-        vec![stik_folder.join(f)]
-    } else {
-        // Scan all folders
-        fs::read_dir(&stik_folder)
-            .map_err(|e| e.to_string())?
-            .filter_map(|entry| entry.ok())
-            .filter(|entry| entry.path().is_dir())
-            .map(|entry| entry.path())
-            .collect()
-    };
-
-    let mut notes = Vec::new();
-
-    for folder_path in folders_to_scan {
-        let folder_name = folder_path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string();
-
-        if let Ok(entries) = fs::read_dir(&folder_path) {
-            for entry in entries.filter_map(|e| e.ok()) {
-                let path = entry.path();
-                if path.extension().map_or(false, |ext| ext == "md") {
-                    if let Ok(content) = fs::read_to_string(&path) {
-                        let filename = path
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .to_string();
-
-                        // Extract date from filename (YYYYMMDD-HHMMSS)
-                        let created = filename
-                            .split('-')
-                            .take(2)
-                            .collect::<Vec<_>>()
-                            .join("-");
-
-                        notes.push(NoteInfo {
-                            path: path.to_string_lossy().to_string(),
-                            filename,
-                            folder: folder_name.clone(),
-                            content,
-                            created,
-                        });
-                    }
-                }
-            }
-        }
+    if !result.path.is_empty() {
+        index.add(&result.path, &result.folder);
     }
 
-    // Sort by created date, newest first
-    notes.sort_by(|a, b| b.created.cmp(&a.created));
-
-    Ok(notes)
-}
-
-/// Extract a snippet around the match
-fn extract_snippet(content: &str, query: &str, max_len: usize) -> String {
-    let content_lower = content.to_lowercase();
-    let query_lower = query.to_lowercase();
-
-    if let Some(pos) = content_lower.find(&query_lower) {
-        let start = pos.saturating_sub(30);
-        let end = (pos + query.len() + 50).min(content.len());
-
-        let mut snippet = String::new();
-        if start > 0 {
-            snippet.push_str("...");
-        }
-        snippet.push_str(&content[start..end].replace('\n', " "));
-        if end < content.len() {
-            snippet.push_str("...");
-        }
-        snippet
-    } else {
-        // Return first part of content as snippet
-        let end = max_len.min(content.len());
-        let mut snippet = content[..end].replace('\n', " ");
-        if end < content.len() {
-            snippet.push_str("...");
-        }
-        snippet
-    }
+    Ok(result)
 }
 
 #[tauri::command]
-pub fn search_notes(query: String) -> Result<Vec<SearchResult>, String> {
+pub fn list_notes(folder: Option<String>, index: State<'_, NoteIndex>) -> Result<Vec<NoteInfo>, String> {
+    let entries = index.list(folder.as_deref())?;
+
+    Ok(entries
+        .into_iter()
+        .map(|e| NoteInfo {
+            path: e.path,
+            filename: e.filename,
+            folder: e.folder,
+            content: e.preview,
+            created: e.created,
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn search_notes(query: String, index: State<'_, NoteIndex>) -> Result<Vec<SearchResult>, String> {
     if query.trim().is_empty() {
         return Ok(Vec::new());
     }
 
-    let stik_folder = get_stik_folder()?;
-    let query_lower = query.to_lowercase();
+    let results = index.search(&query)?;
 
-    let folders: Vec<PathBuf> = fs::read_dir(&stik_folder)
-        .map_err(|e| e.to_string())?
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().is_dir())
-        .map(|entry| entry.path())
-        .collect();
-
-    let mut results = Vec::new();
-
-    for folder_path in folders {
-        let folder_name = folder_path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string();
-
-        if let Ok(entries) = fs::read_dir(&folder_path) {
-            for entry in entries.filter_map(|e| e.ok()) {
-                let path = entry.path();
-                if path.extension().map_or(false, |ext| ext == "md") {
-                    if let Ok(content) = fs::read_to_string(&path) {
-                        // Case-insensitive search
-                        if content.to_lowercase().contains(&query_lower) {
-                            let filename = path
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string();
-
-                            let created = filename
-                                .split('-')
-                                .take(2)
-                                .collect::<Vec<_>>()
-                                .join("-");
-
-                            let snippet = extract_snippet(&content, &query, 100);
-
-                            results.push(SearchResult {
-                                path: path.to_string_lossy().to_string(),
-                                filename,
-                                folder: folder_name.clone(),
-                                content,
-                                snippet,
-                                created,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Sort by created date, newest first
-    results.sort_by(|a, b| b.created.cmp(&a.created));
-
-    Ok(results)
+    Ok(results
+        .into_iter()
+        .map(|(entry, snippet)| SearchResult {
+            path: entry.path,
+            filename: entry.filename,
+            folder: entry.folder,
+            snippet,
+            created: entry.created,
+        })
+        .collect())
 }
 
 #[tauri::command]
-pub fn update_note(path: String, content: String) -> Result<NoteSaved, String> {
+pub fn get_note_content(path: String) -> Result<String, String> {
+    let stik_folder = get_stik_folder()?;
+    let note_path = PathBuf::from(&path);
+
+    if !note_path.starts_with(&stik_folder) {
+        return Err("Invalid path: note must be within Stik folder".to_string());
+    }
+    if !note_path.exists() {
+        return Err("Note file does not exist".to_string());
+    }
+
+    fs::read_to_string(&note_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_note(path: String, content: String, index: State<'_, NoteIndex>) -> Result<NoteSaved, String> {
     let stik_folder = get_stik_folder()?;
     let note_path = PathBuf::from(&path);
 
@@ -268,6 +176,7 @@ pub fn update_note(path: String, content: String) -> Result<NoteSaved, String> {
     // Don't save empty notes - delete instead
     if content.trim().is_empty() {
         fs::remove_file(&note_path).map_err(|e| format!("Failed to delete note: {}", e))?;
+        index.remove(&path);
         return Ok(NoteSaved {
             path: String::new(),
             folder: String::new(),
@@ -290,6 +199,9 @@ pub fn update_note(path: String, content: String) -> Result<NoteSaved, String> {
     // Write updated content
     fs::write(&note_path, &content).map_err(|e| e.to_string())?;
 
+    // Re-index with updated content
+    index.add(&path, &folder);
+
     Ok(NoteSaved {
         path: note_path.to_string_lossy().to_string(),
         folder,
@@ -298,7 +210,7 @@ pub fn update_note(path: String, content: String) -> Result<NoteSaved, String> {
 }
 
 #[tauri::command]
-pub fn delete_note(path: String) -> Result<bool, String> {
+pub fn delete_note(path: String, index: State<'_, NoteIndex>) -> Result<bool, String> {
     let stik_folder = get_stik_folder()?;
     let note_path = PathBuf::from(&path);
 
@@ -314,12 +226,13 @@ pub fn delete_note(path: String) -> Result<bool, String> {
 
     // Delete the file
     fs::remove_file(&note_path).map_err(|e| format!("Failed to delete note: {}", e))?;
+    index.remove(&path);
 
     Ok(true)
 }
 
 #[tauri::command]
-pub fn move_note(path: String, target_folder: String) -> Result<NoteInfo, String> {
+pub fn move_note(path: String, target_folder: String, index: State<'_, NoteIndex>) -> Result<NoteInfo, String> {
     let stik_folder = get_stik_folder()?;
     let source_path = PathBuf::from(&path);
 
@@ -353,6 +266,9 @@ pub fn move_note(path: String, target_folder: String) -> Result<NoteInfo, String
     // Move the file
     fs::rename(&source_path, &target_path).map_err(|e| format!("Failed to move note: {}", e))?;
 
+    let new_path_str = target_path.to_string_lossy().to_string();
+    index.move_entry(&path, &new_path_str, &target_folder);
+
     // Extract created date from filename
     let created = filename
         .split('-')
@@ -361,7 +277,7 @@ pub fn move_note(path: String, target_folder: String) -> Result<NoteInfo, String
         .join("-");
 
     Ok(NoteInfo {
-        path: target_path.to_string_lossy().to_string(),
+        path: new_path_str,
         filename,
         folder: target_folder,
         content,

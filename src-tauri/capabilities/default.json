@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Default capabilities for Stik",
-  "windows": ["postit", "folder-selector", "settings", "search", "sticked-*"],
+  "windows": ["postit", "folder-selector", "settings", "search", "manager", "sticked-*"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
@@ -14,7 +14,19 @@
     "core:window:allow-outer-size",
     "core:event:default",
     "global-shortcut:default",
-    "store:default",
-    "fs:default"
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [
+        { "path": "$DOCUMENT/Stik/**" },
+        { "path": "$HOME/.stik/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [
+        { "path": "$DOCUMENT/Stik/**" },
+        { "path": "$HOME/.stik/**" }
+      ]
+    }
   ]
 }

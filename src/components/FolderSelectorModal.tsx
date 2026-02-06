@@ -2,17 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-
-interface ShortcutMapping {
-  shortcut: string;
-  folder: string;
-  enabled: boolean;
-}
-
-interface StikSettings {
-  shortcut_mappings: ShortcutMapping[];
-  default_folder: string;
-}
+import type { StikSettings } from "@/types";
 
 function formatShortcut(shortcut: string): string {
   return shortcut

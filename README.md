@@ -29,6 +29,13 @@ Stik lives in your menu bar, always ready. Hit a shortcut, capture your thought,
 | `Backspace` | Delete selected note |
 | `Cmd+M` | Move note to folder |
 
+### In Manager (`Cmd+Shift+M`)
+| Shortcut | Action |
+|----------|--------|
+| `Backspace` | Delete selected note/folder |
+| `Cmd+R` | Rename folder |
+| `Cmd+N` | Create new folder |
+
 ### In Folder Selector (`Cmd+Shift+F`)
 | Shortcut | Action |
 |----------|--------|
@@ -91,20 +98,31 @@ npm run tauri build
 
 ```
 stik/
-├── src/                    # React frontend
-│   ├── components/         # UI components
-│   │   ├── PostIt.tsx      # Main capture interface
-│   │   ├── SearchModal.tsx # Search interface
-│   │   ├── ManagerModal.tsx# File browser
-│   │   └── ...
-│   └── App.tsx             # App router
-├── src-tauri/              # Rust backend
+├── src/                        # React frontend
+│   ├── types/index.ts          # Shared TypeScript types
+│   ├── components/
+│   │   ├── PostIt.tsx           # Main capture interface
+│   │   ├── Editor.tsx           # Tiptap rich text editor
+│   │   ├── SearchModal.tsx      # Search interface
+│   │   ├── ManagerModal.tsx     # File browser
+│   │   ├── SettingsModal.tsx    # Settings window/dialog
+│   │   ├── SettingsContent.tsx  # Shared settings UI
+│   │   └── FolderSelectorModal.tsx
+│   └── App.tsx                  # Window type router
+├── src-tauri/                   # Rust backend
 │   ├── src/
-│   │   ├── main.rs         # App entry, shortcuts, windows
-│   │   └── commands/       # Tauri commands
-│   │       ├── notes.rs    # Note CRUD operations
-│   │       ├── folders.rs  # Folder management
-│   │       └── ...
+│   │   ├── main.rs              # App orchestrator (~120 lines)
+│   │   ├── state.rs             # AppState, ViewingNoteContent
+│   │   ├── shortcuts.rs         # Global shortcut management
+│   │   ├── windows.rs           # Window lifecycle
+│   │   ├── tray.rs              # System tray setup
+│   │   └── commands/
+│   │       ├── notes.rs         # Note CRUD + on-demand content
+│   │       ├── folders.rs       # Folder management + validation
+│   │       ├── settings.rs      # Settings read/write
+│   │       ├── sticked_notes.rs # Pinned note persistence
+│   │       ├── index.rs         # In-memory note index
+│   │       └── versioning.rs    # JSON versioning utilities
 │   └── Cargo.toml
 └── package.json
 ```
@@ -122,7 +140,7 @@ Notes are stored as markdown files in:
 └── Projects/
 ```
 
-Settings are stored in the Tauri app data directory.
+Settings and pinned notes are stored in `~/.stik/` as versioned JSON files.
 
 ## Development
 
@@ -172,9 +190,16 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 - **Backend**: Rust, Tauri 2.0
 - **Storage**: Local filesystem (markdown files)
 
+## Security
+
+- Restrictive Content Security Policy (CSP) on the webview
+- Filesystem access scoped to `~/Documents/Stik/` and `~/.stik/` only
+- Path traversal validation on all folder/note names
+- Inbox folder protected from deletion and rename
+
 ## Known Issues
 
-- First launch may require granting Accessibility permissions for global shortcuts
+- First launch requires granting Accessibility permissions for global shortcuts
 - Window may briefly flash on first shortcut press
 
 ## License

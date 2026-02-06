@@ -8,6 +8,17 @@ pub struct FolderStats {
     pub note_count: usize,
 }
 
+/// Validate a name for path traversal attacks
+pub fn validate_name(name: &str) -> Result<(), String> {
+    if name.contains("..") || name.contains('/') || name.contains('\\') || name.contains('\0') {
+        return Err("Invalid name: must not contain '..', '/', '\\', or null bytes".to_string());
+    }
+    if name.trim().is_empty() {
+        return Err("Name cannot be empty".to_string());
+    }
+    Ok(())
+}
+
 /// Get the Stik folder path (~/Documents/Stik)
 pub fn get_stik_folder() -> Result<PathBuf, String> {
     let home = dirs::document_dir().ok_or("Could not find Documents directory")?;
@@ -63,6 +74,7 @@ pub fn list_folders() -> Result<Vec<String>, String> {
 
 #[tauri::command]
 pub fn create_folder(name: String) -> Result<bool, String> {
+    validate_name(&name)?;
     let stik_folder = get_stik_folder()?;
     let folder_path = stik_folder.join(&name);
 
@@ -99,10 +111,7 @@ pub fn rename_folder(old_name: String, new_name: String) -> Result<bool, String>
         return Err("Cannot rename the Inbox folder".to_string());
     }
 
-    // Validate new name
-    if new_name.trim().is_empty() {
-        return Err("New folder name cannot be empty".to_string());
-    }
+    validate_name(&new_name)?;
 
     let stik_folder = get_stik_folder()?;
     let old_path = stik_folder.join(&old_name);
