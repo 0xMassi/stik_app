@@ -25,8 +25,9 @@
   <a href="https://github.com/0xMassi/stik_app/stargazers"><img src="https://img.shields.io/github/stars/0xMassi/stik_app?style=flat-square&color=E8705F&v=1" alt="Stars"></a>
 </p>
 
-<!-- TODO: Add a hero screenshot or GIF here showing the capture flow -->
-<!-- <p align="center"><img src=".github/assets/hero.gif" width="600" alt="Stik demo"></p> -->
+<p align="center">
+  <video src="https://github.com/0xMassi/stik_app/raw/main/.github/assets/hero.mp4" width="600" autoplay loop muted playsinline></video>
+</p>
 
 ---
 
