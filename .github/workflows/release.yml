@@ -101,3 +101,55 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --target x86_64-apple-darwin
+
+      - name: Update Homebrew tap
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          # Download DMGs and compute SHA256
+          gh release download "$GITHUB_REF_NAME" --pattern "*.dmg" --dir "$RUNNER_TEMP"
+          SHA_ARM=$(shasum -a 256 "$RUNNER_TEMP/Stik_${VERSION}_aarch64.dmg" | cut -d' ' -f1)
+          SHA_INTEL=$(shasum -a 256 "$RUNNER_TEMP/Stik_${VERSION}_x64.dmg" | cut -d' ' -f1)
+
+          # Generate updated cask formula
+          cat > "$RUNNER_TEMP/stik.rb" <<CASKEOF
+          cask "stik" do
+            arch arm: "aarch64", intel: "x64"
+
+            version "${VERSION}"
+            sha256 arm:   "${SHA_ARM}",
+                   intel: "${SHA_INTEL}"
+
+            url "https://github.com/0xMassi/stik_app/releases/download/v#{version}/Stik_#{version}_#{arch}.dmg"
+            name "Stik"
+            desc "Instant thought capture - one shortcut, post-it appears, type, close"
+            homepage "https://github.com/0xMassi/stik_app"
+
+            depends_on macos: ">= :catalina"
+
+            app "Stik.app"
+
+            zap trash: [
+              "~/Documents/Stik",
+              "~/.stik",
+              "~/Library/Caches/com.stik.app",
+              "~/Library/WebKit/com.stik.app",
+            ]
+          end
+          CASKEOF
+
+          # Base64-encode the cask content
+          CONTENT=$(base64 -i "$RUNNER_TEMP/stik.rb")
+
+          # Get current file SHA from GitHub API (needed for update)
+          FILE_SHA=$(gh api repos/0xMassi/homebrew-stik/contents/Casks/stik.rb --jq '.sha')
+
+          # Push updated cask to tap repo
+          gh api repos/0xMassi/homebrew-stik/contents/Casks/stik.rb \
+            --method PUT \
+            -f message="Update Stik to v${VERSION}" \
+            -f sha="$FILE_SHA" \
+            -f content="$CONTENT"
