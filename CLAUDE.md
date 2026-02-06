@@ -33,13 +33,17 @@ React components call Rust via `invoke("command_name", { args })` from `@tauri-a
 
 ### Multi-Window System
 
-The app uses a single `index.html` entry point with URL query parameters for routing. `App.tsx` reads `?window=<type>` and renders the appropriate component. Window types: `postit` (default/capture), `sticked`, `search`, `folder-selector`, `manager`, `settings`.
+The app uses a single `index.html` entry point with URL query parameters for routing. `App.tsx` reads `?window=<type>` and renders the appropriate component. Window types: `postit` (default/capture), `sticked`, `search`, `manager`, `settings`.
 
-Singleton windows (search, manager, settings, folder-selector) are reused if already open. Sticked note windows are multi-instance, identified by UUID in the URL (`?window=sticked&id=<uuid>`).
+Singleton windows (search, manager, settings) are reused if already open. Sticked note windows are multi-instance, identified by UUID in the URL (`?window=sticked&id=<uuid>`).
 
 ### Rust Backend (`src-tauri/src/`)
 
-- **`main.rs`** (~780 lines) — App setup, system tray, global shortcut registration, window creation/management. All window lifecycle logic lives here.
+- **`main.rs`** (~120 lines) — App orchestrator (setup, plugin/state registration, shortcut dispatch)
+- **`state.rs`** — AppState, ViewingNoteContent structs
+- **`shortcuts.rs`** — Global shortcut registration/management
+- **`windows.rs`** — All window lifecycle (show, create, close, restore)
+- **`tray.rs`** — System tray setup
 - **`commands/`** — Tauri IPC command handlers:
   - `notes.rs` — CRUD for markdown files (save, list, search, delete, move)
   - `folders.rs` — Folder management (list, create, delete, rename). "Inbox" folder is protected from deletion/rename.

@@ -222,11 +222,6 @@ body,
   }
 }
 
-/* Folder Selector Modal Styles */
-.folder-selector-item {
-  transition: background-color 0.15s ease;
-}
-
 /* Settings Modal Styles */
 .settings-overlay {
   animation: settings-fade-in 0.15s ease-out;

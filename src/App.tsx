@@ -2,21 +2,16 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import PostIt from "./components/PostIt";
-import FolderSelectorModal from "./components/FolderSelectorModal";
 import SettingsModal from "./components/SettingsModal";
 import SearchModal from "./components/SearchModal";
 import ManagerModal from "./components/ManagerModal";
 import type { StickedNote } from "@/types";
 
-type WindowType = "postit" | "folder-selector" | "sticked" | "settings" | "search" | "manager";
+type WindowType = "postit" | "sticked" | "settings" | "search" | "manager";
 
 function getWindowInfo(): { type: WindowType; id?: string; viewing?: boolean } {
   const params = new URLSearchParams(window.location.search);
   const windowType = params.get("window");
-
-  if (windowType === "folder-selector") {
-    return { type: "folder-selector" };
-  }
 
   if (windowType === "sticked") {
     return {
@@ -121,27 +116,6 @@ export default function App() {
     };
   }, [windowInfo.type]);
 
-  // Listen for folder selection from folder selector window
-  useEffect(() => {
-    if (windowInfo.type !== "postit") return;
-
-    const unlisten = listen<string>("folder-selected", async (event) => {
-      setCurrentFolder(event.payload);
-      try {
-        const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        const window = getCurrentWindow();
-        await window.show();
-        await window.setFocus();
-      } catch (error) {
-        console.error("Failed to show window:", error);
-      }
-    });
-
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [windowInfo.type]);
-
   // Listen for settings shortcut (Cmd+Shift+,)
   useEffect(() => {
     if (windowInfo.type !== "postit") return;
@@ -192,11 +166,6 @@ export default function App() {
   const handleContentChange = useCallback((content: string) => {
     contentRef.current = content;
   }, []);
-
-  // Render folder selector if this is that window type
-  if (windowInfo.type === "folder-selector") {
-    return <FolderSelectorModal />;
-  }
 
   // Render settings if this is that window type
   if (windowInfo.type === "settings") {

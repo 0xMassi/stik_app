@@ -18,7 +18,6 @@ Stik lives in your menu bar, always ready. Hit a shortcut, capture your thought,
 | Shortcut | Action |
 |----------|--------|
 | `Cmd+Shift+S` | New note (default folder) |
-| `Cmd+Shift+F` | Select folder, then capture |
 | `Cmd+Shift+P` | Search all notes |
 | `Cmd+Shift+M` | Manage notes & folders |
 | `Cmd+Shift+,` | Open settings |
@@ -35,12 +34,6 @@ Stik lives in your menu bar, always ready. Hit a shortcut, capture your thought,
 | `Backspace` | Delete selected note/folder |
 | `Cmd+R` | Rename folder |
 | `Cmd+N` | Create new folder |
-
-### In Folder Selector (`Cmd+Shift+F`)
-| Shortcut | Action |
-|----------|--------|
-| `Backspace` | Delete selected folder |
-| `Cmd+R` | Rename folder |
 
 ## Installation
 
@@ -106,8 +99,7 @@ stik/
 │   │   ├── SearchModal.tsx      # Search interface
 │   │   ├── ManagerModal.tsx     # File browser
 │   │   ├── SettingsModal.tsx    # Settings window/dialog
-│   │   ├── SettingsContent.tsx  # Shared settings UI
-│   │   └── FolderSelectorModal.tsx
+│   │   └── SettingsContent.tsx  # Shared settings UI
 │   └── App.tsx                  # Window type router
 ├── src-tauri/                   # Rust backend
 │   ├── src/

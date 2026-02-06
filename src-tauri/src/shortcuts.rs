@@ -212,10 +212,6 @@ pub fn register_shortcuts_from_settings(app: &AppHandle, settings: &StikSettings
     }
 
     // Always register built-in shortcuts
-    let folder_selector_shortcut =
-        Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyF);
-    let _ = app.global_shortcut().register(folder_selector_shortcut);
-
     let search_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyP);
     let _ = app.global_shortcut().register(search_shortcut);
 

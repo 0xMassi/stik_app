@@ -4,7 +4,6 @@ import type { ShortcutMapping, StikSettings } from "@/types";
 
 // Reserved shortcuts that Stik uses internally
 export const RESERVED_SHORTCUTS = [
-  "CommandOrControl+Shift+F", // Folder selector
   "CommandOrControl+Shift+P", // Search
   "CommandOrControl+Shift+M", // Manager
   "CommandOrControl+Shift+Comma", // Settings

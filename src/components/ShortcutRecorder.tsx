@@ -93,7 +93,6 @@ function keyEventToShortcut(e: KeyboardEvent): string | null {
 
 // Reserved system shortcuts that cannot be overridden
 const SYSTEM_RESERVED = [
-  "CommandOrControl+Shift+F", // Folder selector
   "CommandOrControl+Shift+P", // Search
   "CommandOrControl+Shift+M", // Manager
   "CommandOrControl+Shift+Comma", // Settings

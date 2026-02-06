@@ -170,58 +170,6 @@ pub fn show_settings(app: &AppHandle) {
     }
 }
 
-pub fn show_folder_selector(app: &AppHandle) {
-    for (label, window) in app.webview_windows() {
-        if label.starts_with("sticked-") {
-            let _ = window.set_always_on_top(false);
-        }
-    }
-
-    if let Some(window) = app.get_webview_window("folder-selector") {
-        let _ = window.show();
-        let _ = window.set_focus();
-        let _ = window.emit("folder-selector-opened", ());
-        return;
-    }
-
-    let window = WebviewWindowBuilder::new(
-        app,
-        "folder-selector",
-        WebviewUrl::App("index.html?window=folder-selector".into()),
-    )
-    .title("Select Folder")
-    .inner_size(400.0, 350.0)
-    .resizable(false)
-    .decorations(false)
-    .transparent(true)
-    .always_on_top(true)
-    .skip_taskbar(true)
-    .center()
-    .build();
-
-    if let Ok(win) = window {
-        let w = win.clone();
-        let app_handle = app.clone();
-        win.on_window_event(move |event| {
-            match event {
-                tauri::WindowEvent::Focused(focused) => {
-                    if !focused {
-                        let _ = w.close();
-                    }
-                }
-                tauri::WindowEvent::Destroyed => {
-                    for (label, window) in app_handle.webview_windows() {
-                        if label.starts_with("sticked-") {
-                            let _ = window.set_always_on_top(true);
-                        }
-                    }
-                }
-                _ => {}
-            }
-        });
-    }
-}
-
 pub fn show_manager(app: &AppHandle) {
     {
         let state = app.state::<AppState>();

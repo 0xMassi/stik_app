@@ -13,7 +13,7 @@ use shortcuts::shortcut_to_string;
 use state::AppState;
 use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{Code, Modifiers, ShortcutState};
-use windows::{show_folder_selector, show_manager, show_postit_with_folder, show_search, show_settings};
+use windows::{show_manager, show_postit_with_folder, show_search, show_settings};
 
 fn main() {
     tauri::Builder::default()
@@ -26,10 +26,6 @@ fn main() {
                         return;
                     }
 
-                    if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyF) {
-                        show_folder_selector(app);
-                        return;
-                    }
                     if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyP) {
                         show_search(app);
                         return;

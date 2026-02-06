@@ -33,19 +33,6 @@
         "skipTaskbar": true,
         "visible": false,
         "center": true
-      },
-      {
-        "label": "folder-selector",
-        "title": "Select Folder",
-        "width": 400,
-        "height": 350,
-        "resizable": false,
-        "decorations": false,
-        "transparent": true,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "visible": false,
-        "center": true
       }
     ],
     "security": {
