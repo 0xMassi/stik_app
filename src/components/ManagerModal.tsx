@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -20,6 +20,7 @@ type SelectedItem =
   | { type: "note"; folder: string; note: NoteInfo };
 
 export default function ManagerModal() {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [folderStats, setFolderStats] = useState<FolderStats[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [folderNotes, setFolderNotes] = useState<Map<string, NoteInfo[]>>(new Map());
@@ -156,17 +157,45 @@ export default function ManagerModal() {
     }
   };
 
+  // Focus container on mount
+  useEffect(() => {
+    containerRef.current?.focus();
+  }, []);
+
+  // Close the manager window
+  const closeManager = useCallback(async () => {
+    try {
+      // Try closing via Tauri API
+      await getCurrentWindow().close();
+    } catch {
+      // Fallback: hide the window
+      await invoke("hide_window");
+    }
+  }, []);
+
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
+      // Handle ESC key
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (confirmDelete) {
+          setConfirmDelete(null);
+        } else if (isRenaming) {
+          setIsRenaming(false);
+          setRenameValue("");
+        } else {
+          closeManager();
+        }
+        return;
+      }
+
       // Handle confirmation dialog
       if (confirmDelete) {
         if (e.key === "Enter") {
           e.preventDefault();
           handleDelete(confirmDelete);
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          setConfirmDelete(null);
         }
         return;
       }
@@ -178,10 +207,6 @@ export default function ManagerModal() {
           if (selectedItem?.type === "folder") {
             handleRename(selectedItem.name, renameValue);
           }
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          setIsRenaming(false);
-          setRenameValue("");
         }
         return;
       }
@@ -190,10 +215,6 @@ export default function ManagerModal() {
       const currentIndex = findItemIndex(visibleItems, selectedItem);
 
       switch (e.key) {
-        case "Escape":
-          e.preventDefault();
-          await getCurrentWindow().close();
-          break;
 
         case "ArrowDown":
           e.preventDefault();
@@ -258,7 +279,7 @@ export default function ManagerModal() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedItem, expandedFolders, folderStats, folderNotes, confirmDelete, isRenaming, renameValue]);
+  }, [selectedItem, expandedFolders, folderStats, folderNotes, confirmDelete, isRenaming, renameValue, closeManager]);
 
   const startDrag = useCallback(async (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("input") || (e.target as HTMLElement).closest("button")) {
@@ -327,16 +348,41 @@ export default function ManagerModal() {
   }
 
   return (
-    <div className="w-full h-full bg-bg rounded-[14px] flex flex-col overflow-hidden">
+    <div
+      ref={containerRef}
+      className="w-full h-full bg-bg rounded-[14px] flex flex-col overflow-hidden outline-none"
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          if (confirmDelete) {
+            setConfirmDelete(null);
+          } else if (isRenaming) {
+            setIsRenaming(false);
+            setRenameValue("");
+          } else {
+            closeManager();
+          }
+        }
+      }}
+    >
       {/* Header */}
       <div
         onMouseDown={startDrag}
-        className="px-4 py-3 border-b border-line drag-handle"
+        className="px-4 py-3 border-b border-line drag-handle flex items-center justify-between"
       >
         <div className="flex items-center gap-2">
           <span className="text-coral">📁</span>
           <h2 className="text-sm font-semibold text-ink">Manage Notes</h2>
         </div>
+        <button
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => closeManager()}
+          className="px-2.5 py-1.5 bg-coral-light text-coral rounded-lg text-[10px] font-semibold hover:bg-coral hover:text-white transition-colors cursor-pointer"
+          title="Close (Esc)"
+        >
+          esc
+        </button>
       </div>
 
       {/* Content */}
@@ -469,9 +515,9 @@ export default function ManagerModal() {
       {/* Footer */}
       <div
         onMouseDown={startDrag}
-        className="px-4 py-2 border-t border-line flex items-center justify-between text-[10px] text-stone drag-handle"
+        className="px-4 py-2 border-t border-line flex items-center justify-center text-[10px] text-stone drag-handle"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px] font-mono">↑↓</kbd>{" "}
             navigate
@@ -485,10 +531,6 @@ export default function ManagerModal() {
             delete
           </span>
         </div>
-        <span>
-          <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px] font-mono">esc</kbd>{" "}
-          close
-        </span>
       </div>
     </div>
   );

@@ -481,6 +481,14 @@ export default function PostIt({
                 Save
               </button>
             </div>
+          ) : isSticked ? (
+            <button
+              onClick={handleSaveAndCloseSticked}
+              className="px-2.5 py-1.5 bg-coral-light text-coral rounded-lg text-[10px] font-semibold hover:bg-coral hover:text-white transition-colors cursor-pointer"
+              title="Save and close (Esc)"
+            >
+              esc
+            </button>
           ) : (
             <button
               onClick={handleSaveAndClose}
@@ -526,7 +534,7 @@ export default function PostIt({
           <span className="text-coral">{folder}</span>/
         </span>
         <div className="flex items-center gap-2">
-          {isSticked && !isPinned ? (
+          {isSticked && !isPinned && !isViewing ? (
             <span className="text-stone">
               <span className="text-amber-500">○</span> unpinned
             </span>
@@ -535,7 +543,7 @@ export default function PostIt({
               <span className="text-coral">✦</span> markdown supported
             </span>
           )}
-          {(onOpenSettings || (isSticked && isPinned)) && (
+          {(onOpenSettings || isSticked) && (
             <button
               onClick={() => isSticked ? invoke("open_settings") : onOpenSettings?.()}
               className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"

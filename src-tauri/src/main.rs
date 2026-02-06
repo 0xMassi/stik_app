@@ -26,6 +26,7 @@ struct AppState {
     shortcut_to_folder: Mutex<HashMap<String, String>>,
     viewing_notes: Mutex<HashMap<String, ViewingNoteContent>>,
     previous_focused_window: Mutex<Option<String>>,
+    postit_was_visible: Mutex<bool>,
 }
 
 #[tauri::command]
@@ -34,6 +35,16 @@ fn hide_window(window: tauri::Window) {
 }
 
 fn show_search(app: &AppHandle) {
+    // Track if postit was visible before opening search
+    {
+        let state = app.state::<AppState>();
+        let mut postit_visible = state.postit_was_visible.lock().unwrap();
+        *postit_visible = app
+            .get_webview_window("postit")
+            .map(|w| w.is_visible().unwrap_or(false))
+            .unwrap_or(false);
+    }
+
     // Temporarily lower sticked windows so search can be on top
     for (label, window) in app.webview_windows() {
         if label.starts_with("sticked-") {
@@ -82,10 +93,22 @@ fn show_search(app: &AppHandle) {
                             let _ = window.set_always_on_top(true);
                         }
                     }
-                    // Re-show postit when search closes
-                    if let Some(postit) = app_handle.get_webview_window("postit") {
-                        let _ = postit.show();
-                        let _ = postit.set_focus();
+
+                    // Only show postit if it was visible before AND no viewing notes are open
+                    let state = app_handle.state::<AppState>();
+                    let postit_visible = *state.postit_was_visible.lock().unwrap();
+
+                    if postit_visible {
+                        let has_viewing_windows = app_handle
+                            .webview_windows()
+                            .iter()
+                            .any(|(label, _)| label.starts_with("sticked-view-"));
+                        if !has_viewing_windows {
+                            if let Some(postit) = app_handle.get_webview_window("postit") {
+                                let _ = postit.show();
+                                let _ = postit.set_focus();
+                            }
+                        }
                     }
                 }
                 _ => {}
@@ -394,6 +417,7 @@ fn transfer_to_capture(app: AppHandle, content: String, folder: String) -> Resul
 
 fn show_settings(app: &AppHandle) {
     // Track which sticked window was focused before opening settings
+    // and whether postit was visible
     {
         let state = app.state::<AppState>();
         let mut prev_window = state.previous_focused_window.lock().unwrap();
@@ -408,6 +432,13 @@ fn show_settings(app: &AppHandle) {
                 }
             }
         }
+
+        // Track if postit was visible
+        let mut postit_visible = state.postit_was_visible.lock().unwrap();
+        *postit_visible = app
+            .get_webview_window("postit")
+            .map(|w| w.is_visible().unwrap_or(false))
+            .unwrap_or(false);
     }
 
     // Lower sticked windows temporarily so settings can be on top
@@ -455,14 +486,16 @@ fn show_settings(app: &AppHandle) {
                 // Restore focus to the previously focused window
                 let state = app_handle.state::<AppState>();
                 let prev_window = state.previous_focused_window.lock().unwrap();
+                let postit_visible = *state.postit_was_visible.lock().unwrap();
+
                 if let Some(label) = prev_window.as_ref() {
                     // Was on a sticked window
                     if let Some(window) = app_handle.get_webview_window(label) {
                         let _ = window.show();
                         let _ = window.set_focus();
                     }
-                } else {
-                    // Was on the normal postit window
+                } else if postit_visible {
+                    // Was on the normal postit window (only if it was visible)
                     if let Some(postit) = app_handle.get_webview_window("postit") {
                         let _ = postit.show();
                         let _ = postit.set_focus();
@@ -536,6 +569,16 @@ fn show_folder_selector(app: &AppHandle) {
 }
 
 fn show_manager(app: &AppHandle) {
+    // Track if postit was visible before opening manager
+    {
+        let state = app.state::<AppState>();
+        let mut postit_visible = state.postit_was_visible.lock().unwrap();
+        *postit_visible = app
+            .get_webview_window("postit")
+            .map(|w| w.is_visible().unwrap_or(false))
+            .unwrap_or(false);
+    }
+
     // Temporarily lower sticked windows so manager can be on top
     for (label, window) in app.webview_windows() {
         if label.starts_with("sticked-") {
@@ -584,15 +627,21 @@ fn show_manager(app: &AppHandle) {
                             let _ = window.set_always_on_top(true);
                         }
                     }
-                    // Only show postit if no viewing notes are open
-                    let has_viewing_windows = app_handle
-                        .webview_windows()
-                        .iter()
-                        .any(|(label, _)| label.starts_with("sticked-view-"));
-                    if !has_viewing_windows {
-                        if let Some(postit) = app_handle.get_webview_window("postit") {
-                            let _ = postit.show();
-                            let _ = postit.set_focus();
+
+                    // Only show postit if it was visible before AND no viewing notes are open
+                    let state = app_handle.state::<AppState>();
+                    let postit_visible = *state.postit_was_visible.lock().unwrap();
+
+                    if postit_visible {
+                        let has_viewing_windows = app_handle
+                            .webview_windows()
+                            .iter()
+                            .any(|(label, _)| label.starts_with("sticked-view-"));
+                        if !has_viewing_windows {
+                            if let Some(postit) = app_handle.get_webview_window("postit") {
+                                let _ = postit.show();
+                                let _ = postit.set_focus();
+                            }
                         }
                     }
                 }
@@ -783,6 +832,7 @@ fn main() {
             shortcut_to_folder: Mutex::new(HashMap::new()),
             viewing_notes: Mutex::new(HashMap::new()),
             previous_focused_window: Mutex::new(None),
+            postit_was_visible: Mutex::new(false),
         })
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
