@@ -384,6 +384,10 @@ fn semantic_search_inner(
     index: &super::index::NoteIndex,
     embeddings: &super::embeddings::EmbeddingIndex,
 ) -> Result<Vec<SemanticResult>, String> {
+    if !super::settings::load_settings_from_file().map(|s| s.ai_features_enabled).unwrap_or(false) {
+        return Ok(Vec::new());
+    }
+
     if !is_available() {
         return Err("DarwinKit not available".to_string());
     }
@@ -419,8 +423,8 @@ fn semantic_search_inner(
         return Err("Failed to embed query".to_string());
     }
 
-    // Find nearest
-    let nearest = embeddings.nearest(&query_vector, 10);
+    // Find nearest (same language only — different languages use different vector spaces)
+    let nearest = embeddings.nearest(&query_vector, 10, language);
 
     // Build results with NoteIndex metadata, filtering low similarity
     let mut results = Vec::new();
@@ -462,6 +466,10 @@ fn suggest_folder_inner(
     current_folder: &str,
     embeddings: &super::embeddings::EmbeddingIndex,
 ) -> Result<Option<String>, String> {
+    if !super::settings::load_settings_from_file().map(|s| s.ai_features_enabled).unwrap_or(false) {
+        return Ok(None);
+    }
+
     // Skip short content
     if content.split_whitespace().count() < 5 {
         return Ok(None);
@@ -473,12 +481,7 @@ fn suggest_folder_inner(
 
     embeddings.ensure_loaded();
 
-    let centroids = embeddings.folder_centroids();
-    if centroids.len() < 2 {
-        return Ok(None);
-    }
-
-    // Detect language + embed content
+    // Detect language first — needed for language-filtered centroids
     let lang_result = call(
         "nlp.language",
         Some(serde_json::json!({ "text": content })),
@@ -487,6 +490,12 @@ fn suggest_folder_inner(
         .get("language")
         .and_then(|v| v.as_str())
         .unwrap_or("en");
+
+    // Compute centroids only from notes in the same language
+    let centroids = embeddings.folder_centroids(language);
+    if centroids.len() < 2 {
+        return Ok(None);
+    }
 
     let embed_result = call(
         "nlp.embed",
@@ -518,9 +527,9 @@ fn suggest_folder_inner(
         }
     }
 
-    // Only suggest if score > 0.5 and different from current
+    // Only suggest if score > 0.35 and different from current
     match best_folder {
-        Some(folder) if best_score > 0.5 && folder != current_folder => Ok(Some(folder)),
+        Some(folder) if best_score > 0.35 && folder != current_folder => Ok(Some(folder)),
         _ => Ok(None),
     }
 }

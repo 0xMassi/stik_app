@@ -12,6 +12,11 @@ Stik lives in your menu bar, always ready. Hit a shortcut, capture your thought,
 - **Pin Notes** - Keep important notes floating on your desktop
 - **File Manager** - Browse and manage all notes with `Cmd+Shift+M`
 - **Markdown Files** - Your notes are plain `.md` files, no lock-in
+- **On-Device AI** - Semantic search, folder suggestions, and note embeddings powered by Apple's NaturalLanguage framework (no cloud, no API keys)
+- **Git Sharing** - Sync folders via git repositories with automatic background sync
+- **Capture Streak** - Track consecutive days of note-taking
+- **On This Day** - Daily resurfacing of notes from the same date in prior years
+- **Share as Clipboard** - Copy notes as rich text, markdown, or image snapshots
 
 ## Keyboard Shortcuts
 
@@ -96,14 +101,14 @@ stik/
 │   ├── components/
 │   │   ├── PostIt.tsx           # Main capture interface
 │   │   ├── Editor.tsx           # Tiptap rich text editor
-│   │   ├── SearchModal.tsx      # Search interface
+│   │   ├── SearchModal.tsx      # Search with semantic results
 │   │   ├── ManagerModal.tsx     # File browser
-│   │   ├── SettingsModal.tsx    # Settings window/dialog
-│   │   └── SettingsContent.tsx  # Shared settings UI
+│   │   ├── SettingsModal.tsx    # Settings window (tab bar + chrome)
+│   │   └── SettingsContent.tsx  # Settings tab content renderer
 │   └── App.tsx                  # Window type router
 ├── src-tauri/                   # Rust backend
 │   ├── src/
-│   │   ├── main.rs              # App orchestrator (~120 lines)
+│   │   ├── main.rs              # App orchestrator (~160 lines)
 │   │   ├── state.rs             # AppState, ViewingNoteContent
 │   │   ├── shortcuts.rs         # Global shortcut management
 │   │   ├── windows.rs           # Window lifecycle
@@ -114,7 +119,14 @@ stik/
 │   │       ├── settings.rs      # Settings read/write
 │   │       ├── sticked_notes.rs # Pinned note persistence
 │   │       ├── index.rs         # In-memory note index
-│   │       └── versioning.rs    # JSON versioning utilities
+│   │       ├── versioning.rs    # JSON versioning utilities
+│   │       ├── darwinkit.rs     # DarwinKit sidecar bridge (JSON-RPC)
+│   │       ├── embeddings.rs    # Embedding index + cosine similarity
+│   │       ├── git_share.rs     # Git sharing background worker
+│   │       ├── share.rs         # Clipboard export (rich text + image)
+│   │       ├── on_this_day.rs   # On This Day notifications
+│   │       └── stats.rs         # Capture streak tracking
+│   ├── binaries/                # DarwinKit sidecar binary (gitignored)
 │   └── Cargo.toml
 └── package.json
 ```
@@ -216,14 +228,17 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 - **Frontend**: React 19, TypeScript, Tailwind CSS, Tiptap (editor)
 - **Backend**: Rust, Tauri 2.0
-- **Storage**: Local filesystem (markdown files)
+- **AI**: DarwinKit sidecar (Swift CLI using Apple NaturalLanguage framework, on-device only)
+- **Storage**: Local filesystem (markdown files), git for sharing
 
-## Security
+## Security & Privacy
 
 - Restrictive Content Security Policy (CSP) on the webview
 - Filesystem access scoped to `~/Documents/Stik/` and `~/.stik/` only
 - Path traversal validation on all folder/note names
 - Inbox folder protected from deletion and rename
+- AI features run entirely on-device via Apple's NaturalLanguage framework — no data leaves your Mac
+- AI features can be disabled in Settings > AI
 
 ## Known Issues
 

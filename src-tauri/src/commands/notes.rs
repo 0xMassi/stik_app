@@ -110,9 +110,11 @@ pub fn save_note(
     if !result.path.is_empty() {
         index.add(&result.path, &result.folder);
         git_share::notify_note_changed(&result.folder);
-        if let Some(emb) = embeddings::embed_content(&content) {
-            emb_index.add_entry(&result.path, emb);
-            let _ = emb_index.save();
+        if super::settings::load_settings_from_file().map(|s| s.ai_features_enabled).unwrap_or(false) {
+            if let Some(emb) = embeddings::embed_content(&content) {
+                emb_index.add_entry(&result.path, emb);
+                let _ = emb_index.save();
+            }
         }
     }
 
@@ -227,9 +229,11 @@ pub fn update_note(
     // Re-index with updated content
     index.add(&path, &folder);
     git_share::notify_note_changed(&folder);
-    if let Some(emb) = embeddings::embed_content(&content) {
-        emb_index.add_entry(&path, emb);
-        let _ = emb_index.save();
+    if super::settings::load_settings_from_file().map(|s| s.ai_features_enabled).unwrap_or(false) {
+        if let Some(emb) = embeddings::embed_content(&content) {
+            emb_index.add_entry(&path, emb);
+            let _ = emb_index.save();
+        }
     }
 
     Ok(NoteSaved {

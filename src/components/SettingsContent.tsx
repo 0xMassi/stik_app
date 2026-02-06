@@ -92,7 +92,7 @@ export function Dropdown({ value, options, onChange, placeholder }: DropdownProp
   );
 }
 
-export type SettingsTab = "shortcuts" | "folders" | "git" | "insights";
+export type SettingsTab = "shortcuts" | "folders" | "git" | "ai" | "insights";
 
 interface SettingsContentProps {
   activeTab: SettingsTab;
@@ -457,6 +457,71 @@ export default function SettingsContent({
                 git -C "{linkedRepoPath}" push
               </code>
             </div>
+          </div>
+        )}
+
+        {activeTab === "ai" && (
+          <div className="space-y-4">
+            <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
+              <div>
+                <p className="text-[13px] text-ink font-medium">Enable AI features</p>
+                <p className="mt-1 text-[12px] text-stone leading-relaxed">
+                  Powers semantic search in the search bar and folder suggestions while
+                  capturing notes.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  onSettingsChange({
+                    ...settings,
+                    ai_features_enabled: !settings.ai_features_enabled,
+                  })
+                }
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+                  settings.ai_features_enabled ? "bg-coral" : "bg-line"
+                }`}
+                title="Toggle AI features"
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform pointer-events-none ${
+                    settings.ai_features_enabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </label>
+
+            <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-2">
+              <p className="text-[13px] text-ink font-medium">How it works</p>
+              <ul className="text-[12px] text-stone leading-relaxed space-y-1.5">
+                <li>
+                  <span className="text-ink font-medium">Semantic search</span> — find notes by
+                  meaning, not just keywords. Search "what to buy" to find your grocery list.
+                </li>
+                <li>
+                  <span className="text-ink font-medium">Folder suggestions</span> — while
+                  capturing, Stik suggests the best folder based on what you're writing.
+                </li>
+                <li>
+                  <span className="text-ink font-medium">Note embeddings</span> — each note gets a
+                  numeric fingerprint used for similarity matching. Built in the background.
+                </li>
+              </ul>
+            </div>
+
+            <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl space-y-1">
+              <p className="text-[12px] font-semibold text-ink">Privacy</p>
+              <p className="text-[12px] text-stone leading-relaxed">
+                All processing happens on-device via Apple NaturalLanguage. No data leaves your
+                Mac. English works best; other languages have limited semantic understanding.
+              </p>
+            </div>
+
+            {!settings.ai_features_enabled && (
+              <p className="text-[12px] text-stone text-center">
+                Restart Stik after enabling to start the AI engine.
+              </p>
+            )}
           </div>
         )}
 

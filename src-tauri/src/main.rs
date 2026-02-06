@@ -130,9 +130,9 @@ fn main() {
             tray::setup_tray(app)?;
             git_share::start_background_worker(app.handle().clone());
 
-            // Start DarwinKit sidecar bridge + background embedding build
-            darwinkit::start_bridge(app.handle().clone());
-            {
+            // Start DarwinKit sidecar bridge + background embedding build (if AI enabled)
+            if settings::get_settings().map(|s| s.ai_features_enabled).unwrap_or(true) {
+                darwinkit::start_bridge(app.handle().clone());
                 let handle = app.handle().clone();
                 std::thread::Builder::new()
                     .name("stik-embeddings".to_string())

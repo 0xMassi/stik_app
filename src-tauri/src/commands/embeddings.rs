@@ -148,12 +148,15 @@ impl EmbeddingIndex {
         entries.get(path).map(|e| e.content_hash.clone())
     }
 
-    /// Find the k nearest notes to a query vector. Returns (path, similarity).
-    pub fn nearest(&self, query: &[f64], k: usize) -> Vec<(String, f64)> {
+    /// Find the k nearest notes to a query vector. Only compares embeddings
+    /// in the same language since Apple NLEmbedding uses different vector
+    /// spaces (and dimensions) per language.
+    pub fn nearest(&self, query: &[f64], k: usize, language: &str) -> Vec<(String, f64)> {
         let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
 
         let mut scored: Vec<(String, f64)> = entries
             .iter()
+            .filter(|(_, emb)| emb.language == language)
             .map(|(path, emb)| (path.clone(), cosine_similarity(query, &emb.vector)))
             .collect();
 
@@ -162,12 +165,13 @@ impl EmbeddingIndex {
         scored
     }
 
-    /// Compute average embedding vector per folder.
-    pub fn folder_centroids(&self) -> HashMap<String, Vec<f64>> {
+    /// Compute average embedding vector per folder, filtered to a single
+    /// language. Different languages produce incompatible vector spaces.
+    pub fn folder_centroids(&self, language: &str) -> HashMap<String, Vec<f64>> {
         let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         let mut folder_sums: HashMap<String, (Vec<f64>, usize)> = HashMap::new();
 
-        for (path, emb) in entries.iter() {
+        for (path, emb) in entries.iter().filter(|(_, e)| e.language == language) {
             // Extract folder name from path: .../Stik/{Folder}/{file}.md
             let folder = std::path::Path::new(path)
                 .parent()

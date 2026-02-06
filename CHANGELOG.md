@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-06
+
+### Added
+- **On-device AI features** powered by DarwinKit sidecar (Apple NaturalLanguage framework, zero cloud dependency)
+  - **Semantic search** — hybrid text + semantic results in search modal with similarity badges
+  - **Folder suggestions** — real-time AI-powered folder pill while capturing notes, based on folder centroids
+  - **Note embeddings** — background embedding build on launch, persisted to `~/.stik/embeddings.json`
+- **Git sharing** — sync folders via git with configurable repository layout (monorepo or per-folder), background auto-sync worker
+- **Capture streak** — consecutive-day counter shown in tray menu and settings
+- **On This Day** — daily notification resurfacing notes from the same date in prior years
+- **Share as clipboard** — copy notes as rich text, plain markdown, or image snapshot to clipboard
+- **AI settings tab** — dedicated settings section to enable/disable AI features with privacy documentation
+- **Raycast-style settings redesign** — horizontal tab bar with SVG icons, scrollable content, resizable window (620x700)
+
+### Fixed
+- **Language-aware embeddings** — Apple NLEmbedding uses different vector dimensions per language (e.g. English=512, Italian=640); similarity and centroid calculations now filter by matching language
+- **Folder suggestion threshold** — lowered from 0.5 to 0.35 for better suggestions with small note collections
+- **Settings overflow** — content was clipped by `overflow: hidden` on root elements; now properly scrollable
+
+### Changed
+- **Settings window** enlarged from 500x600 to 620x700, now resizable with min size 520x500
+- **Tab state** moved from `SettingsContent` to `SettingsModal` — content component is now a pure renderer
+- **Insights layout** changed from 2-column grid to vertical stack for better scrolling
+
 ## [0.2.0] - 2026-02-06
 
 ### Added
@@ -77,9 +101,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.3.0 | 2026-02-06 | On-device AI (semantic search, folder suggestions, embeddings), git sharing, settings redesign |
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/YOUR_USERNAME/stik/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/YOUR_USERNAME/stik/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/YOUR_USERNAME/stik/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/YOUR_USERNAME/stik/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/YOUR_USERNAME/stik/releases/tag/v0.1.0

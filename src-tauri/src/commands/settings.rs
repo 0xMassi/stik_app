@@ -34,12 +34,18 @@ impl Default for GitSharingSettings {
     }
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StikSettings {
     pub shortcut_mappings: Vec<ShortcutMapping>,
     pub default_folder: String,
     #[serde(default)]
     pub git_sharing: GitSharingSettings,
+    #[serde(default = "default_true")]
+    pub ai_features_enabled: bool,
 }
 
 impl Default for StikSettings {
@@ -69,6 +75,7 @@ impl Default for StikSettings {
                 },
             ],
             git_sharing: GitSharingSettings::default(),
+            ai_features_enabled: true,
         }
     }
 }
@@ -80,7 +87,7 @@ fn get_settings_path() -> Result<PathBuf, String> {
     Ok(stik_config.join("settings.json"))
 }
 
-fn load_settings_from_file() -> Result<StikSettings, String> {
+pub(crate) fn load_settings_from_file() -> Result<StikSettings, String> {
     let path = get_settings_path()?;
 
     match versioning::load_versioned::<StikSettings>(&path)? {

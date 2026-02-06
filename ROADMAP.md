@@ -1,6 +1,6 @@
 # Stik Roadmap
 
-> Last updated: 2026-02-06 | Current version: 0.2.0 | License: MIT (Open Source)
+> Last updated: 2026-02-06 | Current version: 0.3.0 | License: MIT (Open Source)
 
 Strategic feature roadmap based on competitive analysis, market trends, and user pain points in the quick-capture note space.
 
@@ -342,8 +342,8 @@ The brain-dump journaling trend on TikTok frames thought capture as **mental hea
 
 | Repo | Description | Status |
 |---|---|---|
-| **stik** | The main app — instant thought capture for macOS | Active |
-| **darwinkit** | Swift CLI exposing Apple ML/system frameworks for Tauri/Rust apps | Planned |
+| **stik** | The main app — instant thought capture for macOS | Active (v0.3.0) |
+| **darwinkit** | Swift CLI exposing Apple ML/system frameworks for Tauri/Rust apps | Active (v0.1 — NLEmbedding, language detection) |
 
 DarwinKit is developed alongside Stik but published as a completely independent project. Any Tauri, Electron, or Rust-based macOS app can use it. This maximizes community reach and contribution surface.
 
@@ -357,13 +357,13 @@ If implementing sequentially, this order maximizes value and builds on previous 
 2. [x] **1.2** Capture streak (habit formation, retention)
 3. [x] **1.1** On This Day (emotional hook, retention)
 4. [x] **1.3** Share as clipboard (utility, workflow integration)
-5. [ ] **DarwinKit v0.1** -- OCR + NLEmbedding actions (foundation for AI features)
-6. [ ] **2.2** AI auto-folder suggestion (Phase 1 heuristic, then Phase 2 with DarwinKit)
+5. [x] **DarwinKit v0.1** -- NLEmbedding + language detection actions (foundation for AI features)
+6. [x] **2.2** AI auto-folder suggestion (Phase 2 with DarwinKit NLEmbedding, language-aware centroids)
 7. [ ] **2.3** Daily digest (retention, brand positioning)
 8. [ ] **2.1** Voice capture via DarwinKit speech (major differentiator)
 9. [ ] **2.4** Clean up note via DarwinKit Foundation Models (AI value-add)
 10. [x] **2.5** Git-based team sharing (collaboration without infrastructure)
-11. [ ] **3.2** Related notes via DarwinKit NLEmbedding (knowledge base evolution)
+11. [x] **3.2** Related notes via DarwinKit NLEmbedding (semantic search with similarity badges)
 12. [ ] **3.1** Screenshot OCR via DarwinKit Vision (capture expansion)
 13. [ ] **3.3** Export rules (workflow integration)
 14. [ ] **3.4** iOS companion (platform expansion)

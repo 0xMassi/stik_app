@@ -28,6 +28,7 @@ export interface StikSettings {
   shortcut_mappings: ShortcutMapping[];
   default_folder: string;
   git_sharing: GitSharingSettings;
+  ai_features_enabled: boolean;
 }
 
 export interface NoteInfo {
