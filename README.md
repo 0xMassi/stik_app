@@ -134,6 +134,23 @@ Notes are stored as markdown files in:
 
 Settings and pinned notes are stored in `~/.stik/` as versioned JSON files.
 
+## Sync Across Macs (No Account Needed)
+
+Stik is local-first. Notes are plain markdown files in `~/Documents/Stik/`.
+If your `Documents` folder is already synced, Stik syncs automatically with zero extra setup.
+
+Supported sync setups:
+- **iCloud Drive** (recommended)
+- **Dropbox**
+- **Syncthing**
+- **Any service that syncs `~/Documents`**
+
+For iCloud Drive, enable:
+1. `System Settings > Apple ID > iCloud > iCloud Drive`
+2. `Desktop & Documents Folders` on each Mac
+
+No Stik account is required for sync.
+
 ## Development
 
 ```bash

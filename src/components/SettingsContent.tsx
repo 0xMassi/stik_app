@@ -199,6 +199,13 @@ export default function SettingsContent({ settings, folders, onSettingsChange }:
         <p className="mt-3 text-[12px] text-stone leading-relaxed">
           Opens when using tray menu or if no folder is specified
         </p>
+
+        <div className="mt-4 p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
+          <p className="text-[12px] text-stone leading-relaxed">
+            Sync tip: notes are saved in ~/Documents/Stik/. If your Documents folder is synced
+            (iCloud Drive, Dropbox, Syncthing), Stik syncs across Macs automatically.
+          </p>
+        </div>
       </div>
     </div>
   );
