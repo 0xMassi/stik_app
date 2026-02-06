@@ -141,9 +141,13 @@ export default function SearchModal() {
         folder: result.folder,
         path: result.path,
       });
-      await getCurrentWindow().close();
     } catch (error) {
       console.error("Failed to open note:", error);
+    }
+    try {
+      await getCurrentWindow().close();
+    } catch {
+      await invoke("hide_window");
     }
   }, []);
 

@@ -502,7 +502,7 @@ export default function PostIt({
       </div>
 
       {/* Editor */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative overflow-hidden min-h-0">
         <Editor
           ref={editorRef}
           content={content}

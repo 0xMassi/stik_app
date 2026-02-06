@@ -153,10 +153,10 @@ export default function ManagerModal() {
         folder: note.folder,
         path: note.path,
       });
-      await getCurrentWindow().close();
     } catch (error) {
       console.error("Failed to open note:", error);
     }
+    closeManager();
   };
 
   const handleCreateFolder = async (name: string) => {
