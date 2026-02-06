@@ -15,9 +15,18 @@ export interface ShortcutMapping {
   enabled: boolean;
 }
 
+export interface GitSharingSettings {
+  enabled: boolean;
+  shared_folder: string;
+  remote_url: string;
+  branch: string;
+  sync_interval_seconds: number;
+}
+
 export interface StikSettings {
   shortcut_mappings: ShortcutMapping[];
   default_folder: string;
+  git_sharing: GitSharingSettings;
 }
 
 export interface NoteInfo {
@@ -57,4 +66,16 @@ export interface OnThisDayStatus {
 export interface ClipboardPayload {
   plain_text: string;
   html: string;
+}
+
+export interface GitSyncStatus {
+  enabled: boolean;
+  linked_folder: string | null;
+  remote_url: string | null;
+  branch: string;
+  repo_initialized: boolean;
+  pending_changes: boolean;
+  syncing: boolean;
+  last_sync_at: string | null;
+  last_error: string | null;
 }

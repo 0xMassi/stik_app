@@ -8,7 +8,7 @@ mod tray;
 mod windows;
 
 use commands::index::NoteIndex;
-use commands::{folders, notes, on_this_day, settings, share, stats, sticked_notes};
+use commands::{folders, git_share, notes, on_this_day, settings, share, stats, sticked_notes};
 use shortcuts::shortcut_to_string;
 use state::AppState;
 use tauri::{Emitter, Manager};
@@ -48,7 +48,10 @@ fn main() {
                     }
 
                     let state = app.state::<AppState>();
-                    let map = state.shortcut_to_folder.lock().unwrap_or_else(|e| e.into_inner());
+                    let map = state
+                        .shortcut_to_folder
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner());
                     let key = shortcut_to_string(shortcut);
 
                     if let Some(folder) = map.get(&key) {
@@ -73,6 +76,9 @@ fn main() {
             folders::get_folder_stats,
             settings::get_settings,
             settings::save_settings,
+            git_share::git_prepare_repository,
+            git_share::git_sync_now,
+            git_share::git_get_sync_status,
             on_this_day::check_on_this_day_now,
             share::build_clipboard_payload,
             share::copy_note_image_to_clipboard,
@@ -111,6 +117,7 @@ fn main() {
 
             windows::restore_sticked_notes(app.handle());
             tray::setup_tray(app)?;
+            git_share::start_background_worker(app.handle().clone());
 
             // Postit window: emit blur event so frontend can decide whether to hide
             let window = app.get_webview_window("postit").unwrap();

@@ -1,4 +1,5 @@
 pub mod folders;
+pub mod git_share;
 pub mod index;
 pub mod notes;
 pub mod on_this_day;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import ShortcutRecorder from "./ShortcutRecorder";
-import type { ShortcutMapping, StikSettings } from "@/types";
+import type { GitSyncStatus, ShortcutMapping, StikSettings } from "@/types";
 
 // Reserved shortcuts that Stik uses internally
 export const RESERVED_SHORTCUTS = [
@@ -88,6 +88,11 @@ interface SettingsContentProps {
   onThisDayFolder: string | null;
   isCheckingOnThisDay: boolean;
   onCheckOnThisDay: () => Promise<void>;
+  gitSyncStatus: GitSyncStatus | null;
+  isPreparingGitRepo: boolean;
+  isSyncingGitNow: boolean;
+  onPrepareGitRepository: () => Promise<void>;
+  onSyncGitNow: () => Promise<void>;
 }
 
 export default function SettingsContent({
@@ -104,6 +109,11 @@ export default function SettingsContent({
   onThisDayFolder,
   isCheckingOnThisDay,
   onCheckOnThisDay,
+  gitSyncStatus,
+  isPreparingGitRepo,
+  isSyncingGitNow,
+  onPrepareGitRepository,
+  onSyncGitNow,
 }: SettingsContentProps) {
   const updateMapping = (index: number, updates: Partial<ShortcutMapping>) => {
     const newMappings = [...settings.shortcut_mappings];
@@ -142,6 +152,16 @@ export default function SettingsContent({
     return settings.shortcut_mappings
       .filter((_, i) => i !== excludeIndex)
       .map((m) => m.shortcut);
+  };
+
+  const updateGitSharing = (updates: Partial<StikSettings["git_sharing"]>) => {
+    onSettingsChange({
+      ...settings,
+      git_sharing: {
+        ...settings.git_sharing,
+        ...updates,
+      },
+    });
   };
 
   return (
@@ -229,6 +249,121 @@ export default function SettingsContent({
             Sync tip: notes are saved in ~/Documents/Stik/. If your Documents folder is synced
             (iCloud Drive, Dropbox, Syncthing), Stik syncs across Macs automatically.
           </p>
+        </div>
+      </div>
+
+      <div className="border-t border-line/50" />
+
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-coral">⇅</span>
+          <h3 className="text-[13px] font-semibold text-stone uppercase tracking-wide">
+            Git Team Sharing
+          </h3>
+        </div>
+
+        <div className="space-y-3 p-4 bg-line/30 rounded-xl border border-line/50">
+          <label className="flex items-center justify-between gap-3">
+            <span className="text-[13px] text-ink font-medium">Enable Git sharing</span>
+            <button
+              type="button"
+              onClick={() => updateGitSharing({ enabled: !settings.git_sharing.enabled })}
+              className={`relative w-11 h-6 rounded-full transition-colors ${
+                settings.git_sharing.enabled ? "bg-coral" : "bg-line"
+              }`}
+              title="Toggle Git sharing"
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform pointer-events-none ${
+                  settings.git_sharing.enabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </label>
+
+          <div>
+            <p className="text-[12px] text-stone mb-1.5">Shared folder</p>
+            <Dropdown
+              value={settings.git_sharing.shared_folder}
+              options={folders.map((f) => ({ value: f, label: f }))}
+              onChange={(value) => updateGitSharing({ shared_folder: value })}
+            />
+          </div>
+
+          <div>
+            <p className="text-[12px] text-stone mb-1.5">Remote URL</p>
+            <input
+              type="text"
+              value={settings.git_sharing.remote_url}
+              onChange={(e) => updateGitSharing({ remote_url: e.target.value })}
+              placeholder="https://github.com/your-org/stik-notes.git"
+              className="w-full px-3 py-2.5 bg-bg border border-line rounded-lg text-[13px] text-ink placeholder:text-stone/70 focus:outline-none focus:border-coral/50"
+            />
+          </div>
+
+          <div className="grid grid-cols-[1fr_130px] gap-3">
+            <div>
+              <p className="text-[12px] text-stone mb-1.5">Branch</p>
+              <input
+                type="text"
+                value={settings.git_sharing.branch}
+                onChange={(e) => updateGitSharing({ branch: e.target.value })}
+                placeholder="main"
+                className="w-full px-3 py-2.5 bg-bg border border-line rounded-lg text-[13px] text-ink placeholder:text-stone/70 focus:outline-none focus:border-coral/50"
+              />
+            </div>
+            <div>
+              <p className="text-[12px] text-stone mb-1.5">Pull interval</p>
+              <input
+                type="number"
+                min={60}
+                step={30}
+                value={settings.git_sharing.sync_interval_seconds}
+                onChange={(e) => {
+                  const parsed = Number.parseInt(e.target.value || "300", 10);
+                  updateGitSharing({
+                    sync_interval_seconds: Number.isFinite(parsed) ? Math.max(parsed, 60) : 300,
+                  });
+                }}
+                className="w-full px-3 py-2.5 bg-bg border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:border-coral/50"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={onPrepareGitRepository}
+              disabled={isPreparingGitRepo}
+              className="px-3 py-2 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors disabled:opacity-50"
+            >
+              {isPreparingGitRepo ? "Linking..." : "Link repository"}
+            </button>
+            <button
+              onClick={onSyncGitNow}
+              disabled={isSyncingGitNow}
+              className="px-3 py-2 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors disabled:opacity-50"
+            >
+              {isSyncingGitNow ? "Syncing..." : "Sync now"}
+            </button>
+          </div>
+
+          <div className="text-[12px] text-stone leading-relaxed space-y-0.5">
+            <p>
+              Status:{" "}
+              <span className="text-ink font-medium">
+                {gitSyncStatus?.repo_initialized ? "Repository linked" : "Not linked yet"}
+              </span>
+            </p>
+            {gitSyncStatus?.last_sync_at && (
+              <p>Last sync: {new Date(gitSyncStatus.last_sync_at).toLocaleString()}</p>
+            )}
+            {gitSyncStatus?.last_error && (
+              <p className="text-coral">Last error: {gitSyncStatus.last_error}</p>
+            )}
+            <p>
+              Auto-sync commits and pushes changes ~30s after note edits in the shared folder.
+            </p>
+          </div>
         </div>
       </div>
 

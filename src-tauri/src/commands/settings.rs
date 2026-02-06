@@ -1,4 +1,4 @@
-use super::versioning;
+use super::{git_share, versioning};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -11,9 +11,33 @@ pub struct ShortcutMapping {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GitSharingSettings {
+    pub enabled: bool,
+    pub shared_folder: String,
+    pub remote_url: String,
+    pub branch: String,
+    pub sync_interval_seconds: u64,
+}
+
+impl Default for GitSharingSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            shared_folder: "Inbox".to_string(),
+            remote_url: String::new(),
+            branch: "main".to_string(),
+            sync_interval_seconds: 300,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StikSettings {
     pub shortcut_mappings: Vec<ShortcutMapping>,
     pub default_folder: String,
+    #[serde(default)]
+    pub git_sharing: GitSharingSettings,
 }
 
 impl Default for StikSettings {
@@ -42,6 +66,7 @@ impl Default for StikSettings {
                     enabled: true,
                 },
             ],
+            git_sharing: GitSharingSettings::default(),
         }
     }
 }
@@ -79,5 +104,6 @@ pub fn get_settings() -> Result<StikSettings, String> {
 #[tauri::command]
 pub fn save_settings(settings: StikSettings) -> Result<bool, String> {
     save_settings_to_file(&settings)?;
+    git_share::notify_force_sync();
     Ok(true)
 }

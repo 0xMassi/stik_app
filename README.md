@@ -169,25 +169,13 @@ cd src-tauri && cargo check
 
 ## Testing Capture Streak
 
-Generate fixture notes for consecutive days:
-
-```bash
-./scripts/seed-streak-fixture.sh 5 Inbox
-```
-
-Then verify in either place:
+Verify in either place:
 - Stik menu bar tray menu: look for `Streak: N days`
 - Stik Settings: open `Cmd+Shift+,` and check the `Capture Streak` section (use `Refresh`)
 
 ## Testing On This Day
 
-Generate fixture notes on today's month/day for previous years:
-
-```bash
-./scripts/seed-on-this-day-fixture.sh 3 Inbox
-```
-
-Then open `Cmd+Shift+,` and use `On This Day -> Check now`.
+Open `Cmd+Shift+,` and use `On This Day -> Check now`.
 You should get a result with date/folder/preview and a macOS notification.
 
 ## Testing Share as Clipboard

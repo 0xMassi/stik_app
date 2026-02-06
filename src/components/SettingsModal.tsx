@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import SettingsContent from "./SettingsContent";
-import type { CaptureStreakStatus, OnThisDayStatus, StikSettings } from "@/types";
+import type { CaptureStreakStatus, GitSyncStatus, OnThisDayStatus, StikSettings } from "@/types";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -17,6 +17,9 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   const [isRefreshingStreak, setIsRefreshingStreak] = useState(false);
   const [onThisDayStatus, setOnThisDayStatus] = useState<OnThisDayStatus | null>(null);
   const [isCheckingOnThisDay, setIsCheckingOnThisDay] = useState(false);
+  const [gitSyncStatus, setGitSyncStatus] = useState<GitSyncStatus | null>(null);
+  const [isPreparingGitRepo, setIsPreparingGitRepo] = useState(false);
+  const [isSyncingGitNow, setIsSyncingGitNow] = useState(false);
 
   const loadCaptureStreak = async () => {
     setIsRefreshingStreak(true);
@@ -50,12 +53,61 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     }
   };
 
+  const loadGitSyncStatus = async () => {
+    try {
+      const status = await invoke<GitSyncStatus>("git_get_sync_status");
+      setGitSyncStatus(status);
+    } catch (error) {
+      console.error("Failed to load git sync status:", error);
+      setGitSyncStatus(null);
+    }
+  };
+
+  const prepareGitRepository = async () => {
+    if (!settings) return;
+
+    setIsPreparingGitRepo(true);
+    try {
+      const status = await invoke<GitSyncStatus>("git_prepare_repository", {
+        folder: settings.git_sharing.shared_folder,
+        remoteUrl: settings.git_sharing.remote_url,
+        branch: settings.git_sharing.branch,
+      });
+      setGitSyncStatus(status);
+    } catch (error) {
+      console.error("Failed to prepare git repository:", error);
+      await loadGitSyncStatus();
+    } finally {
+      setIsPreparingGitRepo(false);
+    }
+  };
+
+  const syncGitNow = async () => {
+    if (!settings) return;
+
+    setIsSyncingGitNow(true);
+    try {
+      const status = await invoke<GitSyncStatus>("git_sync_now", {
+        folder: settings.git_sharing.shared_folder,
+        remoteUrl: settings.git_sharing.remote_url,
+        branch: settings.git_sharing.branch,
+      });
+      setGitSyncStatus(status);
+    } catch (error) {
+      console.error("Failed to sync notes with git:", error);
+      await loadGitSyncStatus();
+    } finally {
+      setIsSyncingGitNow(false);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       invoke<StikSettings>("get_settings").then(setSettings);
       invoke<string[]>("list_folders").then(setFolders);
       loadCaptureStreak();
       checkOnThisDay();
+      loadGitSyncStatus();
     }
   }, [isOpen]);
 
@@ -151,6 +203,11 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
             onThisDayFolder={onThisDayStatus?.folder ?? null}
             isCheckingOnThisDay={isCheckingOnThisDay}
             onCheckOnThisDay={checkOnThisDay}
+            gitSyncStatus={gitSyncStatus}
+            isPreparingGitRepo={isPreparingGitRepo}
+            isSyncingGitNow={isSyncingGitNow}
+            onPrepareGitRepository={prepareGitRepository}
+            onSyncGitNow={syncGitNow}
           />
         </div>
         <div className="flex items-center justify-end px-5 py-4 border-t border-line bg-line/10">
@@ -187,6 +244,11 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
             onThisDayFolder={onThisDayStatus?.folder ?? null}
             isCheckingOnThisDay={isCheckingOnThisDay}
             onCheckOnThisDay={checkOnThisDay}
+            gitSyncStatus={gitSyncStatus}
+            isPreparingGitRepo={isPreparingGitRepo}
+            isSyncingGitNow={isSyncingGitNow}
+            onPrepareGitRepository={prepareGitRepository}
+            onSyncGitNow={syncGitNow}
           />
         </div>
         <div className="flex items-center justify-end px-5 py-4 border-t border-line bg-line/10">

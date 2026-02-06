@@ -362,7 +362,7 @@ If implementing sequentially, this order maximizes value and builds on previous 
 7. [ ] **2.3** Daily digest (retention, brand positioning)
 8. [ ] **2.1** Voice capture via DarwinKit speech (major differentiator)
 9. [ ] **2.4** Clean up note via DarwinKit Foundation Models (AI value-add)
-10. [ ] **2.5** Git-based team sharing (collaboration without infrastructure)
+10. [x] **2.5** Git-based team sharing (collaboration without infrastructure)
 11. [ ] **3.2** Related notes via DarwinKit NLEmbedding (knowledge base evolution)
 12. [ ] **3.1** Screenshot OCR via DarwinKit Vision (capture expansion)
 13. [ ] **3.3** Export rules (workflow integration)
