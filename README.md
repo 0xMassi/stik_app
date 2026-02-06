@@ -21,6 +21,7 @@
   <a href="https://github.com/0xMassi/stik_app/releases/latest"><img src="https://img.shields.io/github/v/release/0xMassi/stik_app?style=flat-square&color=E8705F&v=1" alt="Latest release"></a>
   <img src="https://img.shields.io/github/license/0xMassi/stik_app?style=flat-square&v=1" alt="License">
   <img src="https://img.shields.io/badge/platform-macOS-000?style=flat-square&logo=apple&v=1" alt="macOS">
+  <a href="https://github.com/0xMassi/stik_app/releases"><img src="https://img.shields.io/github/downloads/0xMassi/stik_app/total?style=flat-square&color=E8705F&v=1" alt="Downloads"></a>
   <a href="https://github.com/0xMassi/stik_app/stargazers"><img src="https://img.shields.io/github/stars/0xMassi/stik_app?style=flat-square&color=E8705F&v=1" alt="Stars"></a>
 </p>
 
