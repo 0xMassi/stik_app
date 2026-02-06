@@ -16,6 +16,7 @@ interface EditorProps {
 
 export interface EditorRef {
   focus: () => void;
+  blur: () => void;
   clear: () => void;
   setContent: (content: string) => void;
   moveToEnd: () => void;
@@ -61,6 +62,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
 
     useImperativeHandle(ref, () => ({
       focus: () => editor?.commands.focus(),
+      blur: () => editor?.commands.blur(),
       clear: () => editor?.commands.clearContent(),
       setContent: (content: string) => editor?.commands.setContent(content),
       moveToEnd: () => editor?.commands.focus("end"),

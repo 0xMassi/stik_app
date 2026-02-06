@@ -289,11 +289,24 @@ export default function PostIt({
         }
         showToast("Copied as markdown");
       } else {
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-        });
-        await invoke("copy_visible_note_image_to_clipboard");
-        showToast("Copied as image");
+        const activeElement = document.activeElement as HTMLElement | null;
+        const shouldRestoreEditorFocus = !!activeElement?.closest(".stik-editor");
+
+        if (shouldRestoreEditorFocus) {
+          editorRef.current?.blur();
+        }
+
+        try {
+          await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          });
+          await invoke("copy_visible_note_image_to_clipboard");
+          showToast("Copied as image");
+        } finally {
+          if (shouldRestoreEditorFocus) {
+            editorRef.current?.focus();
+          }
+        }
       }
     } catch (error) {
       console.error("Failed to copy note:", error);
@@ -313,8 +326,6 @@ export default function PostIt({
       ? "Copying markdown..."
       : isCopying && copyMode === "rich"
       ? "Copying rich text..."
-      : isCopying && copyMode === "image"
-      ? "Copying image..."
       : isCopying
       ? "Copying..."
       : "Copy";
