@@ -439,9 +439,13 @@ export default function PostIt({
               </button>
             </div>
           ) : (
-            <kbd className="px-2 py-1 bg-coral-light text-coral rounded text-[10px] font-semibold">
+            <button
+              onClick={handleSaveAndClose}
+              className="px-2.5 py-1.5 bg-coral-light text-coral rounded-lg text-[10px] font-semibold hover:bg-coral hover:text-white transition-colors cursor-pointer"
+              title="Save and close (Esc)"
+            >
               esc
-            </kbd>
+            </button>
           )}
         </div>
       </div>

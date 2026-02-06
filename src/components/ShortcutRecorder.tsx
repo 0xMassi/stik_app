@@ -303,7 +303,18 @@ export default function ShortcutRecorder({
             {displayValue}
           </span>
           {isRecording ? (
-            <span className="text-[9px] text-stone">ESC to cancel</span>
+            <span
+              className="text-[9px] text-stone hover:text-coral cursor-pointer transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                pendingShortcutRef.current = null;
+                hasErrorRef.current = false;
+                setIsRecording(false);
+                setTempShortcut(null);
+              }}
+            >
+              cancel
+            </span>
           ) : (
             <span className="text-[9px] text-stone">Click to record</span>
           )}
