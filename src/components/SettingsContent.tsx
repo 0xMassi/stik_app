@@ -78,9 +78,21 @@ interface SettingsContentProps {
   settings: StikSettings;
   folders: string[];
   onSettingsChange: (settings: StikSettings) => void;
+  captureStreakLabel: string;
+  captureStreakDays: number | null;
+  isRefreshingStreak: boolean;
+  onRefreshCaptureStreak: () => Promise<void>;
 }
 
-export default function SettingsContent({ settings, folders, onSettingsChange }: SettingsContentProps) {
+export default function SettingsContent({
+  settings,
+  folders,
+  onSettingsChange,
+  captureStreakLabel,
+  captureStreakDays,
+  isRefreshingStreak,
+  onRefreshCaptureStreak,
+}: SettingsContentProps) {
   const updateMapping = (index: number, updates: Partial<ShortcutMapping>) => {
     const newMappings = [...settings.shortcut_mappings];
     newMappings[index] = { ...newMappings[index], ...updates };
@@ -205,6 +217,34 @@ export default function SettingsContent({ settings, folders, onSettingsChange }:
             Sync tip: notes are saved in ~/Documents/Stik/. If your Documents folder is synced
             (iCloud Drive, Dropbox, Syncthing), Stik syncs across Macs automatically.
           </p>
+        </div>
+      </div>
+
+      <div className="border-t border-line/50" />
+
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-coral">↻</span>
+          <h3 className="text-[13px] font-semibold text-stone uppercase tracking-wide">
+            Capture Streak
+          </h3>
+        </div>
+
+        <div className="p-4 bg-line/30 rounded-xl border border-line/50 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[14px] font-semibold text-ink">{captureStreakLabel}</p>
+            <p className="mt-1 text-[12px] text-stone leading-relaxed">
+              Consecutive days with at least one captured note.
+              {captureStreakDays === null ? " Open settings again if this stays unavailable." : ""}
+            </p>
+          </div>
+          <button
+            onClick={onRefreshCaptureStreak}
+            disabled={isRefreshingStreak}
+            className="px-3 py-2 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors disabled:opacity-50"
+          >
+            {isRefreshingStreak ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
       </div>
     </div>

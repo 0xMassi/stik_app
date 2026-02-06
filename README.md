@@ -167,6 +167,18 @@ cd src-tauri && cargo fmt
 cd src-tauri && cargo check
 ```
 
+## Testing Capture Streak
+
+Generate fixture notes for consecutive days:
+
+```bash
+./scripts/seed-streak-fixture.sh 5 Inbox
+```
+
+Then verify in either place:
+- Stik menu bar tray menu: look for `Streak: N days`
+- Stik Settings: open `Cmd+Shift+,` and check the `Capture Streak` section (use `Refresh`)
+
 ## Releasing
 
 We use [Semantic Versioning](https://semver.org/). To create a new release:

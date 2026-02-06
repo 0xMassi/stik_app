@@ -8,7 +8,7 @@ mod tray;
 mod windows;
 
 use commands::index::NoteIndex;
-use commands::{folders, notes, settings, sticked_notes};
+use commands::{folders, notes, settings, stats, sticked_notes};
 use shortcuts::shortcut_to_string;
 use state::AppState;
 use tauri::{Emitter, Manager};
@@ -73,6 +73,7 @@ fn main() {
             folders::get_folder_stats,
             settings::get_settings,
             settings::save_settings,
+            stats::get_capture_streak,
             sticked_notes::list_sticked_notes,
             sticked_notes::create_sticked_note,
             sticked_notes::update_sticked_note,

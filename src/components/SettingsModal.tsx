@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import SettingsContent from "./SettingsContent";
-import type { StikSettings } from "@/types";
+import type { CaptureStreakStatus, StikSettings } from "@/types";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -13,11 +13,27 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   const [settings, setSettings] = useState<StikSettings | null>(null);
   const [folders, setFolders] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [captureStreak, setCaptureStreak] = useState<CaptureStreakStatus | null>(null);
+  const [isRefreshingStreak, setIsRefreshingStreak] = useState(false);
+
+  const loadCaptureStreak = async () => {
+    setIsRefreshingStreak(true);
+    try {
+      const streak = await invoke<CaptureStreakStatus>("get_capture_streak");
+      setCaptureStreak(streak);
+    } catch (error) {
+      console.error("Failed to load capture streak:", error);
+      setCaptureStreak(null);
+    } finally {
+      setIsRefreshingStreak(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
       invoke<StikSettings>("get_settings").then(setSettings);
       invoke<string[]>("list_folders").then(setFolders);
+      loadCaptureStreak();
     }
   }, [isOpen]);
 
@@ -99,7 +115,15 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-5">
-          <SettingsContent settings={settings} folders={folders} onSettingsChange={setSettings} />
+          <SettingsContent
+            settings={settings}
+            folders={folders}
+            onSettingsChange={setSettings}
+            captureStreakLabel={captureStreak?.label ?? "Streak unavailable"}
+            captureStreakDays={captureStreak?.days ?? null}
+            isRefreshingStreak={isRefreshingStreak}
+            onRefreshCaptureStreak={loadCaptureStreak}
+          />
         </div>
         <div className="flex items-center justify-end px-5 py-4 border-t border-line bg-line/10">
           <div className="flex items-center gap-3">
@@ -121,7 +145,15 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-5">
-          <SettingsContent settings={settings} folders={folders} onSettingsChange={setSettings} />
+          <SettingsContent
+            settings={settings}
+            folders={folders}
+            onSettingsChange={setSettings}
+            captureStreakLabel={captureStreak?.label ?? "Streak unavailable"}
+            captureStreakDays={captureStreak?.days ?? null}
+            isRefreshingStreak={isRefreshingStreak}
+            onRefreshCaptureStreak={loadCaptureStreak}
+          />
         </div>
         <div className="flex items-center justify-end px-5 py-4 border-t border-line bg-line/10">
           <div className="flex items-center gap-3">

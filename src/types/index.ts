@@ -40,3 +40,8 @@ export interface FolderStats {
   name: string;
   note_count: number;
 }
+
+export interface CaptureStreakStatus {
+  days: number;
+  label: string;
+}
