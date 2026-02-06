@@ -451,13 +451,20 @@ fn show_settings(app: &AppHandle) {
                     }
                 }
 
-                // Restore focus to the previously focused sticked window
+                // Restore focus to the previously focused window
                 let state = app_handle.state::<AppState>();
                 let prev_window = state.previous_focused_window.lock().unwrap();
                 if let Some(label) = prev_window.as_ref() {
+                    // Was on a sticked window
                     if let Some(window) = app_handle.get_webview_window(label) {
                         let _ = window.show();
                         let _ = window.set_focus();
+                    }
+                } else {
+                    // Was on the normal postit window
+                    if let Some(postit) = app_handle.get_webview_window("postit") {
+                        let _ = postit.show();
+                        let _ = postit.set_focus();
                     }
                 }
             }
