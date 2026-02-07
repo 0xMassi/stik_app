@@ -58,6 +58,16 @@ Grab the latest `.dmg` from [GitHub Releases](https://github.com/0xMassi/stik_ap
 
 > Requires **macOS 10.15+**. On first launch, grant Accessibility permissions when prompted (needed for global shortcuts).
 
+### Update
+
+If you installed via Homebrew:
+
+```bash
+brew upgrade --cask stik
+```
+
+From v0.3.3 onwards, Stik includes a built-in auto-updater that silently downloads new versions in the background. Updates apply on next app restart.
+
 ## Features
 
 **Capture** -- Global shortcuts summon a floating post-it from anywhere. Type, close, done. Notes are saved as markdown in `~/Documents/Stik/`.
