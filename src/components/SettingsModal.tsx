@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { flushSync } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import SettingsContent from "./SettingsContent";
 import type { SettingsTab } from "./SettingsContent";
 import type { CaptureStreakStatus, GitSyncStatus, OnThisDayStatus, StikSettings } from "@/types";
@@ -76,6 +77,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   const [isPreparingGitRepo, setIsPreparingGitRepo] = useState(false);
   const [isSyncingGitNow, setIsSyncingGitNow] = useState(false);
   const [isOpeningGitRemote, setIsOpeningGitRemote] = useState(false);
+  const [appVersion, setAppVersion] = useState("");
 
   const waitForPaint = () =>
     new Promise<void>((resolve) => {
@@ -188,6 +190,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
       loadCaptureStreak();
       checkOnThisDay();
       loadGitSyncStatus();
+      getVersion().then(setAppVersion).catch(() => {});
     }
   }, [isOpen]);
 
@@ -326,7 +329,8 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
         <div className="flex-1 overflow-y-auto p-5">
           {settingsContent}
         </div>
-        <div className="flex items-center justify-end px-5 py-4 border-t border-line bg-line/10">
+        <div className="flex items-center justify-between px-5 py-4 border-t border-line bg-line/10">
+          {appVersion && <span className="text-[11px] text-stone">v{appVersion}</span>}
           <div className="flex items-center gap-3">
             {cancelButton}
             {saveButton}
@@ -354,7 +358,8 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
         <div className="flex-1 overflow-y-auto p-5">
           {settingsContent}
         </div>
-        <div className="flex items-center justify-end px-5 py-4 border-t border-line bg-line/10">
+        <div className="flex items-center justify-between px-5 py-4 border-t border-line bg-line/10">
+          {appVersion && <span className="text-[11px] text-stone">v{appVersion}</span>}
           <div className="flex items-center gap-3">
             {cancelButton}
             {saveButton}
