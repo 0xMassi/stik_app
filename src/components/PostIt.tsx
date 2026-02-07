@@ -128,6 +128,16 @@ export default function PostIt({
     setTimeout(() => editorRef.current?.focus(), 100);
   }, [folder, vimEnabled]);
 
+  // Re-focus editor when window regains focus (e.g. after hide/show cycle)
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      if (showPicker || isSaving || vimMode === "command") return;
+      setTimeout(() => editorRef.current?.focus(), 50);
+    };
+    window.addEventListener("focus", handleWindowFocus);
+    return () => window.removeEventListener("focus", handleWindowFocus);
+  }, [showPicker, isSaving, vimMode]);
+
   // Listen for content transfer from unpinned sticked notes (only in capture mode)
   useEffect(() => {
     if (isSticked) return; // Only main capture window listens
@@ -529,10 +539,7 @@ export default function PostIt({
   const executeVimCommand = useCallback((cmd: string) => {
     const trimmed = cmd.trim();
 
-    // In Stik, save always closes — so :w, :wq, :x, :q all do the same thing
     switch (trimmed) {
-      case "q":
-      case "w":
       case "wq":
       case "x": // save and close
         if (content.trim()) {
@@ -551,6 +558,11 @@ export default function PostIt({
         }
         break;
       case "q!": // discard and close (no save)
+        setContent("");
+        onContentChange?.("");
+        editorRef.current?.clear();
+        editorRef.current?.setVimMode("normal");
+        setVimCommand("");
         if (isSticked) {
           handleCloseWithoutSaving();
         } else {
@@ -957,7 +969,7 @@ export default function PostIt({
                 }
               }}
               className="flex-1 bg-transparent text-[13px] font-mono text-ink outline-none placeholder:text-stone/50"
-              placeholder="q  q!  w"
+              placeholder="wq  q!"
               spellCheck={false}
               autoComplete="off"
             />

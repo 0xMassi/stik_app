@@ -326,11 +326,12 @@ export default function SettingsContent({
             <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-2">
               <p className="text-[13px] text-ink font-medium">Quick reference</p>
               <div className="text-[12px] text-stone leading-relaxed space-y-1">
-                <p><span className="text-ink font-medium">Movement</span> — h j k l (arrows), w b (words), 0 $ (line), gg G (document)</p>
-                <p><span className="text-ink font-medium">Insert</span> — i (before cursor), a (after), A (end of line), o O (new line)</p>
-                <p><span className="text-ink font-medium">Editing</span> — x (delete char), dd (delete line), yy p (yank/paste), cc cw C (change)</p>
-                <p><span className="text-ink font-medium">Undo</span> — u (undo), Ctrl+r (redo), . (repeat last)</p>
-                <p><span className="text-ink font-medium">Commands</span> — :w (save), :q (close), :wq (save &amp; close), :q! (force close)</p>
+                <p><span className="text-ink font-medium">Movement</span> — h j k l, w b (word), 0 $ (line), gg G (document)</p>
+                <p><span className="text-ink font-medium">Insert</span> — i (before), a (after), A (end of line), o O (new line)</p>
+                <p><span className="text-ink font-medium">Edit</span> — x dd cc cw C, yy p, diw ciw, ci/di + &quot; &apos; ( {'{'}</p>
+                <p><span className="text-ink font-medium">Visual</span> — v (chars), V (lines), d x (delete), y (yank), c (change)</p>
+                <p><span className="text-ink font-medium">Undo</span> — u, Ctrl+r (redo), . (repeat)</p>
+                <p><span className="text-ink font-medium">Commands</span> — :wq (save &amp; close), :q! (discard &amp; close)</p>
               </div>
             </div>
 
