@@ -144,6 +144,10 @@ cd src-tauri && cargo fmt
 npm run build
 ```
 
+## Support
+
+Have a question, found a bug, or want to request a feature? Reach out at [support@stik.ink](mailto:support@stik.ink) or [open an issue](https://github.com/0xMassi/stik_app/issues).
+
 ## License
 
 [MIT](LICENSE)
