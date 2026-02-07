@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-02-07
+
+### Added
+- **Auto-updater** — silently downloads updates in the background, applies on next app restart
+- **Version display** — app version shown in the settings footer
+
 ## [0.3.2] - 2026-02-07
 
 ### Fixed
@@ -114,12 +120,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.3.3 | 2026-02-07 | Built-in auto-updater, version display in settings |
 | 0.3.2 | 2026-02-07 | Fix double tray icon, menu bar icon, Ctrl/Cmd shortcuts, clickable links |
 | 0.3.0 | 2026-02-06 | On-device AI (semantic search, folder suggestions, embeddings), git sharing, settings redesign |
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/0xMassi/stik/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/0xMassi/stik/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/0xMassi/stik/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/0xMassi/stik/compare/v0.3.1...v0.3.2
 [0.3.0]: https://github.com/0xMassi/stik/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/0xMassi/stik/compare/v0.1.0...v0.2.0
