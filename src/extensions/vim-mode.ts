@@ -446,6 +446,7 @@ export const VimMode = Extension.create({
             const mode = storage?.mode;
             const hideNativeCaret = mode === "normal" || mode === "visual" || mode === "visual-line";
             view.dom.style.caretColor = hideNativeCaret ? "transparent" : "";
+            view.dom.classList.toggle("vim-visual-active", mode === "visual" || mode === "visual-line");
           },
           destroy() {},
         };

@@ -236,8 +236,12 @@ body,
 }
 
 /* Visual mode selection highlight */
+.vim-visual-active ::selection {
+  background: transparent;
+}
+
 .vim-visual-selection {
-  background: rgba(232, 112, 95, 0.2);
+  background: rgba(232, 112, 95, 0.12);
 }
 
 /* Widget at end-of-line / empty line */

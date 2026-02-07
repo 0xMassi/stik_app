@@ -110,11 +110,16 @@ export default function PostIt({
     }
   }, [initialContent]);
 
-  // Fetch vim mode setting on mount
+  // Fetch vim mode setting on mount + listen for changes
   useEffect(() => {
     invoke<StikSettings>("get_settings")
       .then((s) => setVimEnabled(s.vim_mode_enabled))
       .catch(() => {});
+
+    const unlisten = listen<StikSettings>("settings-changed", (event) => {
+      setVimEnabled(event.payload.vim_mode_enabled);
+    });
+    return () => { unlisten.then((fn) => fn()); };
   }, []);
 
   // Focus editor on mount, when folder changes, or when editor becomes available after settings load
@@ -902,7 +907,7 @@ export default function PostIt({
             content={content}
             onChange={handleContentChange}
             placeholder={isSticked ? "Sticked note..." : "Type a thought..."}
-            initialContent={initialContent}
+            initialContent={content || initialContent}
             vimEnabled={vimEnabled}
             onVimModeChange={setVimMode}
           />
