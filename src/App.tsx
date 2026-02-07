@@ -136,17 +136,16 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [windowInfo.type]);
 
-  // Non-blocking update check on startup (postit window only)
+  // Silent auto-update on startup (postit window only)
   useEffect(() => {
     if (windowInfo.type !== "postit") return;
 
     check()
-      .then((update) => {
+      .then(async (update) => {
         if (update) {
-          console.log(
-            `Stik update available: v${update.currentVersion} → v${update.version}`
-          );
-          // TODO: Show update prompt UI, then call update.downloadAndInstall()
+          console.log(`Stik update: v${update.currentVersion} → v${update.version}`);
+          await update.downloadAndInstall();
+          console.log("Update installed, will apply on next restart");
         }
       })
       .catch((e) => console.debug("Update check skipped:", e));
