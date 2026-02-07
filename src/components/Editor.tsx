@@ -5,7 +5,8 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Link from "@tiptap/extension-link";
 import { Markdown } from "tiptap-markdown";
-import { forwardRef, useImperativeHandle, useEffect } from "react";
+import { open } from "@tauri-apps/plugin-shell";
+import { forwardRef, useImperativeHandle, useEffect, useRef, useCallback } from "react";
 
 interface EditorProps {
   content: string;
@@ -26,6 +27,41 @@ export interface EditorRef {
 
 const Editor = forwardRef<EditorRef, EditorProps>(
   ({ onChange, placeholder, initialContent }, ref) => {
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    const handleMetaKey = useCallback((e: KeyboardEvent) => {
+      if (e.key === "Meta") {
+        wrapperRef.current?.classList.toggle("cmd-held", e.type === "keydown");
+      }
+    }, []);
+
+    // Cmd+Click to open links — capture phase to fire before webview navigation
+    useEffect(() => {
+      const el = wrapperRef.current;
+      if (!el) return;
+
+      const handleLinkClick = (e: MouseEvent) => {
+        if (e.metaKey) {
+          const anchor = (e.target as HTMLElement).closest("a");
+          if (anchor?.href) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            open(anchor.href);
+          }
+        }
+      };
+
+      el.addEventListener("click", handleLinkClick, { capture: true });
+      window.addEventListener("keydown", handleMetaKey);
+      window.addEventListener("keyup", handleMetaKey);
+      window.addEventListener("blur", () => el.classList.remove("cmd-held"));
+      return () => {
+        el.removeEventListener("click", handleLinkClick, { capture: true });
+        window.removeEventListener("keydown", handleMetaKey);
+        window.removeEventListener("keyup", handleMetaKey);
+      };
+    }, [handleMetaKey]);
+
     const editor = useEditor({
       extensions: [
         StarterKit.configure({
@@ -70,7 +106,11 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       getText: () => editor?.getText({ blockSeparator: "\n" }) || "",
     }));
 
-    return <EditorContent editor={editor} className="h-full" />;
+    return (
+      <div ref={wrapperRef} className="h-full">
+        <EditorContent editor={editor} className="h-full" />
+      </div>
+    );
   }
 );
 

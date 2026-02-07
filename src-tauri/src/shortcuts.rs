@@ -89,8 +89,11 @@ pub fn parse_shortcut_string(shortcut_str: &str) -> Option<Shortcut> {
     let mut modifiers = Modifiers::empty();
     for part in &parts[..parts.len() - 1] {
         match part.to_lowercase().as_str() {
-            "commandorcontrol" | "cmd" | "command" | "ctrl" | "control" => {
+            "commandorcontrol" | "cmd" | "command" | "meta" | "super" => {
                 modifiers |= Modifiers::SUPER;
+            }
+            "ctrl" | "control" => {
+                modifiers |= Modifiers::CONTROL;
             }
             "shift" => {
                 modifiers |= Modifiers::SHIFT;
@@ -110,7 +113,10 @@ pub fn shortcut_to_string(shortcut: &Shortcut) -> String {
     let mods = shortcut.mods;
 
     if mods.contains(Modifiers::SUPER) {
-        parts.push("CommandOrControl");
+        parts.push("Cmd");
+    }
+    if mods.contains(Modifiers::CONTROL) {
+        parts.push("Ctrl");
     }
     if mods.contains(Modifiers::SHIFT) {
         parts.push("Shift");

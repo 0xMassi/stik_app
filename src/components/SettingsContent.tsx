@@ -4,9 +4,9 @@ import type { GitSyncStatus, ShortcutMapping, StikSettings } from "@/types";
 
 // Reserved shortcuts that Stik uses internally
 export const RESERVED_SHORTCUTS = [
-  "CommandOrControl+Shift+P", // Search
-  "CommandOrControl+Shift+M", // Manager
-  "CommandOrControl+Shift+Comma", // Settings
+  "Cmd+Shift+P", // Search
+  "Cmd+Shift+M", // Manager
+  "Cmd+Shift+Comma", // Settings
 ];
 
 function remoteToWebUrl(remoteUrl: string): string | null {
@@ -160,11 +160,11 @@ export default function SettingsContent({
 
   const addMapping = () => {
     const usedShortcuts = settings.shortcut_mappings.map((m) => m.shortcut);
-    let defaultShortcut = "CommandOrControl+Shift+S";
+    let defaultShortcut = "Cmd+Shift+S";
 
     const letters = "ABCDEFGHIJKLNOQRTUVWXYZ".split("");
     for (const letter of letters) {
-      const shortcut = `CommandOrControl+Shift+${letter}`;
+      const shortcut = `Cmd+Shift+${letter}`;
       if (!usedShortcuts.includes(shortcut) && !RESERVED_SHORTCUTS.includes(shortcut)) {
         defaultShortcut = shortcut;
         break;

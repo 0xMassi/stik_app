@@ -11,11 +11,13 @@ interface ShortcutRecorderProps {
 // Convert shortcut string to display format
 export function formatShortcutDisplay(shortcut: string): string {
   return shortcut
+    .replace(/Cmd\+/g, "⌘")
     .replace(/CommandOrControl\+/g, "⌘")
+    .replace(/Ctrl\+/g, "⌃")
+    .replace(/Control\+/g, "⌃")
     .replace(/Shift\+/g, "⇧")
     .replace(/Alt\+/g, "⌥")
-    .replace(/Option\+/g, "⌥")
-    .replace(/Control\+/g, "⌃");
+    .replace(/Option\+/g, "⌥");
 }
 
 // Convert key event to shortcut string
@@ -27,9 +29,12 @@ function keyEventToShortcut(e: KeyboardEvent): string | null {
 
   const parts: string[] = [];
 
-  // Add modifiers
-  if (e.metaKey || e.ctrlKey) {
-    parts.push("CommandOrControl");
+  // Add modifiers — distinguish Cmd (⌘) from Ctrl (⌃) on macOS
+  if (e.metaKey) {
+    parts.push("Cmd");
+  }
+  if (e.ctrlKey) {
+    parts.push("Ctrl");
   }
   if (e.shiftKey) {
     parts.push("Shift");
@@ -93,9 +98,9 @@ function keyEventToShortcut(e: KeyboardEvent): string | null {
 
 // Reserved system shortcuts that cannot be overridden
 const SYSTEM_RESERVED = [
-  "CommandOrControl+Shift+P", // Search
-  "CommandOrControl+Shift+M", // Manager
-  "CommandOrControl+Shift+Comma", // Settings
+  "Cmd+Shift+P", // Search
+  "Cmd+Shift+M", // Manager
+  "Cmd+Shift+Comma", // Settings
 ];
 
 // Toast component
@@ -199,7 +204,7 @@ export default function ShortcutRecorder({
       if (!shortcut) {
         // Show hint if user pressed a key without modifiers
         if (!["Meta", "Control", "Alt", "Shift"].includes(e.key)) {
-          showToast("Hold ⌘, ⇧, or ⌥ with a key", "info");
+          showToast("Hold ⌘, ⌃, ⇧, or ⌥ with a key", "info");
         }
         return;
       }

@@ -42,6 +42,13 @@ No onboarding. No account. No sync setup. Hit `Cmd+Shift+S`, type, close. Your n
 ### Homebrew (Recommended)
 
 ```bash
+brew install --cask 0xMassi/stik/stik
+```
+
+Or add the tap first:
+
+```bash
+brew tap 0xMassi/stik
 brew install --cask stik
 ```
 

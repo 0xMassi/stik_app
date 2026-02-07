@@ -95,6 +95,10 @@ body,
   text-decoration: underline;
 }
 
+.cmd-held .stik-editor a {
+  cursor: pointer;
+}
+
 /* Lists — Tailwind Preflight sets list-style:none, restore it here */
 .stik-editor ul {
   list-style-type: disc;
