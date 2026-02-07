@@ -5,7 +5,8 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import Editor, { type EditorRef } from "./Editor";
 import FolderPicker from "./FolderPicker";
-import type { StickedNote } from "@/types";
+import type { StickedNote, StikSettings } from "@/types";
+import type { VimMode } from "@/extensions/vim-mode";
 
 interface PostItProps {
   folder: string;
@@ -94,6 +95,11 @@ export default function PostIt({
   const [isPinned, setIsPinned] = useState(isSticked && !isViewing);
   // Track the actual sticked note ID (can change when pinning a viewing note)
   const [currentStickedId, setCurrentStickedId] = useState(stickedId);
+  const [vimEnabled, setVimEnabled] = useState<boolean | null>(null); // null = loading
+  const [vimMode, setVimMode] = useState<VimMode>("normal");
+  const [vimCommand, setVimCommand] = useState("");
+  const [vimCommandError, setVimCommandError] = useState("");
+  const commandInputRef = useRef<HTMLInputElement | null>(null);
   const editorRef = useRef<EditorRef | null>(null);
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -104,10 +110,18 @@ export default function PostIt({
     }
   }, [initialContent]);
 
-  // Focus editor on mount and when folder changes
+  // Fetch vim mode setting on mount
   useEffect(() => {
+    invoke<StikSettings>("get_settings")
+      .then((s) => setVimEnabled(s.vim_mode_enabled))
+      .catch(() => {});
+  }, []);
+
+  // Focus editor on mount, when folder changes, or when editor becomes available after settings load
+  useEffect(() => {
+    if (vimEnabled === null) return; // editor not mounted yet
     setTimeout(() => editorRef.current?.focus(), 100);
-  }, [folder]);
+  }, [folder, vimEnabled]);
 
   // Listen for content transfer from unpinned sticked notes (only in capture mode)
   useEffect(() => {
@@ -149,9 +163,10 @@ export default function PostIt({
   }, []);
 
   // Handle escape to save and close (for capture mode and unpinned sticked notes)
+  // When vim mode is enabled, Escape is handled entirely by the vim plugin — close is via :q/:wq
   useEffect(() => {
-    // Allow escape for capture mode OR unpinned sticked notes
     if (isSticked && isPinned) return;
+    if (vimEnabled) return; // Vim mode uses command bar (:q, :wq) instead of Escape
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -164,10 +179,8 @@ export default function PostIt({
 
       if (!showPicker && !isSaving && !isPinning) {
         if (isSticked && !isPinned) {
-          // Unpinned sticked note - save and close
           handleSaveAndCloseSticked();
         } else {
-          // Normal capture mode
           handleSaveAndClose();
         }
       }
@@ -175,7 +188,7 @@ export default function PostIt({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showPicker, isSaving, isPinning, isSticked, isPinned, isCopyMenuOpen, handleSaveAndClose]);
+  }, [showPicker, isSaving, isPinning, isSticked, isPinned, isCopyMenuOpen, vimEnabled, handleSaveAndClose]);
 
   useEffect(() => {
     if (!isCopyMenuOpen) return;
@@ -500,6 +513,64 @@ export default function PostIt({
     }
   }, [isSticked]);
 
+  // --- Vim command bar ---
+  const dismissCommandBar = useCallback(() => {
+    setVimCommand("");
+    setVimCommandError("");
+    editorRef.current?.setVimMode("normal");
+    editorRef.current?.focus();
+  }, []);
+
+  const executeVimCommand = useCallback((cmd: string) => {
+    const trimmed = cmd.trim();
+
+    // In Stik, save always closes — so :w, :wq, :x, :q all do the same thing
+    switch (trimmed) {
+      case "q":
+      case "w":
+      case "wq":
+      case "x": // save and close
+        if (content.trim()) {
+          if (isSticked) {
+            handleSaveAndCloseSticked();
+          } else {
+            handleSaveAndClose();
+          }
+        } else {
+          // Nothing to save — just close
+          if (isSticked) {
+            handleCloseWithoutSaving();
+          } else {
+            onClose();
+          }
+        }
+        break;
+      case "q!": // discard and close (no save)
+        if (isSticked) {
+          handleCloseWithoutSaving();
+        } else {
+          onClose();
+        }
+        break;
+      default:
+        setVimCommandError(`Not a command: ${trimmed}`);
+        return; // don't dismiss
+    }
+
+    setVimCommand("");
+    setVimCommandError("");
+  }, [content, isSticked, handleSaveAndClose, handleSaveAndCloseSticked, handleCloseWithoutSaving, onClose]);
+
+  // Focus command input when command mode opens
+  useEffect(() => {
+    if (vimMode === "command") {
+      setVimCommand("");
+      setVimCommandError("");
+      // Small delay so the input renders first
+      requestAnimationFrame(() => commandInputRef.current?.focus());
+    }
+  }, [vimMode]);
+
   const handleFolderSelect = useCallback(
     (selectedFolder: string) => {
       onFolderChange(selectedFolder);
@@ -822,13 +893,20 @@ export default function PostIt({
 
       {/* Editor */}
       <div className="flex-1 relative overflow-hidden min-h-0">
-        <Editor
-          ref={editorRef}
-          content={content}
-          onChange={handleContentChange}
-          placeholder={isSticked ? "Sticked note..." : "Type a thought..."}
-          initialContent={initialContent}
-        />
+        {vimEnabled === null ? (
+          <div className="h-full" /> // placeholder while settings load
+        ) : (
+          <Editor
+            key={vimEnabled ? "vim" : "novim"}
+            ref={editorRef}
+            content={content}
+            onChange={handleContentChange}
+            placeholder={isSticked ? "Sticked note..." : "Type a thought..."}
+            initialContent={initialContent}
+            vimEnabled={vimEnabled}
+            onVimModeChange={setVimMode}
+          />
+        )}
 
         {/* Folder Picker */}
         {showPicker && (
@@ -843,39 +921,89 @@ export default function PostIt({
         )}
       </div>
 
-      {/* Footer - draggable */}
-      <div
-        onMouseDown={startDrag}
-        className="flex items-center justify-between px-4 py-2 border-t border-line text-[10px] drag-handle"
-      >
-        <span className="font-mono text-stone">
-          <span className="text-coral">~</span>/Stik/
-          <span className="text-coral">{folder}</span>/
-        </span>
-        <div className="flex items-center gap-2">
-          {isSticked && !isPinned && !isViewing ? (
-            <span className="text-stone">
-              <span className="text-amber-500">○</span> unpinned
-            </span>
-          ) : (
-            <span className="text-stone">
-              <span className="text-coral">✦</span> markdown supported
-            </span>
+      {/* Footer - draggable (or command bar when vim command mode) */}
+      {vimEnabled && vimMode === "command" ? (
+        <div className="flex flex-col border-t border-line">
+          {vimCommandError && (
+            <div className="px-4 py-1 text-[11px] text-coral bg-coral-light/30">
+              {vimCommandError}
+            </div>
           )}
-          {(onOpenSettings || isSticked) && (
-            <button
-              onClick={() => isSticked ? invoke("open_settings") : onOpenSettings?.()}
-              className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
-              title="Settings (⌘⇧,)"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
-            </button>
-          )}
+          <div className="flex items-center px-4 py-1.5 bg-ink/5">
+            <span className="text-[13px] font-mono text-coral font-bold mr-0.5">:</span>
+            <input
+              ref={commandInputRef}
+              type="text"
+              value={vimCommand}
+              onChange={(e) => {
+                setVimCommand(e.target.value);
+                setVimCommandError("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  executeVimCommand(vimCommand);
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  dismissCommandBar();
+                } else if (e.key === "Backspace" && !vimCommand) {
+                  e.preventDefault();
+                  dismissCommandBar();
+                }
+              }}
+              className="flex-1 bg-transparent text-[13px] font-mono text-ink outline-none placeholder:text-stone/50"
+              placeholder="q  q!  w"
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div
+          onMouseDown={startDrag}
+          className="flex items-center justify-between px-4 py-2 border-t border-line text-[10px] drag-handle"
+        >
+          <span className="font-mono text-stone">
+            <span className="text-coral">~</span>/Stik/
+            <span className="text-coral">{folder}</span>/
+          </span>
+          <div className="flex items-center gap-2">
+            {vimEnabled ? (
+              <span className="vim-mode-indicator text-stone">
+                {vimMode === "normal" ? (
+                  <span className="text-coral">-- NORMAL --</span>
+                ) : vimMode === "visual" ? (
+                  <span className="text-amber-500">-- VISUAL --</span>
+                ) : vimMode === "visual-line" ? (
+                  <span className="text-amber-500">-- VISUAL LINE --</span>
+                ) : (
+                  <span className="text-green-600">-- INSERT --</span>
+                )}
+              </span>
+            ) : isSticked && !isPinned && !isViewing ? (
+              <span className="text-stone">
+                <span className="text-amber-500">○</span> unpinned
+              </span>
+            ) : (
+              <span className="text-stone">
+                <span className="text-coral">✦</span> markdown supported
+              </span>
+            )}
+            {(onOpenSettings || isSticked) && (
+              <button
+                onClick={() => isSticked ? invoke("open_settings") : onOpenSettings?.()}
+                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
+                title="Settings (⌘⇧,)"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
     {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </>

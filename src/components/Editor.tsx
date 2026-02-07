@@ -7,12 +7,15 @@ import Link from "@tiptap/extension-link";
 import { Markdown } from "tiptap-markdown";
 import { open } from "@tauri-apps/plugin-shell";
 import { forwardRef, useImperativeHandle, useEffect, useRef, useCallback } from "react";
+import { VimMode, type VimMode as VimModeType } from "@/extensions/vim-mode";
 
 interface EditorProps {
   content: string;
   onChange: (content: string) => void;
   placeholder?: string;
   initialContent?: string;
+  vimEnabled?: boolean;
+  onVimModeChange?: (mode: VimModeType) => void;
 }
 
 export interface EditorRef {
@@ -23,10 +26,11 @@ export interface EditorRef {
   moveToEnd: () => void;
   getHTML: () => string;
   getText: () => string;
+  setVimMode: (mode: VimModeType) => void;
 }
 
 const Editor = forwardRef<EditorRef, EditorProps>(
-  ({ onChange, placeholder, initialContent }, ref) => {
+  ({ onChange, placeholder, initialContent, vimEnabled, onVimModeChange }, ref) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     const handleMetaKey = useCallback((e: KeyboardEvent) => {
@@ -62,8 +66,14 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       };
     }, [handleMetaKey]);
 
-    const editor = useEditor({
-      extensions: [
+    // Stable callback ref to avoid re-creating the editor when parent re-renders
+    const onVimModeChangeRef = useRef(onVimModeChange);
+    onVimModeChangeRef.current = onVimModeChange;
+
+    // Extensions built once per mount. Parent uses key={vimEnabled} to force remount when toggled.
+    const extensionsRef = useRef<any[] | null>(null);
+    if (!extensionsRef.current) {
+      const base = [
         StarterKit.configure({
           heading: { levels: [1, 2, 3] },
         }),
@@ -77,7 +87,23 @@ const Editor = forwardRef<EditorRef, EditorProps>(
           transformPastedText: true,
           transformCopiedText: true,
         }),
-      ],
+      ];
+
+      if (vimEnabled) {
+        base.push(
+          VimMode.configure({
+            enabled: true,
+            onModeChange: (mode: VimModeType) => onVimModeChangeRef.current?.(mode),
+          })
+        );
+      }
+
+      extensionsRef.current = base;
+    }
+    const extensions = extensionsRef.current;
+
+    const editor = useEditor({
+      extensions,
       content: initialContent || "",
       onUpdate: ({ editor }) => {
         onChange(editor.storage.markdown.getMarkdown());
@@ -104,6 +130,14 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       moveToEnd: () => editor?.commands.focus("end"),
       getHTML: () => editor?.getHTML() || "",
       getText: () => editor?.getText({ blockSeparator: "\n" }) || "",
+      setVimMode: (mode: VimModeType) => {
+        if (editor?.storage.vimMode) {
+          editor.storage.vimMode.mode = mode;
+          onVimModeChangeRef.current?.(mode);
+          // Dispatch triggers PluginView.update (caret-color) + decorations in one pass
+          editor.view.dispatch(editor.state.tr.setMeta("vimModeChanged", mode));
+        }
+      },
     }));
 
     return (

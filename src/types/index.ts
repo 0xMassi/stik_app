@@ -29,6 +29,7 @@ export interface StikSettings {
   default_folder: string;
   git_sharing: GitSharingSettings;
   ai_features_enabled: boolean;
+  vim_mode_enabled: boolean;
 }
 
 export interface NoteInfo {

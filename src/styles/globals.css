@@ -226,6 +226,39 @@ body,
   }
 }
 
+/* Vim Mode Cursor — caret-color is set by PluginView, not CSS classes */
+
+/* Block cursor: solid, no blink — matches terminal vim behavior */
+.vim-cursor-block {
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 1px;
+}
+
+/* Visual mode selection highlight */
+.vim-visual-selection {
+  background: rgba(232, 112, 95, 0.2);
+}
+
+/* Widget at end-of-line / empty line */
+.vim-cursor-eol {
+  background: #1a1a1a;
+  border-radius: 1px;
+}
+
+.vim-normal:not(:focus) .vim-cursor-eol {
+  background: transparent;
+  outline: 1.5px solid #1a1a1a;
+  outline-offset: -1.5px;
+}
+
+/* Vim mode indicator */
+.vim-mode-indicator {
+  font-family: Monaco, Consolas, monospace;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
 /* Settings Modal Styles */
 .settings-overlay {
   animation: settings-fade-in 0.15s ease-out;

@@ -92,7 +92,7 @@ export function Dropdown({ value, options, onChange, placeholder }: DropdownProp
   );
 }
 
-export type SettingsTab = "shortcuts" | "folders" | "git" | "ai" | "insights";
+export type SettingsTab = "shortcuts" | "folders" | "editor" | "git" | "ai" | "insights";
 
 interface SettingsContentProps {
   activeTab: SettingsTab;
@@ -286,6 +286,60 @@ export default function SettingsContent({
               <p className="text-[12px] text-stone leading-relaxed">
                 Sync tip: notes are saved in ~/Documents/Stik/. If your Documents folder is
                 synced (iCloud Drive, Dropbox, Syncthing), Stik syncs across Macs automatically.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "editor" && (
+          <div className="space-y-4">
+            <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
+              <div>
+                <p className="text-[13px] text-ink font-medium">Vim mode</p>
+                <p className="mt-1 text-[12px] text-stone leading-relaxed">
+                  Use Vim-style keybindings in the editor. Press <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">i</kbd> to
+                  type, <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">Esc</kbd> to
+                  return to Normal mode.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  onSettingsChange({
+                    ...settings,
+                    vim_mode_enabled: !settings.vim_mode_enabled,
+                  })
+                }
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+                  settings.vim_mode_enabled ? "bg-coral" : "bg-line"
+                }`}
+                title="Toggle Vim mode"
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform pointer-events-none ${
+                    settings.vim_mode_enabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </label>
+
+            <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-2">
+              <p className="text-[13px] text-ink font-medium">Quick reference</p>
+              <div className="text-[12px] text-stone leading-relaxed space-y-1">
+                <p><span className="text-ink font-medium">Movement</span> — h j k l (arrows), w b (words), 0 $ (line), gg G (document)</p>
+                <p><span className="text-ink font-medium">Insert</span> — i (before cursor), a (after), A (end of line), o O (new line)</p>
+                <p><span className="text-ink font-medium">Editing</span> — x (delete char), dd (delete line), yy p (yank/paste), cc cw C (change)</p>
+                <p><span className="text-ink font-medium">Undo</span> — u (undo), Ctrl+r (redo), . (repeat last)</p>
+                <p><span className="text-ink font-medium">Commands</span> — :w (save), :q (close), :wq (save &amp; close), :q! (force close)</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl space-y-1">
+              <p className="text-[12px] font-semibold text-ink">How to close</p>
+              <p className="text-[12px] text-stone leading-relaxed">
+                Press <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">:</kbd> in
+                Normal mode to open the command bar, then type <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">wq</kbd> + Enter
+                to save and close. Escape always switches between Insert and Normal mode.
               </p>
             </div>
           </div>
