@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
 import SettingsContent from "./SettingsContent";
 import type { SettingsTab } from "./SettingsContent";
@@ -23,6 +24,16 @@ const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+  },
+  {
+    id: "editor",
+    label: "Editor",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+        <path d="m15 5 4 4" />
       </svg>
     ),
   },
@@ -183,10 +194,13 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     }
   };
 
+  const [resolvedNotesDir, setResolvedNotesDir] = useState("");
+
   useEffect(() => {
     if (isOpen) {
       invoke<StikSettings>("get_settings").then(setSettings);
       invoke<string[]>("list_folders").then(setFolders);
+      invoke<string>("get_notes_directory").then(setResolvedNotesDir).catch(() => {});
       loadCaptureStreak();
       checkOnThisDay();
       loadGitSyncStatus();
@@ -201,6 +215,17 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     };
   }, []);
 
+  const prevNotesDir = useRef(settings?.notes_directory ?? "");
+
+  // Track the notes_directory at load time so we can detect changes on save
+  useEffect(() => {
+    if (settings) {
+      prevNotesDir.current = settings.notes_directory;
+    }
+  // Only on initial load
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   const handleSave = async () => {
     if (!settings) return;
 
@@ -208,6 +233,16 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     try {
       await invoke("save_settings", { settings });
       await invoke("reload_shortcuts");
+
+      // Rebuild index when notes directory changed
+      if (settings.notes_directory !== prevNotesDir.current) {
+        await invoke("rebuild_index");
+        const newDir = await invoke<string>("get_notes_directory");
+        setResolvedNotesDir(newDir);
+        prevNotesDir.current = settings.notes_directory;
+      }
+
+      await emit("settings-changed", settings);
       if (!isWindow) {
         onClose();
       }
@@ -291,6 +326,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
       settings={settings}
       folders={folders}
       onSettingsChange={setSettings}
+      resolvedNotesDir={resolvedNotesDir}
       captureStreakLabel={captureStreak?.label ?? "Streak unavailable"}
       captureStreakDays={captureStreak?.days ?? null}
       isRefreshingStreak={isRefreshingStreak}

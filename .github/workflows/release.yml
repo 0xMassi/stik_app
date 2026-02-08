@@ -3,11 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
-
-env:
-  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - 'v*'
 
 jobs:
   build-and-release:
@@ -77,10 +73,12 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
-          releaseName: "Stik v__VERSION__"
-          releaseBody: "See [CHANGELOG](https://github.com/0xMassi/stik_app/blob/main/CHANGELOG.md) for details."
+          releaseName: 'Stik v__VERSION__'
+          releaseBody: 'See [CHANGELOG](https://github.com/0xMassi/stik_app/blob/main/CHANGELOG.md) for details.'
           releaseDraft: true
           prerelease: false
           args: --target aarch64-apple-darwin
@@ -95,9 +93,11 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
-          releaseName: "Stik v__VERSION__"
+          releaseName: 'Stik v__VERSION__'
           releaseDraft: true
           prerelease: false
           args: --target x86_64-apple-darwin
@@ -154,3 +154,9 @@ jobs:
             -f message="Update Stik to v${VERSION}" \
             -f sha="$FILE_SHA" \
             -f content="$CONTENT"
+
+      - name: Trigger landing page rebuild
+        if: success()
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: curl -s -X POST "$VERCEL_DEPLOY_HOOK"

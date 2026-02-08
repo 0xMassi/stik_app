@@ -5,16 +5,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: "#FFFCF9",
-        surface: "#FFFFFF",
+        bg: "rgb(var(--color-bg) / <alpha-value>)",
+        surface: "rgb(var(--color-surface) / <alpha-value>)",
         coral: {
-          DEFAULT: "#E8705F",
-          light: "#FFF1EE",
-          dark: "#D6604F",
+          DEFAULT: "rgb(var(--color-coral) / <alpha-value>)",
+          light: "rgb(var(--color-coral-light) / <alpha-value>)",
+          dark: "rgb(var(--color-coral-dark) / <alpha-value>)",
         },
-        ink: "#1A1A1A",
-        stone: "#7A7A7A",
-        line: "#F0EEEB",
+        ink: "rgb(var(--color-ink) / <alpha-value>)",
+        stone: "rgb(var(--color-stone) / <alpha-value>)",
+        line: "rgb(var(--color-line) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["system-ui", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
@@ -27,9 +27,9 @@ const config: Config = {
         pill: "100px",
       },
       boxShadow: {
-        stik: "0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0,0,0,0.04)",
-        "coral-sm": "0 4px 16px rgba(232, 112, 95, 0.25)",
-        "coral-lg": "0 8px 24px rgba(232, 112, 95, 0.35)",
+        stik: "var(--shadow-stik)",
+        "coral-sm": "var(--shadow-coral-sm)",
+        "coral-lg": "var(--shadow-coral-lg)",
       },
     },
   },

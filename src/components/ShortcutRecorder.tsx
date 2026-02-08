@@ -101,6 +101,7 @@ const SYSTEM_RESERVED = [
   "Cmd+Shift+P", // Search
   "Cmd+Shift+M", // Manager
   "Cmd+Shift+Comma", // Settings
+  "Cmd+Shift+L", // Last note
 ];
 
 // Toast component
@@ -129,9 +130,9 @@ function Toast({
   }, [onDone]);
 
   const styles = {
-    info: "bg-ink text-white",
-    error: "bg-red-500 text-white",
-    success: "bg-coral text-white",
+    info: "bg-ink text-bg",
+    error: "bg-red-500 text-bg",
+    success: "bg-coral text-bg",
   }[type];
 
   return (

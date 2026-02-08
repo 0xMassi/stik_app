@@ -19,6 +19,7 @@
       "allow": [{ "name": "binaries/darwinkit", "sidecar": true }]
     },
     "shell:allow-open",
+    "dialog:default",
     "updater:default",
     {
       "identifier": "fs:allow-read-text-file",

@@ -227,6 +227,9 @@ pub fn register_shortcuts_from_settings(app: &AppHandle, settings: &StikSettings
     let settings_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Comma);
     let _ = app.global_shortcut().register(settings_shortcut);
 
+    let last_note_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyL);
+    let _ = app.global_shortcut().register(last_note_shortcut);
+
     #[cfg(debug_assertions)]
     {
         let devtools_shortcut =

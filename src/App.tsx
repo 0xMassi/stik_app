@@ -6,6 +6,7 @@ import PostIt from "./components/PostIt";
 import SettingsModal from "./components/SettingsModal";
 import SearchModal from "./components/SearchModal";
 import ManagerModal from "./components/ManagerModal";
+import { useTheme } from "./hooks/useTheme";
 import type { StickedNote } from "@/types";
 
 type WindowType = "postit" | "sticked" | "settings" | "search" | "manager";
@@ -38,6 +39,7 @@ function getWindowInfo(): { type: WindowType; id?: string; viewing?: boolean } {
 }
 
 export default function App() {
+  useTheme();
   const [currentFolder, setCurrentFolder] = useState("Inbox");
   const [stickedNote, setStickedNote] = useState<StickedNote | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);

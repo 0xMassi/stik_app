@@ -10,7 +10,7 @@ mod windows;
 use commands::embeddings::EmbeddingIndex;
 use commands::index::NoteIndex;
 use commands::{
-    darwinkit, embeddings, folders, git_share, notes, on_this_day, settings, share, stats,
+    darwinkit, embeddings, folders, git_share, index, notes, on_this_day, settings, share, stats,
     sticked_notes,
 };
 use shortcuts::shortcut_to_string;
@@ -43,6 +43,13 @@ fn main() {
                         show_settings(app);
                         return;
                     }
+                    if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyL) {
+                        let app = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = windows::reopen_last_note(app).await;
+                        });
+                        return;
+                    }
 
                     #[cfg(debug_assertions)]
                     if shortcut.matches(Modifiers::SUPER | Modifiers::ALT, Code::KeyI) {
@@ -65,6 +72,7 @@ fn main() {
                 })
                 .build(),
         )
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -76,11 +84,14 @@ fn main() {
             notes::delete_note,
             notes::move_note,
             notes::get_note_content,
+            notes::save_note_image,
             folders::list_folders,
             folders::create_folder,
             folders::delete_folder,
             folders::rename_folder,
             folders::get_folder_stats,
+            folders::get_notes_directory,
+            index::rebuild_index,
             settings::get_settings,
             settings::save_settings,
             git_share::git_prepare_repository,
@@ -105,6 +116,7 @@ fn main() {
             windows::get_viewing_note_content,
             windows::open_settings,
             windows::transfer_to_capture,
+            windows::reopen_last_note,
             shortcuts::reload_shortcuts,
             shortcuts::pause_shortcuts,
             shortcuts::resume_shortcuts,

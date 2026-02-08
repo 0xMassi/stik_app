@@ -2,6 +2,85 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme tokens ── */
+:root {
+  /* Tailwind-compatible RGB channels (no commas, no #) */
+  --color-bg: 255 252 249;
+  --color-surface: 255 255 255;
+  --color-ink: 26 26 26;
+  --color-stone: 122 122 122;
+  --color-line: 240 238 235;
+  --color-coral: 232 112 95;
+  --color-coral-light: 255 241 238;
+  --color-coral-dark: 214 96 79;
+
+  /* Editor-specific (hex — not used by Tailwind opacity) */
+  --editor-placeholder: #bbb;
+  --editor-strikethrough: #999;
+  --editor-code-bg: #f0eeeb;
+  --editor-code-block-bg: #1a1a1a;
+  --editor-code-block-text: #f0f0f0;
+  --editor-checked-task: #999;
+  --editor-link: #e8705f;
+  --editor-marker: #e8705f;
+  --editor-blockquote-border: #e8705f;
+  --editor-blockquote-text: #7a7a7a;
+  --editor-checkbox-border: #e8705f;
+  --editor-checkbox-checked: #e8705f;
+
+  /* Vim */
+  --vim-visual-selection: rgba(232, 112, 95, 0.12);
+
+  /* Overlay */
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+
+  /* Shadows */
+  --shadow-stik: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-coral-sm: 0 4px 16px rgba(232, 112, 95, 0.25);
+  --shadow-coral-lg: 0 8px 24px rgba(232, 112, 95, 0.35);
+
+  /* Sticked note */
+  --sticked-shadow: 0 0 0 1px rgba(232, 112, 95, 0.3), 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 20px rgba(232, 112, 95, 0.1);
+  --sticked-header-gradient: linear-gradient(to right, rgba(232, 112, 95, 0.08), transparent);
+  --sticked-resize-gradient: linear-gradient(135deg, transparent 50%, rgba(232, 112, 95, 0.3) 50%);
+}
+
+[data-theme="dark"] {
+  --color-bg: 28 25 23;
+  --color-surface: 41 37 36;
+  --color-ink: 245 240 235;
+  --color-stone: 168 162 158;
+  --color-line: 68 64 60;
+  --color-coral: 232 112 95;
+  --color-coral-light: 61 37 32;
+  --color-coral-dark: 214 96 79;
+
+  --editor-placeholder: #666;
+  --editor-strikethrough: #777;
+  --editor-code-bg: #44403c;
+  --editor-code-block-bg: #0f0e0d;
+  --editor-code-block-text: #e8e4df;
+  --editor-checked-task: #666;
+  --editor-link: #e8705f;
+  --editor-marker: #e8705f;
+  --editor-blockquote-border: #e8705f;
+  --editor-blockquote-text: #a8a29e;
+  --editor-checkbox-border: #e8705f;
+  --editor-checkbox-checked: #e8705f;
+
+  --vim-visual-selection: rgba(232, 112, 95, 0.20);
+
+  --overlay-bg: rgba(0, 0, 0, 0.7);
+
+  --shadow-stik: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-coral-sm: 0 4px 16px rgba(232, 112, 95, 0.20);
+  --shadow-coral-lg: 0 8px 24px rgba(232, 112, 95, 0.30);
+
+  --sticked-shadow: 0 0 0 1px rgba(232, 112, 95, 0.25), 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(232, 112, 95, 0.08);
+  --sticked-header-gradient: linear-gradient(to right, rgba(232, 112, 95, 0.12), transparent);
+  --sticked-resize-gradient: linear-gradient(135deg, transparent 50%, rgba(232, 112, 95, 0.25) 50%);
+}
+
 /* Transparent window background */
 html,
 body,
@@ -29,7 +108,7 @@ body,
   padding: 12px 16px;
   font-size: 14px;
   line-height: 1.5;
-  color: #1a1a1a;
+  color: rgb(var(--color-ink));
   outline: none;
   overflow-y: auto;
 }
@@ -42,7 +121,7 @@ body,
 .stik-editor p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #bbb;
+  color: var(--editor-placeholder);
   pointer-events: none;
   height: 0;
 }
@@ -66,6 +145,11 @@ body,
   margin: 0.4em 0 0.2em;
 }
 
+/* Remove top margin on the very first heading so it doesn't stack with editor padding */
+.stik-editor > :first-child:is(h1, h2, h3) {
+  margin-top: 0;
+}
+
 /* Inline formatting */
 .stik-editor strong {
   font-weight: 700;
@@ -77,21 +161,21 @@ body,
 
 .stik-editor s {
   text-decoration: line-through;
-  color: #999;
+  color: var(--editor-strikethrough);
 }
 
 .stik-editor code {
-  background-color: #f0eeeb;
+  background-color: var(--editor-code-bg);
   padding: 1px 4px;
   border-radius: 3px;
   font-family: Monaco, Consolas, monospace;
   font-size: 12px;
-  color: #e8705f;
+  color: var(--editor-link);
 }
 
 /* Links */
 .stik-editor a {
-  color: #e8705f;
+  color: var(--editor-link);
   text-decoration: underline;
 }
 
@@ -117,7 +201,7 @@ body,
 }
 
 .stik-editor ul li::marker {
-  color: #e8705f;
+  color: var(--editor-marker);
 }
 
 /* Task list */
@@ -136,33 +220,33 @@ body,
   appearance: none;
   width: 14px;
   height: 14px;
-  border: 2px solid #e8705f;
+  border: 2px solid var(--editor-checkbox-border);
   border-radius: 3px;
   cursor: pointer;
   margin-top: 2px;
 }
 
 .stik-editor ul[data-type="taskList"] li > label input[type="checkbox"]:checked {
-  background-color: #e8705f;
+  background-color: var(--editor-checkbox-checked);
 }
 
 .stik-editor ul[data-type="taskList"] li[data-checked="true"] > div {
   text-decoration: line-through;
-  color: #999;
+  color: var(--editor-checked-task);
 }
 
 /* Blockquote */
 .stik-editor blockquote {
-  border-left: 2px solid #e8705f;
+  border-left: 2px solid var(--editor-blockquote-border);
   padding-left: 10px;
   margin: 0.3em 0;
-  color: #7a7a7a;
+  color: var(--editor-blockquote-text);
   font-style: italic;
 }
 
 /* Code block */
 .stik-editor pre {
-  background-color: #1a1a1a;
+  background-color: var(--editor-code-block-bg);
   border-radius: 6px;
   padding: 10px;
   margin: 0.3em 0;
@@ -171,8 +255,16 @@ body,
 .stik-editor pre code {
   background: none;
   padding: 0;
-  color: #f0f0f0;
+  color: var(--editor-code-block-text);
   font-size: 12px;
+}
+
+/* Inline images */
+.stik-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.3em 0;
 }
 
 /* Save Animation */
@@ -226,6 +318,43 @@ body,
   }
 }
 
+/* Vim Mode Cursor — caret-color is set by PluginView, not CSS classes */
+
+/* Block cursor: solid, no blink — matches terminal vim behavior */
+.vim-cursor-block {
+  background: rgb(var(--color-ink));
+  color: rgb(var(--color-bg));
+  border-radius: 1px;
+}
+
+/* Visual mode selection highlight */
+.vim-visual-active ::selection {
+  background: transparent;
+}
+
+.vim-visual-selection {
+  background: var(--vim-visual-selection);
+}
+
+/* Widget at end-of-line / empty line */
+.vim-cursor-eol {
+  background: rgb(var(--color-ink));
+  border-radius: 1px;
+}
+
+.vim-normal:not(:focus) .vim-cursor-eol {
+  background: transparent;
+  outline: 1.5px solid rgb(var(--color-ink));
+  outline-offset: -1.5px;
+}
+
+/* Vim mode indicator */
+.vim-mode-indicator {
+  font-family: Monaco, Consolas, monospace;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
 /* Settings Modal Styles */
 .settings-overlay {
   animation: settings-fade-in 0.15s ease-out;
@@ -257,19 +386,12 @@ body,
 
 /* Sticked Note Styles */
 .sticked-note {
-  box-shadow:
-    0 0 0 1px rgba(232, 112, 95, 0.3),
-    0 4px 12px rgba(0, 0, 0, 0.15),
-    0 0 20px rgba(232, 112, 95, 0.1);
+  box-shadow: var(--sticked-shadow);
   animation: sticked-appear 0.2s ease-out;
 }
 
 .sticked-header {
-  background: linear-gradient(
-    to right,
-    rgba(232, 112, 95, 0.08),
-    transparent
-  );
+  background: var(--sticked-header-gradient);
 }
 
 @keyframes sticked-appear {
@@ -292,11 +414,253 @@ body,
   width: 16px;
   height: 16px;
   cursor: se-resize;
-  background: linear-gradient(
-    135deg,
-    transparent 50%,
-    rgba(232, 112, 95, 0.3) 50%
-  );
+  background: var(--sticked-resize-gradient);
   border-radius: 0 0 14px 0;
 }
 
+/* ── Highlight (==text==) ── */
+.stik-editor mark {
+  background-color: rgba(232, 112, 95, 0.15);
+  color: inherit;
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+
+[data-theme="dark"] .stik-editor mark {
+  background-color: rgba(232, 112, 95, 0.25);
+}
+
+/* ── Collapsible Headings ── */
+
+/* Heading wrapper: relative for chevron positioning */
+.stik-editor h1,
+.stik-editor h2,
+.stik-editor h3 {
+  position: relative;
+}
+
+/* Fold toggle chevron — positioned in the left padding gutter, zero inline footprint */
+.heading-fold-toggle {
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  translate: 0 -50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 7px;
+  line-height: 1;
+  color: rgb(var(--color-stone));
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s, color 0.15s;
+  transform: rotate(90deg);
+  border-radius: 3px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.heading-fold-toggle:hover {
+  color: rgb(var(--color-coral));
+  background: rgba(232, 112, 95, 0.08);
+}
+
+/* Show chevron on heading hover */
+.stik-editor h1:hover > .heading-fold-toggle,
+.stik-editor h2:hover > .heading-fold-toggle,
+.stik-editor h3:hover > .heading-fold-toggle,
+.stik-editor h1 > .heading-fold-toggle:hover,
+.stik-editor h2 > .heading-fold-toggle:hover,
+.stik-editor h3 > .heading-fold-toggle:hover {
+  opacity: 1;
+}
+
+/* Collapsed state: rotate to right-pointing, always visible, coral color */
+.heading-fold-toggle.collapsed {
+  opacity: 1;
+  transform: rotate(0deg);
+  color: rgb(var(--color-coral));
+}
+
+/* Hidden content when heading is collapsed */
+.heading-collapsed-content {
+  display: none !important;
+}
+
+/* ── Wiki-Links ── */
+.wiki-link {
+  color: rgb(var(--color-coral));
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  cursor: pointer;
+  padding: 0 1px;
+  border-radius: 2px;
+  transition: background-color 0.15s;
+}
+
+.wiki-link:hover {
+  background-color: rgba(232, 112, 95, 0.1);
+}
+
+/* Wiki-link suggestion dropdown */
+.wiki-link-suggestion {
+  min-width: 200px;
+  max-width: 320px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: rgb(var(--color-bg));
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 10px;
+  box-shadow: var(--shadow-stik);
+  padding: 4px;
+}
+
+.wiki-link-suggestion-empty {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: rgb(var(--color-stone));
+}
+
+.wiki-link-suggestion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.1s;
+}
+
+.wiki-link-suggestion-item:hover,
+.wiki-link-suggestion-item.is-selected {
+  background-color: rgb(var(--color-line));
+}
+
+.wiki-link-suggestion-slug {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgb(var(--color-ink));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wiki-link-suggestion-folder {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgb(var(--color-coral));
+  background: rgba(232, 112, 95, 0.1);
+  padding: 1px 6px;
+  border-radius: 99px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Link Popover ── */
+.link-popover {
+  position: absolute;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgb(var(--color-surface));
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  animation: link-popover-in 0.12s ease-out;
+}
+
+@keyframes link-popover-in {
+  from { opacity: 0; translate: 0 -2px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+.link-popover-url {
+  font-size: 11px;
+  color: rgb(var(--color-coral));
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+  cursor: pointer;
+}
+
+.link-popover-url:hover {
+  text-decoration: underline;
+}
+
+.link-popover-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-left: 1px solid rgb(var(--color-line));
+  padding-left: 6px;
+  margin-left: 2px;
+}
+
+.link-popover-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: rgb(var(--color-stone));
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.link-popover-btn:hover {
+  background: rgb(var(--color-line));
+  color: rgb(var(--color-ink));
+}
+
+.link-popover-unlink:hover {
+  color: rgb(var(--color-coral));
+}
+
+.link-popover-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.link-popover-input {
+  font-size: 11px;
+  color: rgb(var(--color-ink));
+  background: rgb(var(--color-bg));
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 5px;
+  padding: 3px 6px;
+  width: 200px;
+  outline: none;
+}
+
+.link-popover-input:focus {
+  border-color: rgb(var(--color-coral));
+}
+
+.link-popover-save {
+  font-size: 11px;
+  font-weight: 600;
+  width: auto;
+  padding: 3px 8px;
+  color: rgb(var(--color-coral));
+}
+
+.link-popover-save:hover {
+  background: rgba(232, 112, 95, 0.1);
+}

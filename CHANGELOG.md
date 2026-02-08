@@ -7,13 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-02-08
+Editor power-ups & quality of life
+
+### Added
+- **Vim mode** — full modal editing with Normal, Insert, Visual, and Command modes. Toggle in Settings > Editor. Includes status bar indicator, text objects (`ciw`, `ci"`, `di(`), and `:wq`/`:q!` commands
+- **Highlighting** (`==text==`) — wrap text in `==` for visual emphasis. Renders with coral background, roundtrips to markdown, adapts to light/dark theme
+- **Collapsible headings** — hover any heading to reveal a fold chevron. Click to collapse/expand content beneath. Purely visual, no markdown markers
+- **Wiki-links** (`[[slug]]`) — type `[[` to autocomplete and link to other notes. Renders as styled inline element, click to open the referenced note. Stored as literal `[[slug]]` in markdown
+- **Link popover** — place cursor inside any link to see a floating toolbar with Open, Copy, Edit, and Unlink actions
+- **Markdown link input rule** — type `[text](url)` to instantly create a clickable link with URL normalization and protocol safety
+- **Image paste & drop** — paste or drag images into the editor. Saved to `.assets/` alongside the note, referenced as standard markdown images
+- **Task list input fix** — typing `- [ ] ` now correctly creates a checkbox (fixes BulletList/TaskItem conflict)
+- **Custom notes directory** — choose any folder as your notes root via Settings > Folders
+- **Reopen last note** (`Cmd+Shift+L`) — instantly reopen the most recently saved note
+- **Theme customization** — System, Light, and Dark modes with live switching
+- **Automated test suite** — 38 unit tests covering URL normalization, XSS escaping, slug generation, and markdown roundtrips
+
+### Fixed
+- **Link click behavior** — Cmd+Click opens external links, regular click positions cursor (no accidental navigation)
+- **Dangerous URL protocols** — `javascript:`, `data:`, and `file:` URLs are rejected and sanitized
+- **XSS in wiki-link slugs** — HTML entities escaped in rendered wiki-link nodes
+- **Sticky highlight formatting** — `inclusive: false` prevents highlight from bleeding into adjacent text
+
+### Changed
+- **Editor extensions** refactored into individual files under `src/extensions/`
+- **CI/CD pipeline** — secrets scoped to specific workflow steps, Vercel deploy hook secured
+
 ## [0.3.3] - 2026-02-07
+Silent auto-updates
 
 ### Added
 - **Auto-updater** — silently downloads updates in the background, applies on next app restart
 - **Version display** — app version shown in the settings footer
 
 ## [0.3.2] - 2026-02-07
+Polish & bug fixes
 
 ### Fixed
 - **Double tray icon** — removed duplicate tray icon created by both config and code (#2)
@@ -27,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.1] - 2026-02-06
 
 ## [0.3.0] - 2026-02-06
+On-device AI & git sharing
 
 ### Added
 - **On-device AI features** powered by DarwinKit sidecar (Apple NaturalLanguage framework, zero cloud dependency)
@@ -51,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Insights layout** changed from 2-column grid to vertical stack for better scrolling
 
 ## [0.2.0] - 2026-02-06
+Security hardening & architecture refactor
 
 ### Added
 - **In-memory note index** for fast search and listing (two-tier: preview match then full-file fallback)
@@ -84,6 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unused settings commands (`get_shortcut_mappings`, `save_shortcut_mapping`, `set_setting`)
 
 ## [0.1.0] - 2026-02-05
+First release
 
 ### Added
 - **Core capture flow**: Global shortcut summons post-it, type, close to save
@@ -120,13 +152,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.4.0 | 2026-02-08 | Vim mode, highlighting, collapsible headings, wiki-links, link popover, image handling, themes |
 | 0.3.3 | 2026-02-07 | Built-in auto-updater, version display in settings |
 | 0.3.2 | 2026-02-07 | Fix double tray icon, menu bar icon, Ctrl/Cmd shortcuts, clickable links |
 | 0.3.0 | 2026-02-06 | On-device AI (semantic search, folder suggestions, embeddings), git sharing, settings redesign |
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/0xMassi/stik/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/0xMassi/stik/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/0xMassi/stik/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/0xMassi/stik/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/0xMassi/stik/compare/v0.3.1...v0.3.2
 [0.3.0]: https://github.com/0xMassi/stik/compare/v0.2.0...v0.3.0

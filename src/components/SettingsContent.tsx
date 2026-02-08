@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import ShortcutRecorder from "./ShortcutRecorder";
 import type { GitSyncStatus, ShortcutMapping, StikSettings } from "@/types";
 
@@ -7,6 +8,7 @@ export const RESERVED_SHORTCUTS = [
   "Cmd+Shift+P", // Search
   "Cmd+Shift+M", // Manager
   "Cmd+Shift+Comma", // Settings
+  "Cmd+Shift+L", // Last note
 ];
 
 function remoteToWebUrl(remoteUrl: string): string | null {
@@ -92,13 +94,14 @@ export function Dropdown({ value, options, onChange, placeholder }: DropdownProp
   );
 }
 
-export type SettingsTab = "shortcuts" | "folders" | "git" | "ai" | "insights";
+export type SettingsTab = "shortcuts" | "folders" | "editor" | "git" | "ai" | "insights";
 
 interface SettingsContentProps {
   activeTab: SettingsTab;
   settings: StikSettings;
   folders: string[];
   onSettingsChange: (settings: StikSettings) => void;
+  resolvedNotesDir: string;
   captureStreakLabel: string;
   captureStreakDays: number | null;
   isRefreshingStreak: boolean;
@@ -123,6 +126,7 @@ export default function SettingsContent({
   settings,
   folders,
   onSettingsChange,
+  resolvedNotesDir,
   captureStreakLabel,
   captureStreakDays,
   isRefreshingStreak,
@@ -142,10 +146,13 @@ export default function SettingsContent({
   onOpenGitRemote,
 }: SettingsContentProps) {
   const remoteWebUrl = remoteToWebUrl(settings.git_sharing.remote_url);
+  const notesDir = settings.notes_directory
+    ? `${settings.notes_directory}/Stik`
+    : resolvedNotesDir || "~/Documents/Stik";
   const linkedRepoPath =
     settings.git_sharing.repository_layout === "stik_root"
-      ? "~/Documents/Stik"
-      : `~/Documents/Stik/${settings.git_sharing.shared_folder || "Inbox"}`;
+      ? notesDir
+      : `${notesDir}/${settings.git_sharing.shared_folder || "Inbox"}`;
 
   const updateMapping = (index: number, updates: Partial<ShortcutMapping>) => {
     const newMappings = [...settings.shortcut_mappings];
@@ -259,33 +266,171 @@ export default function SettingsContent({
               <span className="text-lg">+</span>
               <span>Add shortcut</span>
             </button>
+
+            <div className="mt-4 p-3 bg-line/30 rounded-xl border border-line/50">
+              <p className="text-[12px] text-stone mb-1.5">System shortcuts (reserved)</p>
+              <p className="text-[12px] text-ink leading-relaxed">
+                <span className="font-mono">&#x2318;&#x21E7;P</span> Search
+                <span className="mx-1.5 text-stone">&#xB7;</span>
+                <span className="font-mono">&#x2318;&#x21E7;M</span> Manager
+                <span className="mx-1.5 text-stone">&#xB7;</span>
+                <span className="font-mono">&#x2318;&#x21E7;,</span> Settings
+                <span className="mx-1.5 text-stone">&#xB7;</span>
+                <span className="font-mono">&#x2318;&#x21E7;L</span> Last note
+              </p>
+            </div>
           </div>
         )}
 
         {activeTab === "folders" && (
-          <div>
-            <p className="mb-4 text-[12px] text-stone">
-              Choose which folder opens by default from tray and quick-capture flows.
-            </p>
-
-            <div className="max-w-[360px]">
-              <Dropdown
-                value={settings.default_folder}
-                options={folders.map((f) => ({ value: f, label: f }))}
-                onChange={(value) =>
-                  onSettingsChange({ ...settings, default_folder: value })
-                }
-              />
+          <div className="space-y-4">
+            <div>
+              <p className="text-[12px] text-stone mb-1.5">Notes directory</p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 px-3 py-2.5 bg-bg border border-line rounded-lg text-[13px] font-mono truncate text-ink">
+                  {notesDir}
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const selected = await open({
+                      directory: true,
+                      multiple: false,
+                      title: "Choose where to store Stik notes",
+                      defaultPath: settings.notes_directory || resolvedNotesDir || undefined,
+                    });
+                    if (selected) {
+                      onSettingsChange({ ...settings, notes_directory: selected });
+                    }
+                  }}
+                  className="px-3 py-2.5 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors whitespace-nowrap"
+                >
+                  Browse
+                </button>
+                {settings.notes_directory && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onSettingsChange({ ...settings, notes_directory: "" })
+                    }
+                    className="px-3 py-2.5 text-[12px] text-stone hover:text-coral border border-line rounded-lg hover:border-coral/30 transition-colors whitespace-nowrap"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+              <p className="mt-1.5 text-[12px] text-stone leading-relaxed">
+                Stik creates a <span className="text-ink font-medium">Stik/</span> folder inside your chosen location.
+                Existing notes are not moved automatically.
+              </p>
             </div>
 
-            <p className="mt-3 text-[12px] text-stone leading-relaxed">
-              Opens when using tray menu or if no folder is specified.
-            </p>
+            <div>
+              <p className="text-[12px] text-stone mb-1.5">Default folder</p>
+              <div className="max-w-[360px]">
+                <Dropdown
+                  value={settings.default_folder}
+                  options={folders.map((f) => ({ value: f, label: f }))}
+                  onChange={(value) =>
+                    onSettingsChange({ ...settings, default_folder: value })
+                  }
+                />
+              </div>
+              <p className="mt-1.5 text-[12px] text-stone leading-relaxed">
+                Opens when using tray menu or if no folder is specified.
+              </p>
+            </div>
 
-            <div className="mt-4 p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
+            <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
               <p className="text-[12px] text-stone leading-relaxed">
-                Sync tip: notes are saved in ~/Documents/Stik/. If your Documents folder is
+                Sync tip: notes are saved in {notesDir}. If that folder is
                 synced (iCloud Drive, Dropbox, Syncthing), Stik syncs across Macs automatically.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "editor" && (
+          <div className="space-y-4">
+            <div className="p-4 bg-line/30 rounded-xl border border-line/50">
+              <p className="text-[13px] text-ink font-medium mb-1">Theme</p>
+              <p className="text-[12px] text-stone leading-relaxed mb-3">
+                Choose light, dark, or follow your macOS appearance.
+              </p>
+              <div className="inline-flex rounded-lg border border-line overflow-hidden">
+                {(["system", "light", "dark"] as const).map((opt) => {
+                  const labels = { system: "System", light: "Light", dark: "Dark" } as const;
+                  const current = settings.theme_mode || "system";
+                  const isActive =
+                    opt === "system" ? !current || current === "system" : current === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() =>
+                        onSettingsChange({ ...settings, theme_mode: opt === "system" ? "" : opt })
+                      }
+                      className={`px-4 py-1.5 text-[12px] font-medium transition-colors ${
+                        isActive
+                          ? "bg-coral text-white"
+                          : "text-stone hover:text-ink hover:bg-line/50"
+                      }`}
+                    >
+                      {labels[opt]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
+              <div>
+                <p className="text-[13px] text-ink font-medium">Vim mode</p>
+                <p className="mt-1 text-[12px] text-stone leading-relaxed">
+                  Use Vim-style keybindings in the editor. Press <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">i</kbd> to
+                  type, <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">Esc</kbd> to
+                  return to Normal mode.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  onSettingsChange({
+                    ...settings,
+                    vim_mode_enabled: !settings.vim_mode_enabled,
+                  })
+                }
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+                  settings.vim_mode_enabled ? "bg-coral" : "bg-line"
+                }`}
+                title="Toggle Vim mode"
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform pointer-events-none ${
+                    settings.vim_mode_enabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </label>
+
+            <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-2">
+              <p className="text-[13px] text-ink font-medium">Quick reference</p>
+              <div className="text-[12px] text-stone leading-relaxed space-y-1">
+                <p><span className="text-ink font-medium">Movement</span> — h j k l, w b (word), 0 $ (line), gg G (document)</p>
+                <p><span className="text-ink font-medium">Insert</span> — i (before), a (after), A (end of line), o O (new line)</p>
+                <p><span className="text-ink font-medium">Edit</span> — x dd cc cw C, yy p, diw ciw, ci/di + &quot; &apos; ( {'{'}</p>
+                <p><span className="text-ink font-medium">Visual</span> — v (chars), V (lines), d x (delete), y (yank), c (change)</p>
+                <p><span className="text-ink font-medium">Undo</span> — u, Ctrl+r (redo), . (repeat)</p>
+                <p><span className="text-ink font-medium">Commands</span> — :wq (save &amp; close), :q! (discard &amp; close)</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl space-y-1">
+              <p className="text-[12px] font-semibold text-ink">How to close</p>
+              <p className="text-[12px] text-stone leading-relaxed">
+                Press <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">:</kbd> in
+                Normal mode to open the command bar, then type <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">wq</kbd> + Enter
+                to save and close. Escape always switches between Insert and Normal mode.
               </p>
             </div>
           </div>
