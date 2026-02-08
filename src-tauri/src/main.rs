@@ -84,6 +84,7 @@ fn main() {
             notes::delete_note,
             notes::move_note,
             notes::get_note_content,
+            notes::save_note_image,
             folders::list_folders,
             folders::create_folder,
             folders::delete_folder,

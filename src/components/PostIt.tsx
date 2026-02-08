@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { flushSync } from "react-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import Editor, { type EditorRef } from "./Editor";
 import FolderPicker from "./FolderPicker";
 import type { StickedNote, StikSettings } from "@/types";
@@ -38,6 +38,25 @@ function normalizeMarkdownForCopy(markdown: string): string {
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{2,}/g, "\n")
     .trimEnd();
+}
+
+/** Convert relative `.assets/` paths in markdown to asset protocol URLs for display */
+function resolveImagePaths(markdown: string, folderPath: string): string {
+  return markdown.replace(
+    /!\[([^\]]*)\]\(\.assets\/([^)]+)\)/g,
+    (_match, alt, filename) => {
+      const absPath = `${folderPath}/.assets/${filename}`;
+      return `![${alt}](${convertFileSrc(absPath)})`;
+    }
+  );
+}
+
+/** Convert asset protocol URLs back to relative `.assets/` paths for storage */
+function unresolveImagePaths(markdown: string): string {
+  return markdown.replace(
+    /!\[([^\]]*)\]\(https?:\/\/asset\.localhost\/[^)]*[/\\]\.assets[/\\]([^)]+)\)/g,
+    (_match, alt, filename) => `![${alt}](.assets/${decodeURIComponent(filename)})`
+  );
 }
 
 type CopyMode = "markdown" | "rich" | "image";
@@ -102,6 +121,17 @@ export default function PostIt({
   const commandInputRef = useRef<HTMLInputElement | null>(null);
   const editorRef = useRef<EditorRef | null>(null);
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Resolve the notes directory path for image path resolution
+  const [notesDir, setNotesDir] = useState<string | null>(null);
+  useEffect(() => {
+    invoke<string>("get_notes_directory").then(setNotesDir).catch(() => {});
+  }, []);
+
+  // Resolve image paths for display when loading content with existing images
+  const resolvedInitialContent = notesDir && initialContent
+    ? resolveImagePaths(initialContent, `${notesDir}/${folder}`)
+    : initialContent;
 
   // Sync content state with initialContent (for sticked notes)
   useEffect(() => {
@@ -507,8 +537,9 @@ export default function PostIt({
   }, [stickedId, currentStickedId, isPinned]);
 
   const handleContentChange = useCallback((newContent: string) => {
-    setContent(newContent);
-    onContentChange?.(newContent);
+    const stored = unresolveImagePaths(newContent);
+    setContent(stored);
+    onContentChange?.(stored);
 
     // Check for folder picker trigger (only in capture mode)
     if (!isSticked) {
@@ -686,6 +717,28 @@ export default function PostIt({
   // Clear suggestion when folder changes
   useEffect(() => {
     setSuggestedFolder(null);
+  }, [folder]);
+
+  // Handle image paste/drop: save to disk and return asset URL for the editor
+  const handleImagePaste = useCallback(async (file: File): Promise<string | null> => {
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const [absPath] = await invoke<[string, string]>("save_note_image", {
+        folder,
+        imageData: base64,
+      });
+
+      return convertFileSrc(absPath);
+    } catch (err) {
+      console.error("Failed to save image:", err);
+      return null;
+    }
   }, [folder]);
 
   // Show save animation
@@ -919,9 +972,10 @@ export default function PostIt({
             content={content}
             onChange={handleContentChange}
             placeholder={isSticked ? "Sticked note..." : "Type a thought..."}
-            initialContent={content || initialContent}
+            initialContent={content || resolvedInitialContent || initialContent}
             vimEnabled={vimEnabled}
             onVimModeChange={setVimMode}
+            onImagePaste={handleImagePaste}
           />
         )}
 

@@ -254,6 +254,14 @@ body,
   font-size: 12px;
 }
 
+/* Inline images */
+.stik-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.3em 0;
+}
+
 /* Save Animation */
 .save-checkmark {
   animation: save-pop 0.3s cubic-bezier(0.65, 0, 0.35, 1) forwards;

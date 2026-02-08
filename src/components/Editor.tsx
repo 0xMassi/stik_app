@@ -4,6 +4,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Link from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
 import { Markdown } from "tiptap-markdown";
 import { open } from "@tauri-apps/plugin-shell";
 import { forwardRef, useImperativeHandle, useEffect, useRef, useCallback } from "react";
@@ -16,6 +17,7 @@ interface EditorProps {
   initialContent?: string;
   vimEnabled?: boolean;
   onVimModeChange?: (mode: VimModeType) => void;
+  onImagePaste?: (file: File) => Promise<string | null>;
 }
 
 export interface EditorRef {
@@ -30,7 +32,7 @@ export interface EditorRef {
 }
 
 const Editor = forwardRef<EditorRef, EditorProps>(
-  ({ onChange, placeholder, initialContent, vimEnabled, onVimModeChange }, ref) => {
+  ({ onChange, placeholder, initialContent, vimEnabled, onVimModeChange, onImagePaste }, ref) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     const handleMetaKey = useCallback((e: KeyboardEvent) => {
@@ -66,9 +68,11 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       };
     }, [handleMetaKey]);
 
-    // Stable callback ref to avoid re-creating the editor when parent re-renders
+    // Stable callback refs to avoid re-creating the editor when parent re-renders
     const onVimModeChangeRef = useRef(onVimModeChange);
     onVimModeChangeRef.current = onVimModeChange;
+    const onImagePasteRef = useRef(onImagePaste);
+    onImagePasteRef.current = onImagePaste;
 
     // Extensions built once per mount. Parent uses key={vimEnabled} to force remount when toggled.
     const extensionsRef = useRef<any[] | null>(null);
@@ -83,6 +87,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         TaskList,
         TaskItem.configure({ nested: true }),
         Link.configure({ openOnClick: false }),
+        Image.configure({ inline: true, allowBase64: false }),
         Markdown.configure({
           transformPastedText: true,
           transformCopiedText: true,
@@ -111,6 +116,46 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       editorProps: {
         attributes: {
           class: "stik-editor",
+        },
+        handlePaste: (view, event) => {
+          const files = event.clipboardData?.files;
+          if (!files?.length) return false;
+
+          const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
+          if (!imageFile || !onImagePasteRef.current) return false;
+
+          event.preventDefault();
+          onImagePasteRef.current(imageFile).then((url) => {
+            if (url) {
+              view.dispatch(
+                view.state.tr.replaceSelectionWith(
+                  view.state.schema.nodes.image.create({ src: url })
+                )
+              );
+            }
+          });
+          return true;
+        },
+        handleDrop: (view, event) => {
+          const files = event.dataTransfer?.files;
+          if (!files?.length) return false;
+
+          const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
+          if (!imageFile || !onImagePasteRef.current) return false;
+
+          event.preventDefault();
+          const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+          onImagePasteRef.current(imageFile).then((url) => {
+            if (url && pos) {
+              view.dispatch(
+                view.state.tr.insert(
+                  pos.pos,
+                  view.state.schema.nodes.image.create({ src: url })
+                )
+              );
+            }
+          });
+          return true;
         },
       },
     });

@@ -1,3 +1,4 @@
+use base64::Engine;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -353,4 +354,57 @@ pub fn move_note(
         content,
         created,
     })
+}
+
+/// Detect image format from a data-URL prefix or raw base64 magic bytes.
+/// Returns file extension (png, jpg, gif, webp). Defaults to "png".
+fn detect_image_ext(data: &str) -> &'static str {
+    // Check data-URL mime type first
+    let lower = data.to_ascii_lowercase();
+    if lower.starts_with("data:image/jpeg") || lower.starts_with("data:image/jpg") {
+        return "jpg";
+    }
+    if lower.starts_with("data:image/gif") {
+        return "gif";
+    }
+    if lower.starts_with("data:image/webp") {
+        return "webp";
+    }
+    if lower.starts_with("data:image/png") {
+        return "png";
+    }
+    "png"
+}
+
+/// Save an image (base64-encoded) into the folder's `.assets/` directory.
+/// Returns `(absolute_path, relative_markdown_ref)`.
+#[tauri::command]
+pub fn save_note_image(folder: String, image_data: String) -> Result<(String, String), String> {
+    super::folders::validate_name(&folder)?;
+
+    let ext = detect_image_ext(&image_data);
+
+    // Strip the data-URL prefix if present
+    let raw_b64 = if let Some(idx) = image_data.find(",") {
+        &image_data[idx + 1..]
+    } else {
+        &image_data
+    };
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(raw_b64)
+        .map_err(|e| format!("Invalid base64: {}", e))?;
+
+    let stik_folder = get_stik_folder()?;
+    let assets_dir = stik_folder.join(&folder).join(".assets");
+    fs::create_dir_all(&assets_dir).map_err(|e| format!("Failed to create .assets dir: {}", e))?;
+
+    let filename = format!("{}.{}", uuid::Uuid::new_v4(), ext);
+    let file_path = assets_dir.join(&filename);
+
+    fs::write(&file_path, &bytes).map_err(|e| format!("Failed to write image: {}", e))?;
+
+    let abs = file_path.to_string_lossy().to_string();
+    let rel = format!(".assets/{}", filename);
+    Ok((abs, rel))
 }
