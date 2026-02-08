@@ -2,6 +2,85 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme tokens ── */
+:root {
+  /* Tailwind-compatible RGB channels (no commas, no #) */
+  --color-bg: 255 252 249;
+  --color-surface: 255 255 255;
+  --color-ink: 26 26 26;
+  --color-stone: 122 122 122;
+  --color-line: 240 238 235;
+  --color-coral: 232 112 95;
+  --color-coral-light: 255 241 238;
+  --color-coral-dark: 214 96 79;
+
+  /* Editor-specific (hex — not used by Tailwind opacity) */
+  --editor-placeholder: #bbb;
+  --editor-strikethrough: #999;
+  --editor-code-bg: #f0eeeb;
+  --editor-code-block-bg: #1a1a1a;
+  --editor-code-block-text: #f0f0f0;
+  --editor-checked-task: #999;
+  --editor-link: #e8705f;
+  --editor-marker: #e8705f;
+  --editor-blockquote-border: #e8705f;
+  --editor-blockquote-text: #7a7a7a;
+  --editor-checkbox-border: #e8705f;
+  --editor-checkbox-checked: #e8705f;
+
+  /* Vim */
+  --vim-visual-selection: rgba(232, 112, 95, 0.12);
+
+  /* Overlay */
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+
+  /* Shadows */
+  --shadow-stik: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-coral-sm: 0 4px 16px rgba(232, 112, 95, 0.25);
+  --shadow-coral-lg: 0 8px 24px rgba(232, 112, 95, 0.35);
+
+  /* Sticked note */
+  --sticked-shadow: 0 0 0 1px rgba(232, 112, 95, 0.3), 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 20px rgba(232, 112, 95, 0.1);
+  --sticked-header-gradient: linear-gradient(to right, rgba(232, 112, 95, 0.08), transparent);
+  --sticked-resize-gradient: linear-gradient(135deg, transparent 50%, rgba(232, 112, 95, 0.3) 50%);
+}
+
+[data-theme="dark"] {
+  --color-bg: 28 25 23;
+  --color-surface: 41 37 36;
+  --color-ink: 245 240 235;
+  --color-stone: 168 162 158;
+  --color-line: 68 64 60;
+  --color-coral: 232 112 95;
+  --color-coral-light: 61 37 32;
+  --color-coral-dark: 214 96 79;
+
+  --editor-placeholder: #666;
+  --editor-strikethrough: #777;
+  --editor-code-bg: #44403c;
+  --editor-code-block-bg: #0f0e0d;
+  --editor-code-block-text: #e8e4df;
+  --editor-checked-task: #666;
+  --editor-link: #e8705f;
+  --editor-marker: #e8705f;
+  --editor-blockquote-border: #e8705f;
+  --editor-blockquote-text: #a8a29e;
+  --editor-checkbox-border: #e8705f;
+  --editor-checkbox-checked: #e8705f;
+
+  --vim-visual-selection: rgba(232, 112, 95, 0.20);
+
+  --overlay-bg: rgba(0, 0, 0, 0.7);
+
+  --shadow-stik: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-coral-sm: 0 4px 16px rgba(232, 112, 95, 0.20);
+  --shadow-coral-lg: 0 8px 24px rgba(232, 112, 95, 0.30);
+
+  --sticked-shadow: 0 0 0 1px rgba(232, 112, 95, 0.25), 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(232, 112, 95, 0.08);
+  --sticked-header-gradient: linear-gradient(to right, rgba(232, 112, 95, 0.12), transparent);
+  --sticked-resize-gradient: linear-gradient(135deg, transparent 50%, rgba(232, 112, 95, 0.25) 50%);
+}
+
 /* Transparent window background */
 html,
 body,
@@ -29,7 +108,7 @@ body,
   padding: 12px 16px;
   font-size: 14px;
   line-height: 1.5;
-  color: #1a1a1a;
+  color: rgb(var(--color-ink));
   outline: none;
   overflow-y: auto;
 }
@@ -42,7 +121,7 @@ body,
 .stik-editor p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #bbb;
+  color: var(--editor-placeholder);
   pointer-events: none;
   height: 0;
 }
@@ -77,21 +156,21 @@ body,
 
 .stik-editor s {
   text-decoration: line-through;
-  color: #999;
+  color: var(--editor-strikethrough);
 }
 
 .stik-editor code {
-  background-color: #f0eeeb;
+  background-color: var(--editor-code-bg);
   padding: 1px 4px;
   border-radius: 3px;
   font-family: Monaco, Consolas, monospace;
   font-size: 12px;
-  color: #e8705f;
+  color: var(--editor-link);
 }
 
 /* Links */
 .stik-editor a {
-  color: #e8705f;
+  color: var(--editor-link);
   text-decoration: underline;
 }
 
@@ -117,7 +196,7 @@ body,
 }
 
 .stik-editor ul li::marker {
-  color: #e8705f;
+  color: var(--editor-marker);
 }
 
 /* Task list */
@@ -136,33 +215,33 @@ body,
   appearance: none;
   width: 14px;
   height: 14px;
-  border: 2px solid #e8705f;
+  border: 2px solid var(--editor-checkbox-border);
   border-radius: 3px;
   cursor: pointer;
   margin-top: 2px;
 }
 
 .stik-editor ul[data-type="taskList"] li > label input[type="checkbox"]:checked {
-  background-color: #e8705f;
+  background-color: var(--editor-checkbox-checked);
 }
 
 .stik-editor ul[data-type="taskList"] li[data-checked="true"] > div {
   text-decoration: line-through;
-  color: #999;
+  color: var(--editor-checked-task);
 }
 
 /* Blockquote */
 .stik-editor blockquote {
-  border-left: 2px solid #e8705f;
+  border-left: 2px solid var(--editor-blockquote-border);
   padding-left: 10px;
   margin: 0.3em 0;
-  color: #7a7a7a;
+  color: var(--editor-blockquote-text);
   font-style: italic;
 }
 
 /* Code block */
 .stik-editor pre {
-  background-color: #1a1a1a;
+  background-color: var(--editor-code-block-bg);
   border-radius: 6px;
   padding: 10px;
   margin: 0.3em 0;
@@ -171,7 +250,7 @@ body,
 .stik-editor pre code {
   background: none;
   padding: 0;
-  color: #f0f0f0;
+  color: var(--editor-code-block-text);
   font-size: 12px;
 }
 
@@ -230,8 +309,8 @@ body,
 
 /* Block cursor: solid, no blink — matches terminal vim behavior */
 .vim-cursor-block {
-  background: #1a1a1a;
-  color: #fff;
+  background: rgb(var(--color-ink));
+  color: rgb(var(--color-bg));
   border-radius: 1px;
 }
 
@@ -241,18 +320,18 @@ body,
 }
 
 .vim-visual-selection {
-  background: rgba(232, 112, 95, 0.12);
+  background: var(--vim-visual-selection);
 }
 
 /* Widget at end-of-line / empty line */
 .vim-cursor-eol {
-  background: #1a1a1a;
+  background: rgb(var(--color-ink));
   border-radius: 1px;
 }
 
 .vim-normal:not(:focus) .vim-cursor-eol {
   background: transparent;
-  outline: 1.5px solid #1a1a1a;
+  outline: 1.5px solid rgb(var(--color-ink));
   outline-offset: -1.5px;
 }
 
@@ -294,19 +373,12 @@ body,
 
 /* Sticked Note Styles */
 .sticked-note {
-  box-shadow:
-    0 0 0 1px rgba(232, 112, 95, 0.3),
-    0 4px 12px rgba(0, 0, 0, 0.15),
-    0 0 20px rgba(232, 112, 95, 0.1);
+  box-shadow: var(--sticked-shadow);
   animation: sticked-appear 0.2s ease-out;
 }
 
 .sticked-header {
-  background: linear-gradient(
-    to right,
-    rgba(232, 112, 95, 0.08),
-    transparent
-  );
+  background: var(--sticked-header-gradient);
 }
 
 @keyframes sticked-appear {
@@ -329,11 +401,6 @@ body,
   width: 16px;
   height: 16px;
   cursor: se-resize;
-  background: linear-gradient(
-    135deg,
-    transparent 50%,
-    rgba(232, 112, 95, 0.3) 50%
-  );
+  background: var(--sticked-resize-gradient);
   border-radius: 0 0 14px 0;
 }
-

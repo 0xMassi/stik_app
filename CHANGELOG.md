@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ## [0.3.3] - 2026-02-07
+Silent auto-updates
 
 ### Added
 - **Auto-updater** — silently downloads updates in the background, applies on next app restart
 - **Version display** — app version shown in the settings footer
 
 ## [0.3.2] - 2026-02-07
+Polish & bug fixes
 
 ### Fixed
 - **Double tray icon** — removed duplicate tray icon created by both config and code (#2)
@@ -27,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.1] - 2026-02-06
 
 ## [0.3.0] - 2026-02-06
+On-device AI & git sharing
 
 ### Added
 - **On-device AI features** powered by DarwinKit sidecar (Apple NaturalLanguage framework, zero cloud dependency)
@@ -51,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Insights layout** changed from 2-column grid to vertical stack for better scrolling
 
 ## [0.2.0] - 2026-02-06
+Security hardening & architecture refactor
 
 ### Added
 - **In-memory note index** for fast search and listing (two-tier: preview match then full-file fallback)
@@ -84,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unused settings commands (`get_shortcut_mappings`, `save_shortcut_mapping`, `set_setting`)
 
 ## [0.1.0] - 2026-02-05
+First release
 
 ### Added
 - **Core capture flow**: Global shortcut summons post-it, type, close to save

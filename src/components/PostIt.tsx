@@ -59,7 +59,7 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
       className={`
         fixed bottom-6 left-1/2 -translate-x-1/2 z-[250]
         px-4 py-2.5 rounded-xl shadow-stik
-        text-[13px] font-medium bg-ink text-white
+        text-[13px] font-medium bg-ink text-bg
         transition-all duration-200 ease-out
         ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
       `}
@@ -355,8 +355,6 @@ export default function PostIt({
       ? "Copying markdown..."
       : isCopying && copyMode === "rich"
       ? "Copying rich text..."
-      : isCopying
-      ? "Copying..."
       : "Copy";
 
   // Pin from capture mode
@@ -696,7 +694,7 @@ export default function PostIt({
       <div className="w-full h-full flex items-center justify-center bg-bg rounded-[14px]">
         <div className="flex flex-col items-center gap-3">
           <svg
-            className="save-checkmark"
+            className="save-checkmark text-coral"
             viewBox="0 0 52 52"
             width="40"
             height="40"
@@ -707,13 +705,13 @@ export default function PostIt({
               cy="26"
               r="24"
               fill="none"
-              stroke="#E8705F"
+              stroke="currentColor"
               strokeWidth="3"
             />
             <path
               className="save-check"
               fill="none"
-              stroke="#E8705F"
+              stroke="currentColor"
               strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -824,6 +822,7 @@ export default function PostIt({
 
         <div className="flex items-center gap-3 text-[10px] text-stone">
           <div className="relative" ref={copyMenuRef}>
+            {!(isCopying && copyMode === "image") && (
             <button
               onClick={() => setIsCopyMenuOpen((open) => !open)}
               disabled={!content.trim() || isCopying}
@@ -841,6 +840,7 @@ export default function PostIt({
                 </span>
               )}
             </button>
+            )}
 
             {isCopyMenuOpen && (
               <div className="absolute top-full right-0 mt-1 w-40 rounded-lg border border-line bg-bg shadow-stik overflow-hidden z-[240]">

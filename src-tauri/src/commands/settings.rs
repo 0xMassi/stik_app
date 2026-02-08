@@ -48,6 +48,8 @@ pub struct StikSettings {
     pub ai_features_enabled: bool,
     #[serde(default)]
     pub vim_mode_enabled: bool,
+    #[serde(default)]
+    pub theme_mode: String,
 }
 
 impl Default for StikSettings {
@@ -79,6 +81,7 @@ impl Default for StikSettings {
             git_sharing: GitSharingSettings::default(),
             ai_features_enabled: true,
             vim_mode_enabled: false,
+            theme_mode: String::new(),
         }
     }
 }

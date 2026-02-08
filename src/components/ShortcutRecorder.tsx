@@ -129,9 +129,9 @@ function Toast({
   }, [onDone]);
 
   const styles = {
-    info: "bg-ink text-white",
-    error: "bg-red-500 text-white",
-    success: "bg-coral text-white",
+    info: "bg-ink text-bg",
+    error: "bg-red-500 text-bg",
+    success: "bg-coral text-bg",
   }[type];
 
   return (

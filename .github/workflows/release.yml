@@ -154,3 +154,7 @@ jobs:
             -f message="Update Stik to v${VERSION}" \
             -f sha="$FILE_SHA" \
             -f content="$CONTENT"
+
+      - name: Trigger landing page rebuild
+        if: success()
+        run: curl -s -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}"

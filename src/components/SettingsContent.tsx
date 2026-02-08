@@ -293,6 +293,37 @@ export default function SettingsContent({
 
         {activeTab === "editor" && (
           <div className="space-y-4">
+            <div className="p-4 bg-line/30 rounded-xl border border-line/50">
+              <p className="text-[13px] text-ink font-medium mb-1">Theme</p>
+              <p className="text-[12px] text-stone leading-relaxed mb-3">
+                Choose light, dark, or follow your macOS appearance.
+              </p>
+              <div className="inline-flex rounded-lg border border-line overflow-hidden">
+                {(["system", "light", "dark"] as const).map((opt) => {
+                  const labels = { system: "System", light: "Light", dark: "Dark" } as const;
+                  const current = settings.theme_mode || "system";
+                  const isActive =
+                    opt === "system" ? !current || current === "system" : current === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() =>
+                        onSettingsChange({ ...settings, theme_mode: opt === "system" ? "" : opt })
+                      }
+                      className={`px-4 py-1.5 text-[12px] font-medium transition-colors ${
+                        isActive
+                          ? "bg-coral text-white"
+                          : "text-stone hover:text-ink hover:bg-line/50"
+                      }`}
+                    >
+                      {labels[opt]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
               <div>
                 <p className="text-[13px] text-ink font-medium">Vim mode</p>
