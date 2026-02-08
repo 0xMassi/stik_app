@@ -7,6 +7,7 @@ import Editor, { type EditorRef } from "./Editor";
 import FolderPicker from "./FolderPicker";
 import type { StickedNote, StikSettings } from "@/types";
 import type { VimMode } from "@/extensions/vim-mode";
+import { normalizeMarkdownForCopy } from "@/utils/normalizeMarkdownForCopy";
 
 interface PostItProps {
   folder: string;
@@ -30,14 +31,6 @@ function fallbackHtmlFromPlainText(text: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
   return `<pre>${escaped}</pre>`;
-}
-
-function normalizeMarkdownForCopy(markdown: string): string {
-  return markdown
-    .replace(/\r\n/g, "\n")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{2,}/g, "\n")
-    .trimEnd();
 }
 
 /** Convert relative `.assets/` paths in markdown to asset protocol URLs for display */
