@@ -6,3 +6,11 @@ export function normalizeMarkdownForCopy(markdown: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .trimEnd();
 }
+
+export function isMarkdownEffectivelyEmpty(markdown: string): boolean {
+  return normalizeMarkdownForCopy(markdown).trim().length === 0;
+}
+
+export function normalizeMarkdownForState(markdown: string): string {
+  return isMarkdownEffectivelyEmpty(markdown) ? "" : markdown;
+}

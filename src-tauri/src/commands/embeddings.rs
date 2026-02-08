@@ -297,7 +297,7 @@ pub fn build_embeddings(
             Err(_) => continue,
         };
 
-        if content.trim().is_empty() {
+        if super::notes::is_effectively_empty_markdown(&content) {
             continue;
         }
 

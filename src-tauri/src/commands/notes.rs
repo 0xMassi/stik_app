@@ -68,12 +68,25 @@ fn generate_filename(content: &str) -> String {
     format!("{}-{}-{}.md", timestamp, slug, suffix)
 }
 
+fn is_break_placeholder_line(line: &str) -> bool {
+    line.eq_ignore_ascii_case("<br>")
+        || line.eq_ignore_ascii_case("<br/>")
+        || line.eq_ignore_ascii_case("<br />")
+}
+
+pub fn is_effectively_empty_markdown(content: &str) -> bool {
+    content.lines().all(|line| {
+        let trimmed = line.trim();
+        trimmed.is_empty() || is_break_placeholder_line(trimmed)
+    })
+}
+
 /// Core save logic, callable from other Rust modules without Tauri State
 pub fn save_note_inner(folder: String, content: String) -> Result<NoteSaved, String> {
     super::folders::validate_name(&folder)?;
 
     // Don't save empty notes
-    if content.trim().is_empty() {
+    if is_effectively_empty_markdown(&content) {
         return Ok(NoteSaved {
             path: String::new(),
             folder,
@@ -213,7 +226,7 @@ pub fn update_note(
     }
 
     // Don't save empty notes - delete instead
-    if content.trim().is_empty() {
+    if is_effectively_empty_markdown(&content) {
         fs::remove_file(&note_path).map_err(|e| format!("Failed to delete note: {}", e))?;
         index.remove(&path);
         emb_index.remove_entry(&path);
@@ -407,4 +420,19 @@ pub fn save_note_image(folder: String, image_data: String) -> Result<(String, St
     let abs = file_path.to_string_lossy().to_string();
     let rel = format!(".assets/{}", filename);
     Ok((abs, rel))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_effectively_empty_markdown;
+
+    #[test]
+    fn placeholder_breaks_only_are_treated_as_empty() {
+        assert!(is_effectively_empty_markdown("<br>\n\n<br />\n"));
+    }
+
+    #[test]
+    fn real_content_with_placeholders_is_not_empty() {
+        assert!(!is_effectively_empty_markdown("hello\n\n<br>\n"));
+    }
 }

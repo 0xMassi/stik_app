@@ -8,6 +8,7 @@ import SearchModal from "./components/SearchModal";
 import ManagerModal from "./components/ManagerModal";
 import { useTheme } from "./hooks/useTheme";
 import type { StickedNote } from "@/types";
+import { isMarkdownEffectivelyEmpty } from "@/utils/normalizeMarkdownForCopy";
 
 type WindowType = "postit" | "sticked" | "settings" | "search" | "manager";
 
@@ -155,7 +156,7 @@ export default function App() {
 
   const handleSave = useCallback(
     async (content: string) => {
-      if (!content.trim()) return;
+      if (isMarkdownEffectivelyEmpty(content)) return;
 
       try {
         await invoke("save_note", {

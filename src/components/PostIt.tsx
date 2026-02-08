@@ -7,7 +7,11 @@ import Editor, { type EditorRef } from "./Editor";
 import FolderPicker from "./FolderPicker";
 import type { StickedNote, StikSettings } from "@/types";
 import type { VimMode } from "@/extensions/vim-mode";
-import { normalizeMarkdownForCopy } from "@/utils/normalizeMarkdownForCopy";
+import {
+  isMarkdownEffectivelyEmpty,
+  normalizeMarkdownForCopy,
+  normalizeMarkdownForState,
+} from "@/utils/normalizeMarkdownForCopy";
 
 interface PostItProps {
   folder: string;
@@ -94,7 +98,7 @@ export default function PostIt({
   isViewing = false,
   originalPath,
 }: PostItProps) {
-  const [content, setContent] = useState(initialContent);
+  const [content, setContent] = useState(() => normalizeMarkdownForState(initialContent));
   const [showPicker, setShowPicker] = useState(false);
   const [suggestedFolder, setSuggestedFolder] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -122,16 +126,17 @@ export default function PostIt({
   }, []);
 
   // Resolve image paths for display when loading content with existing images
-  const resolvedInitialContent = notesDir && initialContent
-    ? resolveImagePaths(initialContent, `${notesDir}/${folder}`)
-    : initialContent;
+  const baseInitialContent = normalizeMarkdownForState(initialContent);
+  const resolvedInitialContent = notesDir && baseInitialContent
+    ? resolveImagePaths(baseInitialContent, `${notesDir}/${folder}`)
+    : baseInitialContent;
 
   // Sync content state with initialContent (for sticked notes)
   useEffect(() => {
-    if (initialContent && !content) {
-      setContent(initialContent);
+    if (baseInitialContent && !content) {
+      setContent(baseInitialContent);
     }
-  }, [initialContent]);
+  }, [baseInitialContent]);
 
   // Fetch vim mode setting on mount + listen for changes
   useEffect(() => {
@@ -166,7 +171,7 @@ export default function PostIt({
     if (isSticked) return; // Only main capture window listens
 
     const unlisten = listen<{ content: string; folder: string }>("transfer-content", (event) => {
-      setContent(event.payload.content);
+      setContent(normalizeMarkdownForState(event.payload.content));
       onFolderChange(event.payload.folder);
       // Focus editor and move cursor to end
       setTimeout(() => {
@@ -181,7 +186,7 @@ export default function PostIt({
   }, [isSticked, onFolderChange]);
 
   const handleSaveAndClose = useCallback(async () => {
-    if (content.trim()) {
+    if (!isMarkdownEffectivelyEmpty(content)) {
       setIsSaving(true);
       await onSave(content);
       setTimeout(async () => {
@@ -242,7 +247,7 @@ export default function PostIt({
   }, [isCopyMenuOpen]);
 
   useEffect(() => {
-    if (!content.trim()) {
+    if (isMarkdownEffectivelyEmpty(content)) {
       setIsCopyMenuOpen(false);
     }
   }, [content]);
@@ -294,7 +299,7 @@ export default function PostIt({
   }, [copyPlainTextViaTextarea]);
 
   const handleCopy = useCallback(async (mode: CopyMode) => {
-    if (!content.trim() || isCopying) return;
+    if (isMarkdownEffectivelyEmpty(content) || isCopying) return;
 
     flushSync(() => {
       setIsCopying(true);
@@ -379,10 +384,11 @@ export default function PostIt({
       : isCopying && copyMode === "rich"
       ? "Copying rich text..."
       : "Copy";
+  const hasMeaningfulContent = !isMarkdownEffectivelyEmpty(content);
 
   // Pin from capture mode
   const handlePin = useCallback(async () => {
-    if (isPinning || !content.trim()) return;
+    if (isPinning || isMarkdownEffectivelyEmpty(content)) return;
 
     setIsPinning(true);
     try {
@@ -465,7 +471,7 @@ export default function PostIt({
     if (!idToClose) return;
 
     // Only show save animation if there's content
-    if (content.trim()) {
+    if (!isMarkdownEffectivelyEmpty(content)) {
       setIsSaving(true);
       try {
         // If still pinned, close from sticked notes
@@ -530,7 +536,7 @@ export default function PostIt({
   }, [stickedId, currentStickedId, isPinned]);
 
   const handleContentChange = useCallback((newContent: string) => {
-    const stored = unresolveImagePaths(newContent);
+    const stored = normalizeMarkdownForState(unresolveImagePaths(newContent));
     setContent(stored);
     onContentChange?.(stored);
 
@@ -564,7 +570,7 @@ export default function PostIt({
     switch (trimmed) {
       case "wq":
       case "x": // save and close
-        if (content.trim()) {
+        if (!isMarkdownEffectivelyEmpty(content)) {
           if (isSticked) {
             handleSaveAndCloseSticked();
           } else {
@@ -808,9 +814,9 @@ export default function PostIt({
             // Capture mode: pin to create sticked note
             <button
               onClick={handlePin}
-              disabled={!content.trim() || isPinning}
+              disabled={!hasMeaningfulContent || isPinning}
               className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
-                content.trim()
+                hasMeaningfulContent
                   ? "hover:bg-coral-light text-coral hover:text-coral"
                   : "text-stone/50 cursor-not-allowed"
               }`}
@@ -889,9 +895,9 @@ export default function PostIt({
             {!(isCopying && copyMode === "image") && (
             <button
               onClick={() => setIsCopyMenuOpen((open) => !open)}
-              disabled={!content.trim() || isCopying}
+              disabled={!hasMeaningfulContent || isCopying}
               className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${
-                content.trim()
+                hasMeaningfulContent
                   ? "hover:bg-coral-light text-coral"
                   : "text-stone/50 cursor-not-allowed"
               }`}
@@ -941,13 +947,13 @@ export default function PostIt({
               </button>
               <button
                 onClick={handleSaveAndCloseSticked}
-                disabled={!content.trim()}
+                disabled={!hasMeaningfulContent}
                 className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
-                  content.trim()
+                  hasMeaningfulContent
                     ? "bg-coral text-white hover:bg-coral/90"
                     : "bg-line text-stone cursor-not-allowed"
                 }`}
-                title={content.trim() ? "Save to folder and close" : "Nothing to save"}
+                title={hasMeaningfulContent ? "Save to folder and close" : "Nothing to save"}
               >
                 Save
               </button>

@@ -120,9 +120,11 @@ pub fn close_sticked_note(id: String, save_to_folder: bool) -> Result<bool, Stri
     let note = store.notes.remove(note_idx);
 
     // Save content to folder if requested and has content
-    if save_to_folder && !note.content.trim().is_empty() {
-        use crate::commands::notes::save_note_inner;
-        save_note_inner(note.folder, note.content)?;
+    if save_to_folder {
+        use crate::commands::notes::{is_effectively_empty_markdown, save_note_inner};
+        if !is_effectively_empty_markdown(&note.content) {
+            save_note_inner(note.folder, note.content)?;
+        }
     }
 
     save_sticked_notes(&store)?;
