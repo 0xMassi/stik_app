@@ -7,6 +7,7 @@ export const RESERVED_SHORTCUTS = [
   "Cmd+Shift+P", // Search
   "Cmd+Shift+M", // Manager
   "Cmd+Shift+Comma", // Settings
+  "Cmd+Shift+L", // Last note
 ];
 
 function remoteToWebUrl(remoteUrl: string): string | null {
@@ -259,6 +260,19 @@ export default function SettingsContent({
               <span className="text-lg">+</span>
               <span>Add shortcut</span>
             </button>
+
+            <div className="mt-4 p-3 bg-line/30 rounded-xl border border-line/50">
+              <p className="text-[12px] text-stone mb-1.5">System shortcuts (reserved)</p>
+              <p className="text-[12px] text-ink leading-relaxed">
+                <span className="font-mono">&#x2318;&#x21E7;P</span> Search
+                <span className="mx-1.5 text-stone">&#xB7;</span>
+                <span className="font-mono">&#x2318;&#x21E7;M</span> Manager
+                <span className="mx-1.5 text-stone">&#xB7;</span>
+                <span className="font-mono">&#x2318;&#x21E7;,</span> Settings
+                <span className="mx-1.5 text-stone">&#xB7;</span>
+                <span className="font-mono">&#x2318;&#x21E7;L</span> Last note
+              </p>
+            </div>
           </div>
         )}
 

@@ -101,6 +101,7 @@ const SYSTEM_RESERVED = [
   "Cmd+Shift+P", // Search
   "Cmd+Shift+M", // Manager
   "Cmd+Shift+Comma", // Settings
+  "Cmd+Shift+L", // Last note
 ];
 
 // Toast component

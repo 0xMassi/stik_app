@@ -1,4 +1,4 @@
-use crate::commands::sticked_notes;
+use crate::commands::{notes, sticked_notes};
 use crate::state::AppState;
 use sticked_notes::StickedNote;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -453,6 +453,21 @@ pub fn transfer_to_capture(app: AppHandle, content: String, folder: String) -> R
 pub fn open_settings(app: AppHandle) -> Result<bool, String> {
     show_settings(&app);
     Ok(true)
+}
+
+#[tauri::command]
+pub async fn reopen_last_note(app: AppHandle) -> Result<bool, String> {
+    let (path, folder) = {
+        let state = app.state::<AppState>();
+        let last = state.last_saved_note.lock().unwrap_or_else(|e| e.into_inner());
+        match last.as_ref() {
+            Some(note) => (note.path.clone(), note.folder.clone()),
+            None => return Err("No note saved yet".to_string()),
+        }
+    };
+
+    let content = notes::get_note_content_inner(&path)?;
+    open_note_for_viewing(app, content, folder, path).await
 }
 
 pub fn restore_sticked_notes(app: &AppHandle) {

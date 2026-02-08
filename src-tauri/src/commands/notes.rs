@@ -2,14 +2,15 @@ use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
+use crate::state::{AppState, LastSavedNote};
 use super::embeddings::{self, EmbeddingIndex};
 use super::folders::get_stik_folder;
 use super::git_share;
 use super::index::NoteIndex;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NoteSaved {
     pub path: String,
     pub folder: String,
@@ -100,6 +101,7 @@ pub fn save_note_inner(folder: String, content: String) -> Result<NoteSaved, Str
 
 #[tauri::command]
 pub fn save_note(
+    app: AppHandle,
     folder: String,
     content: String,
     index: State<'_, NoteIndex>,
@@ -116,6 +118,13 @@ pub fn save_note(
                 let _ = emb_index.save();
             }
         }
+
+        let state = app.state::<AppState>();
+        let mut last = state.last_saved_note.lock().unwrap_or_else(|e: std::sync::PoisonError<_>| e.into_inner());
+        *last = Some(LastSavedNote {
+            path: result.path.clone(),
+            folder: result.folder.clone(),
+        });
     }
 
     Ok(result)
@@ -163,10 +172,9 @@ pub fn search_notes(
         .collect())
 }
 
-#[tauri::command]
-pub fn get_note_content(path: String) -> Result<String, String> {
+pub fn get_note_content_inner(path: &str) -> Result<String, String> {
     let stik_folder = get_stik_folder()?;
-    let note_path = PathBuf::from(&path);
+    let note_path = PathBuf::from(path);
 
     if !note_path.starts_with(&stik_folder) {
         return Err("Invalid path: note must be within Stik folder".to_string());
@@ -176,6 +184,11 @@ pub fn get_note_content(path: String) -> Result<String, String> {
     }
 
     fs::read_to_string(&note_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_note_content(path: String) -> Result<String, String> {
+    get_note_content_inner(&path)
 }
 
 #[tauri::command]

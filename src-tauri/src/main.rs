@@ -43,6 +43,13 @@ fn main() {
                         show_settings(app);
                         return;
                     }
+                    if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyL) {
+                        let app = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = windows::reopen_last_note(app).await;
+                        });
+                        return;
+                    }
 
                     #[cfg(debug_assertions)]
                     if shortcut.matches(Modifiers::SUPER | Modifiers::ALT, Code::KeyI) {
@@ -105,6 +112,7 @@ fn main() {
             windows::get_viewing_note_content,
             windows::open_settings,
             windows::transfer_to_capture,
+            windows::reopen_last_note,
             shortcuts::reload_shortcuts,
             shortcuts::pause_shortcuts,
             shortcuts::resume_shortcuts,
