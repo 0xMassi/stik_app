@@ -13,6 +13,8 @@ import { StikHighlight } from "@/extensions/highlight";
 import { CollapsibleHeadings } from "@/extensions/collapsible-headings";
 import { WikiLink, filenameToSlug, type WikiLinkItem } from "@/extensions/wiki-link";
 import { renderWikiLinkSuggestion } from "@/extensions/wiki-link-suggestion";
+import { MarkdownLinkRule, normalizeUrl } from "@/extensions/markdown-link-rule";
+import LinkPopover from "@/components/LinkPopover";
 import { invoke } from "@tauri-apps/api/core";
 import type { SearchResult } from "@/types";
 
@@ -48,19 +50,25 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       }
     }, []);
 
-    // Cmd+Click to open links — capture phase to fire before webview navigation
+    // Link click handling — prevent native <a> navigation, Cmd+Click opens externally
     useEffect(() => {
       const el = wrapperRef.current;
       if (!el) return;
 
       const handleLinkClick = (e: MouseEvent) => {
+        const anchor = (e.target as HTMLElement).closest("a");
+        if (!anchor) return;
+
+        // Use raw attribute — .href returns browser-resolved URL (relative to page)
+        const rawHref = anchor.getAttribute("href");
+        if (!rawHref) return;
+
+        // Always prevent native navigation (ProseMirror handles cursor via mousedown)
+        e.preventDefault();
+
         if (e.metaKey) {
-          const anchor = (e.target as HTMLElement).closest("a");
-          if (anchor?.href) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            open(anchor.href);
-          }
+          e.stopImmediatePropagation();
+          open(normalizeUrl(rawHref));
         }
       };
 
@@ -95,7 +103,8 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         }),
         TaskList,
         TaskItem.configure({ nested: true }),
-        Link.configure({ openOnClick: false }),
+        Link.configure({ openOnClick: false, autolink: true }),
+        MarkdownLinkRule,
         Image.configure({ inline: true, allowBase64: false }),
         StikHighlight,
         CollapsibleHeadings,
@@ -220,8 +229,9 @@ const Editor = forwardRef<EditorRef, EditorProps>(
     }));
 
     return (
-      <div ref={wrapperRef} className="h-full">
+      <div ref={wrapperRef} className="h-full relative">
         <EditorContent editor={editor} className="h-full" />
+        <LinkPopover editor={editor} />
       </div>
     );
   }

@@ -564,3 +564,103 @@ body,
   white-space: nowrap;
   flex-shrink: 0;
 }
+
+/* ── Link Popover ── */
+.link-popover {
+  position: absolute;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgb(var(--color-surface));
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  animation: link-popover-in 0.12s ease-out;
+}
+
+@keyframes link-popover-in {
+  from { opacity: 0; translate: 0 -2px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+.link-popover-url {
+  font-size: 11px;
+  color: rgb(var(--color-coral));
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+  cursor: pointer;
+}
+
+.link-popover-url:hover {
+  text-decoration: underline;
+}
+
+.link-popover-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-left: 1px solid rgb(var(--color-line));
+  padding-left: 6px;
+  margin-left: 2px;
+}
+
+.link-popover-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: rgb(var(--color-stone));
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.link-popover-btn:hover {
+  background: rgb(var(--color-line));
+  color: rgb(var(--color-ink));
+}
+
+.link-popover-unlink:hover {
+  color: rgb(var(--color-coral));
+}
+
+.link-popover-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.link-popover-input {
+  font-size: 11px;
+  color: rgb(var(--color-ink));
+  background: rgb(var(--color-bg));
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 5px;
+  padding: 3px 6px;
+  width: 200px;
+  outline: none;
+}
+
+.link-popover-input:focus {
+  border-color: rgb(var(--color-coral));
+}
+
+.link-popover-save {
+  font-size: 11px;
+  font-weight: 600;
+  width: auto;
+  padding: 3px 8px;
+  color: rgb(var(--color-coral));
+}
+
+.link-popover-save:hover {
+  background: rgba(232, 112, 95, 0.1);
+}
