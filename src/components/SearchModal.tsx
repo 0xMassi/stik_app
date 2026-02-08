@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { SearchResult, SemanticResult } from "@/types";
+import type { NoteInfo, SearchResult, SemanticResult } from "@/types";
 
 export default function SearchModal() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [semanticResults, setSemanticResults] = useState<SemanticResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [recentNotes, setRecentNotes] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<SearchResult | null>(null);
   const [showMoveModal, setShowMoveModal] = useState<SearchResult | null>(null);
@@ -21,6 +22,21 @@ export default function SearchModal() {
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
+  // Load recent notes on mount
+  useEffect(() => {
+    invoke<NoteInfo[]>("list_notes", {}).then((notes) => {
+      setRecentNotes(
+        notes.slice(0, 10).map((n) => ({
+          path: n.path,
+          filename: n.filename,
+          folder: n.folder,
+          snippet: n.content,
+          created: n.created,
+        }))
+      );
+    });
+  }, []);
+
   // Load folders for move modal
   useEffect(() => {
     invoke<string[]>("list_folders").then(setFolders);
@@ -29,8 +45,9 @@ export default function SearchModal() {
   // Search when query changes (debounced) — text + semantic in parallel
   useEffect(() => {
     if (!query.trim()) {
-      setResults([]);
+      setResults(recentNotes);
       setSemanticResults([]);
+      setSelectedIndex(0);
       return;
     }
 
@@ -62,7 +79,7 @@ export default function SearchModal() {
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, recentNotes]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -142,9 +159,9 @@ export default function SearchModal() {
   // Scroll selected item into view
   useEffect(() => {
     if (resultsRef.current) {
-      const selectedEl = resultsRef.current.children[selectedIndex] as HTMLElement;
-      if (selectedEl) {
-        selectedEl.scrollIntoView({ block: "nearest" });
+      const items = resultsRef.current.querySelectorAll<HTMLElement>("button");
+      if (items[selectedIndex]) {
+        items[selectedIndex].scrollIntoView({ block: "nearest" });
       }
     }
   }, [selectedIndex]);
@@ -167,17 +184,33 @@ export default function SearchModal() {
     }
   }, []);
 
+  const refreshRecentNotes = useCallback(async () => {
+    const notes = await invoke<NoteInfo[]>("list_notes", {});
+    const recent = notes.slice(0, 10).map((n) => ({
+      path: n.path,
+      filename: n.filename,
+      folder: n.folder,
+      snippet: n.content,
+      created: n.created,
+    }));
+    setRecentNotes(recent);
+    return recent;
+  }, []);
+
   const handleDeleteNote = async (note: SearchResult) => {
     try {
       await invoke("delete_note", { path: note.path });
       setConfirmDelete(null);
-      // Re-run search to refresh results
       if (query.trim()) {
         const searchResults = await invoke<SearchResult[]>("search_notes", {
           query: query.trim(),
         });
         setResults(searchResults);
         setSelectedIndex(Math.min(selectedIndex, searchResults.length - 1));
+      } else {
+        const recent = await refreshRecentNotes();
+        setResults(recent);
+        setSelectedIndex(Math.min(selectedIndex, recent.length - 1));
       }
     } catch (error) {
       console.error("Failed to delete note:", error);
@@ -195,13 +228,16 @@ export default function SearchModal() {
       await invoke("move_note", { path: note.path, targetFolder });
       setShowMoveModal(null);
       setMoveFolderIndex(0);
-      // Re-run search to refresh results
       if (query.trim()) {
         const searchResults = await invoke<SearchResult[]>("search_notes", {
           query: query.trim(),
         });
         setResults(searchResults);
         setSelectedIndex(Math.min(selectedIndex, searchResults.length - 1));
+      } else {
+        const recent = await refreshRecentNotes();
+        setResults(recent);
+        setSelectedIndex(Math.min(selectedIndex, recent.length - 1));
       }
     } catch (error) {
       console.error("Failed to move note:", error);
@@ -381,6 +417,15 @@ export default function SearchModal() {
           </div>
         ) : (
           <>
+            {/* Section header */}
+            {!query.trim() && results.length > 0 && (
+              <div className="px-4 py-2 border-b border-line/50 bg-line/20">
+                <span className="text-[10px] font-semibold text-stone uppercase tracking-wider">
+                  Recent
+                </span>
+              </div>
+            )}
+
             {results.map((result, index) => (
               <button
                 key={result.path}
