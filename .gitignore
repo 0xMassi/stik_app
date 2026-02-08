@@ -54,3 +54,4 @@ npm-debug.log*
 .windsurf/
 .zencoder/
 skills/
+RELEASE_CHECKLIST.md

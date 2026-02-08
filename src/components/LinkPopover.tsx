@@ -93,24 +93,27 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
     if (!info) setIsEditing(false);
   }, [editor]);
 
+  const handleBlur = useCallback(() => {
+    // Delay so clicks on the popover itself register before hiding
+    setTimeout(() => {
+      if (!popoverRef.current?.contains(document.activeElement)) {
+        setLinkInfo(null);
+        setIsEditing(false);
+      }
+    }, 150);
+  }, []);
+
   useEffect(() => {
     if (!editor) return;
 
     editor.on("selectionUpdate", updateLinkInfo);
-    editor.on("blur", () => {
-      // Delay so clicks on the popover itself register before hiding
-      setTimeout(() => {
-        if (!popoverRef.current?.contains(document.activeElement)) {
-          setLinkInfo(null);
-          setIsEditing(false);
-        }
-      }, 150);
-    });
+    editor.on("blur", handleBlur);
 
     return () => {
       editor.off("selectionUpdate", updateLinkInfo);
+      editor.off("blur", handleBlur);
     };
-  }, [editor, updateLinkInfo]);
+  }, [editor, updateLinkInfo, handleBlur]);
 
   const handleOpen = useCallback(() => {
     if (linkInfo?.href) open(normalizeUrl(linkInfo.href));

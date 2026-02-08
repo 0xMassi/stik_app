@@ -76,9 +76,13 @@ From v0.3.3 onwards, Stik includes a built-in auto-updater that silently downloa
 
 **Pin** -- Keep important notes floating on your desktop as sticky notes.
 
+**Rich Editor** -- Full markdown with `==highlighting==`, `[[wiki-links]]` to other notes, collapsible headings, image paste/drop, task lists, and a link popover for quick editing. Optional Vim mode with Normal, Insert, Visual, and Command modes.
+
 **On-Device AI** -- Semantic search, smart folder suggestions, and note embeddings. Powered by Apple's NaturalLanguage framework. Everything runs locally -- no cloud, no API keys, no data leaves your Mac.
 
 **Share** -- Copy notes as rich text, markdown, or image. Sync folders via git with background auto-sync.
+
+**Themes** -- System, Light, or Dark mode. Switches live, respects macOS appearance.
 
 **Remember** -- Capture streak tracks your daily note-taking habit. "On This Day" resurfaces notes from past years.
 
@@ -91,6 +95,7 @@ All shortcuts are customizable in Settings.
 | `Cmd+Shift+S` | Capture a new note |
 | `Cmd+Shift+P` | Search all notes |
 | `Cmd+Shift+M` | Manage notes and folders |
+| `Cmd+Shift+L` | Reopen last note |
 | `Cmd+Shift+,` | Open settings |
 
 ## Your Data, Your Machine

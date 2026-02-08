@@ -14,12 +14,12 @@ import { CollapsibleHeadings } from "@/extensions/collapsible-headings";
 import { WikiLink, filenameToSlug, type WikiLinkItem } from "@/extensions/wiki-link";
 import { renderWikiLinkSuggestion } from "@/extensions/wiki-link-suggestion";
 import { MarkdownLinkRule, normalizeUrl } from "@/extensions/markdown-link-rule";
+import { TaskListInputFix } from "@/extensions/task-list-fix";
 import LinkPopover from "@/components/LinkPopover";
 import { invoke } from "@tauri-apps/api/core";
 import type { SearchResult } from "@/types";
 
 interface EditorProps {
-  content: string;
   onChange: (content: string) => void;
   placeholder?: string;
   initialContent?: string;
@@ -72,14 +72,17 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         }
       };
 
+      const handleWindowBlur = () => el.classList.remove("cmd-held");
+
       el.addEventListener("click", handleLinkClick, { capture: true });
       window.addEventListener("keydown", handleMetaKey);
       window.addEventListener("keyup", handleMetaKey);
-      window.addEventListener("blur", () => el.classList.remove("cmd-held"));
+      window.addEventListener("blur", handleWindowBlur);
       return () => {
         el.removeEventListener("click", handleLinkClick, { capture: true });
         window.removeEventListener("keydown", handleMetaKey);
         window.removeEventListener("keyup", handleMetaKey);
+        window.removeEventListener("blur", handleWindowBlur);
       };
     }, [handleMetaKey]);
 
@@ -102,7 +105,8 @@ const Editor = forwardRef<EditorRef, EditorProps>(
           placeholder: placeholder || "Start typing...",
         }),
         TaskList,
-        TaskItem.configure({ nested: true }),
+        TaskItem.extend({ addInputRules() { return []; } }).configure({ nested: true }),
+        TaskListInputFix,
         Link.configure({ openOnClick: false, autolink: true }),
         MarkdownLinkRule,
         Image.configure({ inline: true, allowBase64: false }),

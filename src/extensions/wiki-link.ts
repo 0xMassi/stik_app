@@ -102,11 +102,11 @@ export const WikiLink = Node.create<WikiLinkOptions>({
       dom.setAttribute("data-wiki-link", "");
       dom.textContent = `[[${node.attrs.slug}]]`;
 
-      dom.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+      dom.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         const ext = editor.extensionManager.extensions.find(
-          (e) => e.name === "wikiLink"
+          (ex) => ex.name === "wikiLink"
         );
         ext?.options?.onLinkClick?.(node.attrs.slug, node.attrs.path);
       });
@@ -170,11 +170,20 @@ function wikiLinkRule(state: any, silent: boolean): boolean {
   return true;
 }
 
+/** Escape HTML special chars to prevent XSS when interpolating into HTML strings */
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 /**
  * markdown-it renderer for wiki_link tokens.
  * Outputs HTML that the WikiLink node's parseHTML can match.
  */
 function wikiLinkRenderer(tokens: any[], idx: number): string {
-  const slug = tokens[idx].content;
+  const slug = escapeHtml(tokens[idx].content);
   return `<span data-wiki-link data-slug="${slug}">[[${slug}]]</span>`;
 }

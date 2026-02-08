@@ -987,7 +987,6 @@ export default function PostIt({
           <Editor
             key={vimEnabled ? "vim" : "novim"}
             ref={editorRef}
-            content={content}
             onChange={handleContentChange}
             placeholder={isSticked ? "Sticked note..." : "Type a thought..."}
             initialContent={content || resolvedInitialContent || initialContent}
