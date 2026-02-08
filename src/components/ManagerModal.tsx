@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { FolderStats, NoteInfo } from "@/types";
+import { formatRelativeDate } from "@/utils/formatRelativeDate";
 
 type SelectedItem =
   | { type: "folder"; name: string }
@@ -202,6 +203,13 @@ export default function ManagerModal() {
   useEffect(() => {
     containerRef.current?.focus();
   }, []);
+
+  // Scroll selected item into view
+  useEffect(() => {
+    if (!selectedItem || !containerRef.current) return;
+    const el = containerRef.current.querySelector<HTMLElement>("[data-selected]");
+    el?.scrollIntoView({ block: "nearest" });
+  }, [selectedItem]);
 
   // Close the manager window
   const closeManager = useCallback(async () => {
@@ -502,6 +510,7 @@ export default function ManagerModal() {
             <div key={folder.name}>
               {/* Folder row */}
               <button
+                data-selected={isFolderSelected ? "" : undefined}
                 onClick={() => {
                   if (!isCurrentlyRenaming) {
                     setSelectedItem({ type: "folder", name: folder.name });
@@ -577,6 +586,7 @@ export default function ManagerModal() {
                       return (
                         <button
                           key={note.path}
+                          data-selected={isNoteSelected ? "" : undefined}
                           onClick={() => {
                             setSelectedItem({ type: "note", folder: folder.name, note });
                           }}
@@ -611,7 +621,7 @@ export default function ManagerModal() {
                               isNoteSelected ? "text-white/60" : "text-stone/60"
                             }`}
                           >
-                            {note.created}
+                            {formatRelativeDate(note.created)}
                           </span>
                         </button>
                       );

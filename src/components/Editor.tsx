@@ -15,6 +15,7 @@ import { WikiLink, filenameToSlug, type WikiLinkItem } from "@/extensions/wiki-l
 import { renderWikiLinkSuggestion } from "@/extensions/wiki-link-suggestion";
 import { MarkdownLinkRule, normalizeUrl } from "@/extensions/markdown-link-rule";
 import { TaskListInputFix } from "@/extensions/task-list-fix";
+import { installParagraphMarkdownSerializer } from "@/extensions/preserve-empty-paragraphs";
 import LinkPopover from "@/components/LinkPopover";
 import { invoke } from "@tauri-apps/api/core";
 import type { SearchResult } from "@/types";
@@ -136,6 +137,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
           },
         }),
         Markdown.configure({
+          html: true,
           transformPastedText: true,
           transformCopiedText: true,
         }),
@@ -206,6 +208,12 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         },
       },
     });
+
+    // Preserve visual empty rows when markdown is saved and reopened.
+    useEffect(() => {
+      if (!editor) return;
+      installParagraphMarkdownSerializer(editor);
+    }, [editor]);
 
     // Set initial content when editor is ready and initialContent changes
     useEffect(() => {

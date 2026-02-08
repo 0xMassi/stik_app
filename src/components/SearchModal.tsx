@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { NoteInfo, SearchResult, SemanticResult } from "@/types";
+import { formatRelativeDate } from "@/utils/formatRelativeDate";
 
 export default function SearchModal() {
   const [query, setQuery] = useState("");
@@ -447,7 +448,7 @@ export default function SearchModal() {
                     {result.folder}
                   </span>
                   <span className="text-[10px] text-stone font-mono">
-                    {result.created}
+                    {formatRelativeDate(result.created)}
                   </span>
                 </div>
                 <p className="text-[13px] text-ink leading-relaxed">
