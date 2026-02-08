@@ -156,6 +156,12 @@ impl NoteIndex {
     }
 }
 
+#[tauri::command]
+pub fn rebuild_index(index: tauri::State<'_, NoteIndex>) -> Result<bool, String> {
+    index.build()?;
+    Ok(true)
+}
+
 fn read_note_entry(path: &PathBuf, folder: &str) -> Option<NoteEntry> {
     let content = fs::read_to_string(path).ok()?;
     let content_len = content.len();

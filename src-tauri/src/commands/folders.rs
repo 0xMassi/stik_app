@@ -27,15 +27,34 @@ pub fn validate_name(name: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Get the Stik folder path (~/Documents/Stik)
+/// Default Stik folder: ~/Documents/Stik
+fn default_stik_folder() -> Result<PathBuf, String> {
+    let docs = dirs::document_dir().ok_or("Could not find Documents directory")?;
+    Ok(docs.join("Stik"))
+}
+
+/// Get the Stik folder path — respects `notes_directory` in settings, falls back to ~/Documents/Stik
 pub fn get_stik_folder() -> Result<PathBuf, String> {
-    let home = dirs::document_dir().ok_or("Could not find Documents directory")?;
-    let stik_folder = home.join("Stik");
+    let stik_folder = match super::settings::load_settings_from_file() {
+        Ok(s) if !s.notes_directory.is_empty() => {
+            let p = PathBuf::from(&s.notes_directory);
+            if p.is_absolute() {
+                p.join("Stik")
+            } else {
+                default_stik_folder()?
+            }
+        }
+        _ => default_stik_folder()?,
+    };
 
-    // Ensure base folder exists
     fs::create_dir_all(&stik_folder).map_err(|e| e.to_string())?;
-
     Ok(stik_folder)
+}
+
+#[tauri::command]
+pub fn get_notes_directory() -> Result<String, String> {
+    let path = get_stik_folder()?;
+    Ok(path.to_string_lossy().to_string())
 }
 
 /// Ensure default folders exist

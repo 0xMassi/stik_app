@@ -27,6 +27,7 @@ pulldown-cmark = "0.12"
 arboard = "3"
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["png"] }
+tauri-plugin-dialog = "2.6.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { version = "0.6.3", default-features = false, features = ["std"] }

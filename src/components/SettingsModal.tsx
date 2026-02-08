@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
@@ -194,10 +194,13 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     }
   };
 
+  const [resolvedNotesDir, setResolvedNotesDir] = useState("");
+
   useEffect(() => {
     if (isOpen) {
       invoke<StikSettings>("get_settings").then(setSettings);
       invoke<string[]>("list_folders").then(setFolders);
+      invoke<string>("get_notes_directory").then(setResolvedNotesDir).catch(() => {});
       loadCaptureStreak();
       checkOnThisDay();
       loadGitSyncStatus();
@@ -212,6 +215,17 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     };
   }, []);
 
+  const prevNotesDir = useRef(settings?.notes_directory ?? "");
+
+  // Track the notes_directory at load time so we can detect changes on save
+  useEffect(() => {
+    if (settings) {
+      prevNotesDir.current = settings.notes_directory;
+    }
+  // Only on initial load
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   const handleSave = async () => {
     if (!settings) return;
 
@@ -219,6 +233,15 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     try {
       await invoke("save_settings", { settings });
       await invoke("reload_shortcuts");
+
+      // Rebuild index when notes directory changed
+      if (settings.notes_directory !== prevNotesDir.current) {
+        await invoke("rebuild_index");
+        const newDir = await invoke<string>("get_notes_directory");
+        setResolvedNotesDir(newDir);
+        prevNotesDir.current = settings.notes_directory;
+      }
+
       await emit("settings-changed", settings);
       if (!isWindow) {
         onClose();
@@ -303,6 +326,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
       settings={settings}
       folders={folders}
       onSettingsChange={setSettings}
+      resolvedNotesDir={resolvedNotesDir}
       captureStreakLabel={captureStreak?.label ?? "Streak unavailable"}
       captureStreakDays={captureStreak?.days ?? null}
       isRefreshingStreak={isRefreshingStreak}

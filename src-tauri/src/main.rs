@@ -10,7 +10,7 @@ mod windows;
 use commands::embeddings::EmbeddingIndex;
 use commands::index::NoteIndex;
 use commands::{
-    darwinkit, embeddings, folders, git_share, notes, on_this_day, settings, share, stats,
+    darwinkit, embeddings, folders, git_share, index, notes, on_this_day, settings, share, stats,
     sticked_notes,
 };
 use shortcuts::shortcut_to_string;
@@ -72,6 +72,7 @@ fn main() {
                 })
                 .build(),
         )
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -88,6 +89,8 @@ fn main() {
             folders::delete_folder,
             folders::rename_folder,
             folders::get_folder_stats,
+            folders::get_notes_directory,
+            index::rebuild_index,
             settings::get_settings,
             settings::save_settings,
             git_share::git_prepare_repository,

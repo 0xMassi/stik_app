@@ -31,6 +31,7 @@ export interface StikSettings {
   ai_features_enabled: boolean;
   vim_mode_enabled: boolean;
   theme_mode: string;
+  notes_directory: string;
 }
 
 export interface NoteInfo {

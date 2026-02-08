@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import ShortcutRecorder from "./ShortcutRecorder";
 import type { GitSyncStatus, ShortcutMapping, StikSettings } from "@/types";
 
@@ -100,6 +101,7 @@ interface SettingsContentProps {
   settings: StikSettings;
   folders: string[];
   onSettingsChange: (settings: StikSettings) => void;
+  resolvedNotesDir: string;
   captureStreakLabel: string;
   captureStreakDays: number | null;
   isRefreshingStreak: boolean;
@@ -124,6 +126,7 @@ export default function SettingsContent({
   settings,
   folders,
   onSettingsChange,
+  resolvedNotesDir,
   captureStreakLabel,
   captureStreakDays,
   isRefreshingStreak,
@@ -143,10 +146,13 @@ export default function SettingsContent({
   onOpenGitRemote,
 }: SettingsContentProps) {
   const remoteWebUrl = remoteToWebUrl(settings.git_sharing.remote_url);
+  const notesDir = settings.notes_directory
+    ? `${settings.notes_directory}/Stik`
+    : resolvedNotesDir || "~/Documents/Stik";
   const linkedRepoPath =
     settings.git_sharing.repository_layout === "stik_root"
-      ? "~/Documents/Stik"
-      : `~/Documents/Stik/${settings.git_sharing.shared_folder || "Inbox"}`;
+      ? notesDir
+      : `${notesDir}/${settings.git_sharing.shared_folder || "Inbox"}`;
 
   const updateMapping = (index: number, updates: Partial<ShortcutMapping>) => {
     const newMappings = [...settings.shortcut_mappings];
@@ -277,28 +283,67 @@ export default function SettingsContent({
         )}
 
         {activeTab === "folders" && (
-          <div>
-            <p className="mb-4 text-[12px] text-stone">
-              Choose which folder opens by default from tray and quick-capture flows.
-            </p>
-
-            <div className="max-w-[360px]">
-              <Dropdown
-                value={settings.default_folder}
-                options={folders.map((f) => ({ value: f, label: f }))}
-                onChange={(value) =>
-                  onSettingsChange({ ...settings, default_folder: value })
-                }
-              />
+          <div className="space-y-4">
+            <div>
+              <p className="text-[12px] text-stone mb-1.5">Notes directory</p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 px-3 py-2.5 bg-bg border border-line rounded-lg text-[13px] font-mono truncate text-ink">
+                  {notesDir}
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const selected = await open({
+                      directory: true,
+                      multiple: false,
+                      title: "Choose where to store Stik notes",
+                      defaultPath: settings.notes_directory || resolvedNotesDir || undefined,
+                    });
+                    if (selected) {
+                      onSettingsChange({ ...settings, notes_directory: selected });
+                    }
+                  }}
+                  className="px-3 py-2.5 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors whitespace-nowrap"
+                >
+                  Browse
+                </button>
+                {settings.notes_directory && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onSettingsChange({ ...settings, notes_directory: "" })
+                    }
+                    className="px-3 py-2.5 text-[12px] text-stone hover:text-coral border border-line rounded-lg hover:border-coral/30 transition-colors whitespace-nowrap"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+              <p className="mt-1.5 text-[12px] text-stone leading-relaxed">
+                Stik creates a <span className="text-ink font-medium">Stik/</span> folder inside your chosen location.
+                Existing notes are not moved automatically.
+              </p>
             </div>
 
-            <p className="mt-3 text-[12px] text-stone leading-relaxed">
-              Opens when using tray menu or if no folder is specified.
-            </p>
+            <div>
+              <p className="text-[12px] text-stone mb-1.5">Default folder</p>
+              <div className="max-w-[360px]">
+                <Dropdown
+                  value={settings.default_folder}
+                  options={folders.map((f) => ({ value: f, label: f }))}
+                  onChange={(value) =>
+                    onSettingsChange({ ...settings, default_folder: value })
+                  }
+                />
+              </div>
+              <p className="mt-1.5 text-[12px] text-stone leading-relaxed">
+                Opens when using tray menu or if no folder is specified.
+              </p>
+            </div>
 
-            <div className="mt-4 p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
+            <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
               <p className="text-[12px] text-stone leading-relaxed">
-                Sync tip: notes are saved in ~/Documents/Stik/. If your Documents folder is
+                Sync tip: notes are saved in {notesDir}. If that folder is
                 synced (iCloud Drive, Dropbox, Syncthing), Stik syncs across Macs automatically.
               </p>
             </div>
