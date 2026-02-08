@@ -9,6 +9,12 @@ import { Markdown } from "tiptap-markdown";
 import { open } from "@tauri-apps/plugin-shell";
 import { forwardRef, useImperativeHandle, useEffect, useRef, useCallback } from "react";
 import { VimMode, type VimMode as VimModeType } from "@/extensions/vim-mode";
+import { StikHighlight } from "@/extensions/highlight";
+import { CollapsibleHeadings } from "@/extensions/collapsible-headings";
+import { WikiLink, filenameToSlug, type WikiLinkItem } from "@/extensions/wiki-link";
+import { renderWikiLinkSuggestion } from "@/extensions/wiki-link-suggestion";
+import { invoke } from "@tauri-apps/api/core";
+import type { SearchResult } from "@/types";
 
 interface EditorProps {
   content: string;
@@ -18,6 +24,7 @@ interface EditorProps {
   vimEnabled?: boolean;
   onVimModeChange?: (mode: VimModeType) => void;
   onImagePaste?: (file: File) => Promise<string | null>;
+  onWikiLinkClick?: (slug: string, path: string) => void;
 }
 
 export interface EditorRef {
@@ -32,7 +39,7 @@ export interface EditorRef {
 }
 
 const Editor = forwardRef<EditorRef, EditorProps>(
-  ({ onChange, placeholder, initialContent, vimEnabled, onVimModeChange, onImagePaste }, ref) => {
+  ({ onChange, placeholder, initialContent, vimEnabled, onVimModeChange, onImagePaste, onWikiLinkClick }, ref) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     const handleMetaKey = useCallback((e: KeyboardEvent) => {
@@ -73,6 +80,8 @@ const Editor = forwardRef<EditorRef, EditorProps>(
     onVimModeChangeRef.current = onVimModeChange;
     const onImagePasteRef = useRef(onImagePaste);
     onImagePasteRef.current = onImagePaste;
+    const onWikiLinkClickRef = useRef(onWikiLinkClick);
+    onWikiLinkClickRef.current = onWikiLinkClick;
 
     // Extensions built once per mount. Parent uses key={vimEnabled} to force remount when toggled.
     const extensionsRef = useRef<any[] | null>(null);
@@ -88,6 +97,31 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         TaskItem.configure({ nested: true }),
         Link.configure({ openOnClick: false }),
         Image.configure({ inline: true, allowBase64: false }),
+        StikHighlight,
+        CollapsibleHeadings,
+        WikiLink.configure({
+          onLinkClick: (slug: string, path: string) =>
+            onWikiLinkClickRef.current?.(slug, path),
+          suggestion: {
+            items: async ({ query }): Promise<WikiLinkItem[]> => {
+              if (!query) return [];
+              try {
+                const results = await invoke<SearchResult[]>("search_notes", {
+                  query,
+                });
+                return results.slice(0, 8).map((r) => ({
+                  slug: filenameToSlug(r.filename),
+                  path: r.path,
+                  folder: r.folder,
+                  snippet: r.snippet,
+                }));
+              } catch {
+                return [];
+              }
+            },
+            render: renderWikiLinkSuggestion,
+          },
+        }),
         Markdown.configure({
           transformPastedText: true,
           transformCopiedText: true,

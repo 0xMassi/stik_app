@@ -719,6 +719,24 @@ export default function PostIt({
     setSuggestedFolder(null);
   }, [folder]);
 
+  // Handle wiki-link click: open the referenced note for viewing
+  const handleWikiLinkClick = useCallback(async (_slug: string, path: string) => {
+    if (!path) return;
+    try {
+      const noteContent = await invoke<string>("get_note_content", { path });
+      // Extract folder from path: ~/Documents/Stik/<folder>/<file>.md
+      const parts = path.split("/");
+      const noteFolder = parts[parts.length - 2] || folder;
+      await invoke("open_note_for_viewing", {
+        content: noteContent,
+        folder: noteFolder,
+        path,
+      });
+    } catch (error) {
+      console.error("Failed to open wiki-linked note:", error);
+    }
+  }, [folder]);
+
   // Handle image paste/drop: save to disk and return asset URL for the editor
   const handleImagePaste = useCallback(async (file: File): Promise<string | null> => {
     try {
@@ -976,6 +994,7 @@ export default function PostIt({
             vimEnabled={vimEnabled}
             onVimModeChange={setVimMode}
             onImagePaste={handleImagePaste}
+            onWikiLinkClick={handleWikiLinkClick}
           />
         )}
 
