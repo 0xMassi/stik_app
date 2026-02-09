@@ -9,6 +9,7 @@ import ManagerModal from "./components/ManagerModal";
 import { useTheme } from "./hooks/useTheme";
 import type { StickedNote, StikSettings } from "@/types";
 import { isMarkdownEffectivelyEmpty } from "@/utils/normalizeMarkdownForCopy";
+import { resolveCaptureFolder } from "@/utils/folderSelection";
 
 type WindowType = "postit" | "sticked" | "settings" | "search" | "manager";
 
@@ -41,35 +42,50 @@ function getWindowInfo(): { type: WindowType; id?: string; viewing?: boolean } {
 
 export default function App() {
   useTheme();
-  const [currentFolder, setCurrentFolder] = useState("Inbox");
+  const [currentFolder, setCurrentFolder] = useState("");
   const [stickedNote, setStickedNote] = useState<StickedNote | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const contentRef = useRef("");
   const windowInfo = getWindowInfo();
 
-  // Initialize capture window with configured default folder.
+  const resolveFolder = useCallback(
+    async (requestedFolder?: string, settingsFromEvent?: StikSettings) => {
+      const folders = await invoke<string[]>("list_folders");
+      const settings = settingsFromEvent ?? (await invoke<StikSettings>("get_settings"));
+      return resolveCaptureFolder({
+        requestedFolder: requestedFolder?.trim(),
+        defaultFolder: settings.default_folder?.trim(),
+        availableFolders: folders,
+      });
+    },
+    []
+  );
+
+  // Initialize capture window with a valid folder (requested/default/fallback).
   useEffect(() => {
     if (windowInfo.type !== "postit") return;
 
     let cancelled = false;
 
-    invoke<StikSettings>("get_settings")
-      .then((settings) => {
-        if (cancelled) return;
+    const initialize = async () => {
+      try {
+        const folder = await resolveFolder();
+        if (!cancelled) {
+          setCurrentFolder(folder);
+        }
+      } catch {
+        if (!cancelled) {
+          setCurrentFolder("");
+        }
+      }
+    };
 
-        const configuredFolder = settings.default_folder?.trim();
-        if (!configuredFolder) return;
-
-        setCurrentFolder((previous) =>
-          previous === "Inbox" ? configuredFolder : previous
-        );
-      })
-      .catch(() => {});
+    void initialize();
 
     return () => {
       cancelled = true;
     };
-  }, [windowInfo.type]);
+  }, [windowInfo.type, resolveFolder]);
 
   // Load sticked note data if this is a sticked window
   useEffect(() => {
@@ -136,13 +152,30 @@ export default function App() {
     if (windowInfo.type !== "postit") return;
 
     const unlisten = listen<string>("shortcut-triggered", (event) => {
-      setCurrentFolder(event.payload);
+      void resolveFolder(event.payload)
+        .then(setCurrentFolder)
+        .catch(() => {});
     });
 
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [windowInfo.type]);
+  }, [windowInfo.type, resolveFolder]);
+
+  // Keep capture folder aligned with settings updates.
+  useEffect(() => {
+    if (windowInfo.type !== "postit") return;
+
+    const unlisten = listen<StikSettings>("settings-changed", (event) => {
+      void resolveFolder(undefined, event.payload)
+        .then(setCurrentFolder)
+        .catch(() => {});
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [windowInfo.type, resolveFolder]);
 
   // Listen for settings shortcut (Cmd+Shift+,)
   useEffect(() => {
@@ -179,19 +212,24 @@ export default function App() {
   }, [windowInfo.type]);
 
   const handleSave = useCallback(
-    async (content: string) => {
+    async (content: string, preferredFolder?: string) => {
       if (isMarkdownEffectivelyEmpty(content)) return;
 
-      try {
-        await invoke("save_note", {
-          folder: currentFolder,
-          content,
-        });
-      } catch (error) {
-        console.error("Failed to save note:", error);
+      const resolvedFolder = await resolveFolder(preferredFolder ?? currentFolder);
+      if (!resolvedFolder) {
+        throw new Error("No folder available");
       }
+
+      if (resolvedFolder !== currentFolder) {
+        setCurrentFolder(resolvedFolder);
+      }
+
+      await invoke("save_note", {
+        folder: resolvedFolder,
+        content,
+      });
     },
-    [currentFolder]
+    [currentFolder, resolveFolder]
   );
 
   const handleClose = useCallback(async () => {

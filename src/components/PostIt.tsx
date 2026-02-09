@@ -17,10 +17,11 @@ import {
   unresolveImagePaths,
 } from "@/utils/imageMarkdownPaths";
 import { normalizeImageLinksForMarkdown } from "@/utils/isImageUrl";
+import { resolveCaptureFolder } from "@/utils/folderSelection";
 
 interface PostItProps {
   folder: string;
-  onSave: (content: string) => Promise<void>;
+  onSave: (content: string, preferredFolder?: string) => Promise<void>;
   onClose: () => void;
   onFolderChange: (folder: string) => void;
   onOpenSettings?: () => void;
@@ -111,6 +112,22 @@ export default function PostIt({
     invoke<string>("get_notes_directory").then(setNotesDir).catch(() => {});
   }, []);
 
+  const resolveFolderForAction = useCallback(async (): Promise<string> => {
+    const folders = await invoke<string[]>("list_folders");
+    const settings = await invoke<StikSettings>("get_settings");
+    const resolved = resolveCaptureFolder({
+      requestedFolder: folder.trim(),
+      defaultFolder: settings.default_folder?.trim(),
+      availableFolders: folders,
+    });
+
+    if (resolved && resolved !== folder) {
+      onFolderChange(resolved);
+    }
+
+    return resolved;
+  }, [folder, onFolderChange]);
+
   // Resolve image paths for display when loading content with existing images
   const baseInitialContent = normalizeMarkdownForState(
     normalizeImageLinksForMarkdown(initialContent)
@@ -175,19 +192,32 @@ export default function PostIt({
 
   const handleSaveAndClose = useCallback(async () => {
     if (!isMarkdownEffectivelyEmpty(content)) {
-      setIsSaving(true);
-      await onSave(content);
-      setTimeout(async () => {
+      try {
+        const targetFolder = await resolveFolderForAction();
+        if (!targetFolder) {
+          setToast("Create a folder first");
+          setShowPicker(true);
+          return;
+        }
+
+        setIsSaving(true);
+        await onSave(content, targetFolder);
+        setTimeout(async () => {
+          setIsSaving(false);
+          setContent("");
+          onContentChange?.("");
+          editorRef.current?.clear();
+          await onClose();
+        }, 600);
+      } catch (error) {
+        console.error("Failed to save note:", error);
         setIsSaving(false);
-        setContent("");
-        onContentChange?.("");
-        editorRef.current?.clear();
-        await onClose();
-      }, 600);
+        setToast("Failed to save note");
+      }
     } else {
       await onClose();
     }
-  }, [content, onSave, onClose, onContentChange]);
+  }, [content, onSave, onClose, onContentChange, resolveFolderForAction]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -373,16 +403,24 @@ export default function PostIt({
       ? "Copying rich text..."
       : "Copy";
   const hasMeaningfulContent = !isMarkdownEffectivelyEmpty(content);
+  const hasValidFolder = folder.trim().length > 0;
 
   // Pin from capture mode
   const handlePin = useCallback(async () => {
     if (isPinning || isMarkdownEffectivelyEmpty(content)) return;
 
-    setIsPinning(true);
     try {
+      const targetFolder = await resolveFolderForAction();
+      if (!targetFolder) {
+        setToast("Create a folder first");
+        setShowPicker(true);
+        return;
+      }
+
+      setIsPinning(true);
       await invoke("pin_capture_note", {
         content,
-        folder,
+        folder: targetFolder,
       });
       setContent("");
       editorRef.current?.clear();
@@ -391,7 +429,7 @@ export default function PostIt({
     } finally {
       setIsPinning(false);
     }
-  }, [content, folder, isPinning]);
+  }, [content, isPinning, resolveFolderForAction]);
 
   // Toggle pin state for sticked notes
   const handleTogglePin = useCallback(async () => {
@@ -855,13 +893,11 @@ export default function PostIt({
           <button
             onClick={() => setShowPicker(!showPicker)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-pill text-[11px] font-semibold transition-colors hover:opacity-80 ${
-              folder === "Inbox"
-                ? "bg-line text-stone"
-                : "bg-coral-light text-coral"
+              hasValidFolder ? "bg-coral-light text-coral" : "bg-line text-stone"
             }`}
           >
             <span className="text-[8px] text-coral">●</span>
-            <span>{folder}</span>
+            <span>{folder || "No folder"}</span>
             <span className="text-[8px] opacity-50">▼</span>
           </button>
 
@@ -958,7 +994,7 @@ export default function PostIt({
           ) : (
             <button
               onClick={handleSaveAndClose}
-              className="px-2.5 py-1.5 bg-coral-light text-coral rounded-lg text-[10px] font-semibold hover:bg-coral hover:text-white transition-colors cursor-pointer"
+              className="px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors bg-coral-light text-coral hover:bg-coral hover:text-white cursor-pointer"
               title="Save and close (Esc)"
             >
               esc
@@ -1042,7 +1078,7 @@ export default function PostIt({
         >
           <span className="font-mono text-stone">
             <span className="text-coral">~</span>/Stik/
-            <span className="text-coral">{folder}</span>/
+            <span className="text-coral">{folder || "No folder"}</span>/
           </span>
           <div className="flex items-center gap-2">
             {vimEnabled ? (

@@ -141,7 +141,7 @@ export default function ManagerModal() {
       await loadFolderStats();
     } catch (error) {
       console.error("Failed to delete:", error);
-      alert(error);
+      setToast(String(error));
     }
   };
 
@@ -161,7 +161,7 @@ export default function ManagerModal() {
       setSelectedItem({ type: "folder", name: newName.trim() });
     } catch (error) {
       console.error("Failed to rename:", error);
-      alert(error);
+      setToast(String(error));
     }
   };
 
@@ -195,7 +195,7 @@ export default function ManagerModal() {
       setSelectedItem({ type: "folder", name: name.trim() });
     } catch (error) {
       console.error("Failed to create folder:", error);
-      alert(error);
+      setToast(String(error));
     }
   };
 
@@ -327,16 +327,12 @@ export default function ManagerModal() {
         case "Backspace":
           e.preventDefault();
           if (selectedItem) {
-            if (selectedItem.type === "folder" && selectedItem.name === "Inbox") {
-              setToast("Inbox is the default folder and can't be deleted");
-              return;
-            }
             setConfirmDelete(selectedItem);
           }
           break;
 
         case "r":
-          if ((e.metaKey || e.ctrlKey) && selectedItem?.type === "folder" && selectedItem.name !== "Inbox") {
+          if ((e.metaKey || e.ctrlKey) && selectedItem?.type === "folder") {
             e.preventDefault();
             setIsRenaming(true);
             setRenameValue(selectedItem.name);

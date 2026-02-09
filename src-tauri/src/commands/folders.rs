@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+use super::settings::StikSettings;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FolderStats {
@@ -11,6 +13,85 @@ pub struct FolderStats {
 fn is_visible_folder_name(name: &str) -> bool {
     let trimmed = name.trim();
     !trimmed.is_empty() && !trimmed.starts_with('.')
+}
+
+fn list_visible_folder_names(stik_folder: &Path) -> Result<Vec<String>, String> {
+    let entries = fs::read_dir(stik_folder).map_err(|e| e.to_string())?;
+    let mut folders: Vec<String> = entries
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().is_dir())
+        .map(|entry| entry.file_name().to_string_lossy().to_string())
+        .filter(|name| is_visible_folder_name(name))
+        .collect();
+    folders.sort_unstable();
+    Ok(folders)
+}
+
+fn uses_folder_root_layout(settings: &StikSettings) -> bool {
+    !settings
+        .git_sharing
+        .repository_layout
+        .trim()
+        .eq_ignore_ascii_case("stik_root")
+}
+
+fn reconcile_settings_after_folder_delete(
+    settings: &mut StikSettings,
+    deleted_folder: &str,
+    fallback_folder: Option<&str>,
+) {
+    let fallback = fallback_folder.unwrap_or_default();
+
+    if settings.default_folder == deleted_folder {
+        settings.default_folder = fallback.to_string();
+    }
+
+    for mapping in &mut settings.shortcut_mappings {
+        if mapping.folder == deleted_folder {
+            mapping.folder = fallback.to_string();
+        }
+    }
+
+    if uses_folder_root_layout(settings) && settings.git_sharing.shared_folder == deleted_folder {
+        settings.git_sharing.shared_folder = fallback.to_string();
+    }
+}
+
+fn reconcile_settings_after_folder_rename(
+    settings: &mut StikSettings,
+    old_name: &str,
+    new_name: &str,
+) {
+    if settings.default_folder == old_name {
+        settings.default_folder = new_name.to_string();
+    }
+
+    for mapping in &mut settings.shortcut_mappings {
+        if mapping.folder == old_name {
+            mapping.folder = new_name.to_string();
+        }
+    }
+
+    if uses_folder_root_layout(settings) && settings.git_sharing.shared_folder == old_name {
+        settings.git_sharing.shared_folder = new_name.to_string();
+    }
+}
+
+fn sync_settings_after_folder_delete(
+    deleted_folder: &str,
+    fallback_folder: Option<&str>,
+) -> Result<(), String> {
+    let mut settings = super::settings::get_settings()?;
+    reconcile_settings_after_folder_delete(&mut settings, deleted_folder, fallback_folder);
+    let _ = super::settings::save_settings(settings)?;
+    Ok(())
+}
+
+fn sync_settings_after_folder_rename(old_name: &str, new_name: &str) -> Result<(), String> {
+    let mut settings = super::settings::get_settings()?;
+    reconcile_settings_after_folder_rename(&mut settings, old_name, new_name);
+    let _ = super::settings::save_settings(settings)?;
+    Ok(())
 }
 
 /// Validate a name for path traversal attacks
@@ -60,29 +141,7 @@ pub fn get_notes_directory() -> Result<String, String> {
 #[tauri::command]
 pub fn list_folders() -> Result<Vec<String>, String> {
     let stik_folder = get_stik_folder()?;
-
-    // List all directories
-    let entries = fs::read_dir(&stik_folder).map_err(|e| e.to_string())?;
-
-    let mut folders: Vec<String> = entries
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().is_dir())
-        .map(|entry| entry.file_name().to_string_lossy().to_string())
-        .filter(|name| is_visible_folder_name(name))
-        .collect();
-
-    // Sort with Inbox first, then alphabetically
-    folders.sort_by(|a, b| {
-        if a == "Inbox" {
-            std::cmp::Ordering::Less
-        } else if b == "Inbox" {
-            std::cmp::Ordering::Greater
-        } else {
-            a.cmp(b)
-        }
-    });
-
-    Ok(folders)
+    list_visible_folder_names(&stik_folder)
 }
 
 #[tauri::command]
@@ -100,21 +159,20 @@ pub fn create_folder(name: String) -> Result<bool, String> {
 pub fn delete_folder(name: String) -> Result<bool, String> {
     validate_name(&name)?;
 
-    // Prevent deletion of Inbox
-    if name == "Inbox" {
-        return Err("Cannot delete the Inbox folder".to_string());
-    }
-
     let stik_folder = get_stik_folder()?;
     let folder_path = stik_folder.join(&name);
 
     // Check folder exists
-    if !folder_path.exists() {
+    if !folder_path.exists() || !folder_path.is_dir() {
         return Err("Folder does not exist".to_string());
     }
 
     // Delete folder and all contents
     fs::remove_dir_all(&folder_path).map_err(|e| format!("Failed to delete folder: {}", e))?;
+    let fallback = list_visible_folder_names(&stik_folder)?
+        .into_iter()
+        .next();
+    sync_settings_after_folder_delete(&name, fallback.as_deref())?;
 
     Ok(true)
 }
@@ -122,12 +180,6 @@ pub fn delete_folder(name: String) -> Result<bool, String> {
 #[tauri::command]
 pub fn rename_folder(old_name: String, new_name: String) -> Result<bool, String> {
     validate_name(&old_name)?;
-
-    // Prevent renaming of Inbox
-    if old_name == "Inbox" {
-        return Err("Cannot rename the Inbox folder".to_string());
-    }
-
     validate_name(&new_name)?;
 
     let stik_folder = get_stik_folder()?;
@@ -146,6 +198,7 @@ pub fn rename_folder(old_name: String, new_name: String) -> Result<bool, String>
 
     // Rename folder
     fs::rename(&old_path, &new_path).map_err(|e| format!("Failed to rename folder: {}", e))?;
+    sync_settings_after_folder_rename(&old_name, &new_name)?;
 
     Ok(true)
 }
@@ -176,23 +229,48 @@ pub fn get_folder_stats() -> Result<Vec<FolderStats>, String> {
         .filter(|stat| is_visible_folder_name(&stat.name))
         .collect();
 
-    // Sort with Inbox first, then alphabetically
-    stats.sort_by(|a, b| {
-        if a.name == "Inbox" {
-            std::cmp::Ordering::Less
-        } else if b.name == "Inbox" {
-            std::cmp::Ordering::Greater
-        } else {
-            a.name.cmp(&b.name)
-        }
-    });
+    stats.sort_by(|a, b| a.name.cmp(&b.name));
 
     Ok(stats)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{is_visible_folder_name, validate_name};
+    use super::{
+        is_visible_folder_name, reconcile_settings_after_folder_delete,
+        reconcile_settings_after_folder_rename, validate_name,
+    };
+    use crate::commands::settings::{GitSharingSettings, ShortcutMapping, StikSettings};
+
+    fn sample_settings() -> StikSettings {
+        StikSettings {
+            default_folder: "Inbox".to_string(),
+            shortcut_mappings: vec![
+                ShortcutMapping {
+                    shortcut: "Cmd+Shift+1".to_string(),
+                    folder: "Inbox".to_string(),
+                    enabled: true,
+                },
+                ShortcutMapping {
+                    shortcut: "Cmd+Shift+2".to_string(),
+                    folder: "Work".to_string(),
+                    enabled: true,
+                },
+            ],
+            git_sharing: GitSharingSettings {
+                enabled: false,
+                shared_folder: "Inbox".to_string(),
+                remote_url: String::new(),
+                branch: "main".to_string(),
+                repository_layout: "folder_root".to_string(),
+                sync_interval_seconds: 300,
+            },
+            ai_features_enabled: true,
+            vim_mode_enabled: false,
+            theme_mode: String::new(),
+            notes_directory: String::new(),
+        }
+    }
 
     #[test]
     fn rejects_hidden_folder_names() {
@@ -205,5 +283,41 @@ mod tests {
         assert!(is_visible_folder_name("Inbox"));
         assert!(!is_visible_folder_name(".git"));
         assert!(!is_visible_folder_name(".cache"));
+    }
+
+    #[test]
+    fn delete_reconciles_settings_to_fallback_folder() {
+        let mut settings = sample_settings();
+
+        reconcile_settings_after_folder_delete(&mut settings, "Inbox", Some("Notes"));
+
+        assert_eq!(settings.default_folder, "Notes");
+        assert_eq!(settings.shortcut_mappings[0].folder, "Notes");
+        assert_eq!(settings.shortcut_mappings[1].folder, "Work");
+        assert_eq!(settings.git_sharing.shared_folder, "Notes");
+    }
+
+    #[test]
+    fn delete_without_fallback_clears_references() {
+        let mut settings = sample_settings();
+
+        reconcile_settings_after_folder_delete(&mut settings, "Inbox", None);
+
+        assert_eq!(settings.default_folder, "");
+        assert_eq!(settings.shortcut_mappings[0].folder, "");
+        assert!(settings.shortcut_mappings[0].enabled);
+        assert_eq!(settings.git_sharing.shared_folder, "");
+    }
+
+    #[test]
+    fn rename_reconciles_all_settings_references() {
+        let mut settings = sample_settings();
+
+        reconcile_settings_after_folder_rename(&mut settings, "Inbox", "Notes");
+
+        assert_eq!(settings.default_folder, "Notes");
+        assert_eq!(settings.shortcut_mappings[0].folder, "Notes");
+        assert_eq!(settings.shortcut_mappings[1].folder, "Work");
+        assert_eq!(settings.git_sharing.shared_folder, "Notes");
     }
 }
