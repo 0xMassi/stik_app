@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { open } from "@tauri-apps/plugin-shell";
 import { normalizeUrl } from "@/extensions/markdown-link-rule";
+import { isLinkEditShortcut } from "@/utils/linkShortcut";
 import type { Editor } from "@tiptap/core";
 
 interface LinkPopoverProps {
@@ -79,6 +80,53 @@ function getActiveLinkInfo(editor: Editor): LinkInfo | null {
   };
 }
 
+function getSelectedTextLinkInfo(editor: Editor): LinkInfo | null {
+  const { state } = editor;
+  const { from, to, empty } = state.selection;
+
+  if (empty || from === to) return null;
+
+  const text = state.doc.textBetween(from, to, " ", " ");
+  if (!text.trim()) return null;
+
+  const linkMark = state.schema.marks.link;
+  let href = "";
+
+  if (linkMark) {
+    let candidateHref: string | null = null;
+    let mixedSelection = false;
+
+    state.doc.nodesBetween(from, to, (node) => {
+      if (!node.isText) return;
+      const link = node.marks.find((mark) => mark.type === linkMark);
+      const nodeHref = (link?.attrs.href as string | undefined)?.trim() ?? "";
+
+      if (candidateHref === null) {
+        candidateHref = nodeHref;
+      } else if (candidateHref !== nodeHref) {
+        mixedSelection = true;
+      }
+    });
+
+    if (!mixedSelection && candidateHref) {
+      href = candidateHref;
+    }
+  }
+
+  const coords = editor.view.coordsAtPos(to);
+  const editorRect = editor.view.dom.getBoundingClientRect();
+
+  return {
+    href,
+    text,
+    from,
+    to,
+    bottom: coords.bottom - editorRect.top,
+    left: coords.left - editorRect.left,
+    editorWidth: editorRect.width,
+  };
+}
+
 export default function LinkPopover({ editor }: LinkPopoverProps) {
   const [linkInfo, setLinkInfo] = useState<LinkInfo | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -90,6 +138,7 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
   const hrefInputRef = useRef<HTMLInputElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const isEditingRef = useRef(false);
+  const focusHrefOnEditRef = useRef(false);
 
   useEffect(() => {
     isEditingRef.current = isEditing;
@@ -148,6 +197,48 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
   }, [editor, updateLinkInfo, handleBlur]);
 
   useEffect(() => {
+    if (!editor) return;
+
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (!isLinkEditShortcut(event)) return;
+      if (!editor.isFocused) return;
+
+      const info = getSelectedTextLinkInfo(editor);
+      if (!info) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      setLinkInfo(info);
+      setEditText(info.text);
+      setEditHref(info.href);
+      focusHrefOnEditRef.current = true;
+      setIsEditing(true);
+    };
+
+    const dom = editor.view.dom;
+    dom.addEventListener("keydown", handleShortcut);
+
+    return () => {
+      dom.removeEventListener("keydown", handleShortcut);
+    };
+  }, [editor]);
+
+  useEffect(() => {
+    if (!isEditing) return;
+
+    setTimeout(() => {
+      if (focusHrefOnEditRef.current) {
+        focusHrefOnEditRef.current = false;
+        hrefInputRef.current?.focus();
+        hrefInputRef.current?.select();
+        return;
+      }
+      textInputRef.current?.select();
+    }, 0);
+  }, [isEditing]);
+
+  useEffect(() => {
     if (!linkInfo) return;
     const frame = requestAnimationFrame(() => {
       setPopoverWidth(popoverRef.current?.offsetWidth ?? 0);
@@ -184,8 +275,8 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
     if (!linkInfo) return;
     setEditText(linkInfo.text);
     setEditHref(linkInfo.href);
+    focusHrefOnEditRef.current = false;
     setIsEditing(true);
-    setTimeout(() => textInputRef.current?.select(), 0);
   }, [linkInfo]);
 
   const handleSaveEdit = useCallback(() => {
