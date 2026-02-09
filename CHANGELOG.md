@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-02-09
+Editing and reliability polish
+
+### Added
+- **Link shortcuts for selected text** — press `Cmd+K` or `Cmd+L` to open link editing for the current selection
+- **Cleaner note previews** — search/manager now derive readable titles/snippets from markdown content
+- **Desktop image drop support** — drag images from Finder/Desktop into notes with local-path import into `.assets/`
+
+### Fixed
+- **Link navigation control** — plain click no longer navigates externally; use `Cmd+Click` or popover Open action
+- **Reopen last note (`Cmd+Shift+L`)** — now tracks notes opened from Search and Manager, not only newly saved notes
+- **Image reopen rendering** — dropped/pasted images persist with normalized paths and render correctly after reopening notes
+- **Folder edge-case behavior** — capture/save flow now works when default/requested folders are missing or folder sets are empty
+
+### Changed
+- **Folder selection logic** centralized via shared fallback resolution for capture and save operations
+- **Image path normalization** now supports `asset://localhost`, `asset.localhost`, and `file://` forms
+- **Link interaction model** aligns editor behavior with popover controls and explicit shortcut-based navigation
+
 ## [0.4.0] - 2026-02-08
 Editor power-ups & quality of life
 
@@ -152,6 +171,7 @@ First release
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.4.1 | 2026-02-09 | Link shortcuts (`Cmd+K`/`Cmd+L`), stronger link navigation control, robust image drag/drop and reopen, last-note reopen fixes |
 | 0.4.0 | 2026-02-08 | Vim mode, highlighting, collapsible headings, wiki-links, link popover, image handling, themes |
 | 0.3.3 | 2026-02-07 | Built-in auto-updater, version display in settings |
 | 0.3.2 | 2026-02-07 | Fix double tray icon, menu bar icon, Ctrl/Cmd shortcuts, clickable links |
@@ -159,10 +179,11 @@ First release
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/0xMassi/stik/compare/v0.4.0...HEAD
-[0.4.0]: https://github.com/0xMassi/stik/compare/v0.3.3...v0.4.0
-[0.3.3]: https://github.com/0xMassi/stik/compare/v0.3.2...v0.3.3
-[0.3.2]: https://github.com/0xMassi/stik/compare/v0.3.1...v0.3.2
-[0.3.0]: https://github.com/0xMassi/stik/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/0xMassi/stik/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/0xMassi/stik/releases/tag/v0.1.0
+[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/0xMassi/stik_app/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/0xMassi/stik_app/compare/v0.3.3...v0.4.0
+[0.3.3]: https://github.com/0xMassi/stik_app/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/0xMassi/stik_app/compare/v0.3.1...v0.3.2
+[0.3.0]: https://github.com/0xMassi/stik_app/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/0xMassi/stik_app/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/0xMassi/stik_app/releases/tag/v0.1.0
