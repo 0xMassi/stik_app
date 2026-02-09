@@ -2,7 +2,8 @@ function isAssetProtocolUrl(url: string): boolean {
   return (
     url.startsWith("asset://localhost/") ||
     url.startsWith("http://asset.localhost/") ||
-    url.startsWith("https://asset.localhost/")
+    url.startsWith("https://asset.localhost/") ||
+    url.startsWith("file:///")
   );
 }
 

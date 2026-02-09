@@ -135,6 +135,11 @@ export default function PostIt({
   const resolvedInitialContent = notesDir && baseInitialContent
     ? resolveImagePaths(baseInitialContent, `${notesDir}/${folder}`, convertFileSrc)
     : baseInitialContent;
+  const hasResolvableAssetImages =
+    /(?:\]\(\.assets\/|src=["']\.assets\/|asset:\/\/localhost\/|asset\.localhost\/|file:\/\/\/)/.test(
+      baseInitialContent
+    );
+  const shouldWaitForNotesDir = hasResolvableAssetImages && !notesDir;
 
   // Sync content state with initialContent (for sticked notes)
   useEffect(() => {
@@ -176,10 +181,15 @@ export default function PostIt({
     if (isSticked) return; // Only main capture window listens
 
     const unlisten = listen<{ content: string; folder: string }>("transfer-content", (event) => {
-      setContent(normalizeMarkdownForState(event.payload.content));
+      const normalizedContent = normalizeMarkdownForState(event.payload.content);
+      setContent(normalizedContent);
       onFolderChange(event.payload.folder);
+      const resolvedContent = notesDir
+        ? resolveImagePaths(normalizedContent, `${notesDir}/${event.payload.folder}`, convertFileSrc)
+        : normalizedContent;
       // Focus editor and move cursor to end
       setTimeout(() => {
+        editorRef.current?.setContent(resolvedContent);
         editorRef.current?.focus();
         editorRef.current?.moveToEnd?.();
       }, 100);
@@ -188,7 +198,7 @@ export default function PostIt({
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [isSticked, onFolderChange]);
+  }, [isSticked, notesDir, onFolderChange]);
 
   const handleSaveAndClose = useCallback(async () => {
     if (!isMarkdownEffectivelyEmpty(content)) {
@@ -785,6 +795,20 @@ export default function PostIt({
     }
   }, [folder]);
 
+  const handleImageDropPath = useCallback(async (path: string): Promise<string | null> => {
+    try {
+      const [absPath] = await invoke<[string, string]>("save_note_image_from_path", {
+        folder,
+        filePath: path,
+      });
+
+      return convertFileSrc(absPath);
+    } catch (err) {
+      console.error("Failed to import dropped image:", err);
+      return null;
+    }
+  }, [folder]);
+
   // Show save animation
   if (isSaving) {
     return (
@@ -1007,16 +1031,19 @@ export default function PostIt({
       <div className="flex-1 relative overflow-hidden min-h-0">
         {vimEnabled === null ? (
           <div className="h-full" /> // placeholder while settings load
+        ) : shouldWaitForNotesDir ? (
+          <div className="h-full" /> // wait for notes dir to resolve .assets image paths
         ) : (
           <Editor
             key={vimEnabled ? "vim" : "novim"}
             ref={editorRef}
             onChange={handleContentChange}
             placeholder={isSticked ? "Sticked note..." : "Type a thought..."}
-            initialContent={content || resolvedInitialContent || initialContent}
+            initialContent={resolvedInitialContent || initialContent}
             vimEnabled={vimEnabled}
             onVimModeChange={setVimMode}
             onImagePaste={handleImagePaste}
+            onImageDropPath={handleImageDropPath}
             onWikiLinkClick={handleWikiLinkClick}
           />
         )}

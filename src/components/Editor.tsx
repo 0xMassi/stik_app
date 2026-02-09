@@ -7,6 +7,7 @@ import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import { Markdown } from "tiptap-markdown";
 import { open } from "@tauri-apps/plugin-shell";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { forwardRef, useImperativeHandle, useEffect, useRef, useCallback } from "react";
 import { VimMode, type VimMode as VimModeType } from "@/extensions/vim-mode";
 import { StikHighlight } from "@/extensions/highlight";
@@ -20,6 +21,8 @@ import LinkPopover from "@/components/LinkPopover";
 import { invoke } from "@tauri-apps/api/core";
 import type { SearchResult } from "@/types";
 import { isImageUrl } from "@/utils/isImageUrl";
+import { isImageFile } from "@/utils/isImageFile";
+import { extractDroppedImagePath } from "@/utils/droppedImagePath";
 
 interface EditorProps {
   onChange: (content: string) => void;
@@ -28,6 +31,7 @@ interface EditorProps {
   vimEnabled?: boolean;
   onVimModeChange?: (mode: VimModeType) => void;
   onImagePaste?: (file: File) => Promise<string | null>;
+  onImageDropPath?: (path: string) => Promise<string | null>;
   onWikiLinkClick?: (slug: string, path: string) => void;
 }
 
@@ -43,7 +47,19 @@ export interface EditorRef {
 }
 
 const Editor = forwardRef<EditorRef, EditorProps>(
-  ({ onChange, placeholder, initialContent, vimEnabled, onVimModeChange, onImagePaste, onWikiLinkClick }, ref) => {
+  (
+    {
+      onChange,
+      placeholder,
+      initialContent,
+      vimEnabled,
+      onVimModeChange,
+      onImagePaste,
+      onImageDropPath,
+      onWikiLinkClick,
+    },
+    ref
+  ) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     const handleMetaKey = useCallback((e: KeyboardEvent) => {
@@ -93,8 +109,11 @@ const Editor = forwardRef<EditorRef, EditorProps>(
     onVimModeChangeRef.current = onVimModeChange;
     const onImagePasteRef = useRef(onImagePaste);
     onImagePasteRef.current = onImagePaste;
+    const onImageDropPathRef = useRef(onImageDropPath);
+    onImageDropPathRef.current = onImageDropPath;
     const onWikiLinkClickRef = useRef(onWikiLinkClick);
     onWikiLinkClickRef.current = onWikiLinkClick;
+    const lastDomDropAtRef = useRef(0);
 
     // Extensions built once per mount. Parent uses key={vimEnabled} to force remount when toggled.
     const extensionsRef = useRef<any[] | null>(null);
@@ -167,10 +186,18 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         attributes: {
           class: "stik-editor",
         },
+        handleDOMEvents: {
+          dragover: (_view, event) => {
+            if (event.dataTransfer?.types.includes("Files")) {
+              event.preventDefault();
+            }
+            return false;
+          },
+        },
         handlePaste: (view, event) => {
           const files = event.clipboardData?.files;
           if (files?.length) {
-            const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
+            const imageFile = Array.from(files).find(isImageFile);
             if (!imageFile || !onImagePasteRef.current) return false;
 
             event.preventDefault();
@@ -200,22 +227,21 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         handleDrop: (view, event) => {
           const files = event.dataTransfer?.files;
           if (files?.length) {
-            const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
-            if (!imageFile || !onImagePasteRef.current) return false;
-
-            event.preventDefault();
-            const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
-            onImagePasteRef.current(imageFile).then((url) => {
-              if (url && pos) {
-                view.dispatch(
-                  view.state.tr.insert(
-                    pos.pos,
-                    view.state.schema.nodes.image.create({ src: url })
-                  )
-                );
-              }
-            });
-            return true;
+            const imageFile = Array.from(files).find(isImageFile);
+            if (imageFile && onImagePasteRef.current) {
+              event.preventDefault();
+              lastDomDropAtRef.current = Date.now();
+              onImagePasteRef.current(imageFile).then((url) => {
+                if (url) {
+                  view.dispatch(
+                    view.state.tr.replaceSelectionWith(
+                      view.state.schema.nodes.image.create({ src: url })
+                    )
+                  );
+                }
+              });
+              return true;
+            }
           }
 
           const droppedUriList = event.dataTransfer?.getData("text/uri-list") ?? "";
@@ -224,16 +250,29 @@ const Editor = forwardRef<EditorRef, EditorProps>(
             .map((line) => line.trim())
             .find((line) => line && !line.startsWith("#"));
           const droppedPlainText = event.dataTransfer?.getData("text/plain")?.trim() ?? "";
-          const imageUrl = droppedUri || droppedPlainText;
-          if (!isImageUrl(imageUrl)) return false;
+          const droppedValue = droppedUri || droppedPlainText;
+          const droppedImagePath = extractDroppedImagePath(droppedValue);
+          if (droppedImagePath && onImageDropPathRef.current) {
+            event.preventDefault();
+            lastDomDropAtRef.current = Date.now();
+            onImageDropPathRef.current(droppedImagePath).then((url) => {
+              if (!url) return;
+              view.dispatch(
+                view.state.tr.replaceSelectionWith(
+                  view.state.schema.nodes.image.create({ src: url })
+                )
+              );
+            });
+            return true;
+          }
 
-          const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
-          if (!pos) return false;
+          if (!isImageUrl(droppedValue)) return false;
+
           event.preventDefault();
+          lastDomDropAtRef.current = Date.now();
           view.dispatch(
-            view.state.tr.insert(
-              pos.pos,
-              view.state.schema.nodes.image.create({ src: imageUrl })
+            view.state.tr.replaceSelectionWith(
+              view.state.schema.nodes.image.create({ src: droppedValue })
             )
           );
           return true;
@@ -245,6 +284,54 @@ const Editor = forwardRef<EditorRef, EditorProps>(
     useEffect(() => {
       if (!editor) return;
       installParagraphMarkdownSerializer(editor);
+    }, [editor]);
+
+    // Fallback for desktop file drops where WebKit dataTransfer is empty:
+    // use Tauri native drag-drop paths and import image files directly.
+    useEffect(() => {
+      if (!editor) return;
+
+      let unlisten: (() => void) | null = null;
+      let cancelled = false;
+
+      void getCurrentWindow()
+        .onDragDropEvent((event) => {
+          if (event.payload.type !== "drop") return;
+          if (!onImageDropPathRef.current) return;
+          if (Date.now() - lastDomDropAtRef.current < 200) return;
+
+          const droppedImagePath = event.payload.paths
+            .map((path) => extractDroppedImagePath(path))
+            .find((path): path is string => Boolean(path));
+          if (!droppedImagePath) return;
+
+          void onImageDropPathRef.current(droppedImagePath).then((url) => {
+            if (cancelled || !url) return;
+
+            editor
+              .chain()
+              .focus()
+              .setImage({ src: url })
+              .run();
+          });
+        })
+        .then((dispose) => {
+          if (cancelled) {
+            dispose();
+          } else {
+            unlisten = dispose;
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to register native drag-drop listener:", error);
+        });
+
+      return () => {
+        cancelled = true;
+        if (unlisten) {
+          unlisten();
+        }
+      };
     }, [editor]);
 
     // Set initial content when editor is ready and initialContent changes

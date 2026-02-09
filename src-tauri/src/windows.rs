@@ -1,7 +1,22 @@
 use crate::commands::{notes, sticked_notes};
-use crate::state::AppState;
+use crate::state::{AppState, LastSavedNote};
 use sticked_notes::StickedNote;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+
+fn remember_last_note(state: &AppState, path: &str, folder: &str) {
+    if path.trim().is_empty() {
+        return;
+    }
+
+    let mut last = state
+        .last_saved_note
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    *last = Some(LastSavedNote {
+        path: path.to_string(),
+        folder: folder.to_string(),
+    });
+}
 
 pub fn show_postit_with_folder(app: &AppHandle, folder: &str) {
     if let Some(window) = app.get_webview_window("postit") {
@@ -374,6 +389,11 @@ pub async fn open_note_for_viewing(
     folder: String,
     path: String,
 ) -> Result<bool, String> {
+    {
+        let state = app.state::<AppState>();
+        remember_last_note(&state, &path, &folder);
+    }
+
     let id = format!("view-{}", path.replace(['/', '\\', '.', ' '], "-"));
     let window_label = format!("sticked-{}", id);
 
@@ -475,5 +495,22 @@ pub fn restore_sticked_notes(app: &AppHandle) {
         for note in notes {
             let _ = create_sticked_window(app.clone(), note);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::remember_last_note;
+    use crate::state::AppState;
+
+    #[test]
+    fn remember_last_note_updates_state_for_shortcuts() {
+        let state = AppState::new();
+        remember_last_note(&state, "/tmp/stik/foo.md", "Inbox");
+
+        let last = state.last_saved_note.lock().unwrap_or_else(|e| e.into_inner());
+        let note = last.as_ref().expect("last note should be set");
+        assert_eq!(note.path, "/tmp/stik/foo.md");
+        assert_eq!(note.folder, "Inbox");
     }
 }

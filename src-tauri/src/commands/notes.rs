@@ -391,6 +391,13 @@ fn detect_image_ext(data: &str) -> &'static str {
     "png"
 }
 
+fn is_supported_image_ext(ext: &str) -> bool {
+    matches!(
+        ext,
+        "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "bmp" | "avif"
+    )
+}
+
 /// Save an image (base64-encoded) into the folder's `.assets/` directory.
 /// Returns `(absolute_path, relative_markdown_ref)`.
 #[tauri::command]
@@ -420,6 +427,41 @@ pub fn save_note_image(folder: String, image_data: String) -> Result<(String, St
     fs::write(&file_path, &bytes).map_err(|e| format!("Failed to write image: {}", e))?;
 
     let abs = file_path.to_string_lossy().to_string();
+    let rel = format!(".assets/{}", filename);
+    Ok((abs, rel))
+}
+
+#[tauri::command]
+pub fn save_note_image_from_path(folder: String, file_path: String) -> Result<(String, String), String> {
+    super::folders::validate_name(&folder)?;
+
+    let source_path = PathBuf::from(&file_path);
+    if !source_path.is_absolute() {
+        return Err("Image path must be absolute".to_string());
+    }
+    if !source_path.exists() || !source_path.is_file() {
+        return Err("Dropped image file does not exist".to_string());
+    }
+
+    let ext = source_path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase())
+        .ok_or_else(|| "Image file extension is missing".to_string())?;
+    if !is_supported_image_ext(&ext) {
+        return Err("Dropped file is not a supported image".to_string());
+    }
+
+    let stik_folder = get_stik_folder()?;
+    let assets_dir = stik_folder.join(&folder).join(".assets");
+    fs::create_dir_all(&assets_dir).map_err(|e| format!("Failed to create .assets dir: {}", e))?;
+
+    let filename = format!("{}.{}", uuid::Uuid::new_v4(), ext);
+    let destination_path = assets_dir.join(&filename);
+    fs::copy(&source_path, &destination_path)
+        .map_err(|e| format!("Failed to copy dropped image: {}", e))?;
+
+    let abs = destination_path.to_string_lossy().to_string();
     let rel = format!(".assets/{}", filename);
     Ok((abs, rel))
 }

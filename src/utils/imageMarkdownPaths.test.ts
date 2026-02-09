@@ -16,6 +16,13 @@ describe("imageMarkdownPaths", () => {
     expect(unresolveImagePaths(input)).toBe("![shot](.assets/screen-two.png)");
   });
 
+  it("converts file:// links that point into .assets to relative .assets paths", () => {
+    const input =
+      "![shot](file:///Users/massi/Documents/Stik/Inbox/.assets/screen-three.png)";
+
+    expect(unresolveImagePaths(input)).toBe("![shot](.assets/screen-three.png)");
+  });
+
   it("keeps non-asset markdown links unchanged", () => {
     const input = "![shot](https://example.com/image.png)";
 
