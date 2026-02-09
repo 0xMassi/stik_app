@@ -68,36 +68,41 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       }
     }, []);
 
-    // Link click handling — prevent native <a> navigation, Cmd+Click opens externally
+    // Link click handling — prevent native navigation.
+    // Plain click keeps editor behavior; Cmd+Click opens externally.
     useEffect(() => {
-      const el = wrapperRef.current;
-      if (!el) return;
-
       const handleLinkClick = (e: MouseEvent) => {
-        const anchor = (e.target as HTMLElement).closest("a");
-        if (!anchor) return;
+        const target = e.target as HTMLElement | null;
+        const wrapper = wrapperRef.current;
+        if (!target || !wrapper || !wrapper.contains(target)) return;
+
+        const anchor = target.closest("a");
+        if (!anchor || !wrapper.contains(anchor)) return;
+
+        // Always prevent native navigation (ProseMirror handles cursor via mousedown)
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
 
         // Use raw attribute — .href returns browser-resolved URL (relative to page)
         const rawHref = anchor.getAttribute("href");
         if (!rawHref) return;
 
-        // Always prevent native navigation (ProseMirror handles cursor via mousedown)
-        e.preventDefault();
-
         if (e.metaKey) {
-          e.stopImmediatePropagation();
           open(normalizeUrl(rawHref));
         }
       };
 
-      const handleWindowBlur = () => el.classList.remove("cmd-held");
+      const handleWindowBlur = () => wrapperRef.current?.classList.remove("cmd-held");
 
-      el.addEventListener("click", handleLinkClick, { capture: true });
+      window.addEventListener("click", handleLinkClick, { capture: true });
+      window.addEventListener("auxclick", handleLinkClick, { capture: true });
       window.addEventListener("keydown", handleMetaKey);
       window.addEventListener("keyup", handleMetaKey);
       window.addEventListener("blur", handleWindowBlur);
       return () => {
-        el.removeEventListener("click", handleLinkClick, { capture: true });
+        window.removeEventListener("click", handleLinkClick, { capture: true });
+        window.removeEventListener("auxclick", handleLinkClick, { capture: true });
         window.removeEventListener("keydown", handleMetaKey);
         window.removeEventListener("keyup", handleMetaKey);
         window.removeEventListener("blur", handleWindowBlur);
