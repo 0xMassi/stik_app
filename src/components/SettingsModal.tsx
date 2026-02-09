@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
 import SettingsContent from "./SettingsContent";
+import SettingsFooterLinks from "./SettingsFooterLinks";
 import type { SettingsTab } from "./SettingsContent";
 import type { CaptureStreakStatus, GitSyncStatus, OnThisDayStatus, StikSettings } from "@/types";
 
@@ -366,7 +367,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
           {settingsContent}
         </div>
         <div className="flex items-center justify-between px-5 py-4 border-t border-line bg-line/10">
-          {appVersion && <span className="text-[11px] text-stone">v{appVersion}</span>}
+          <SettingsFooterLinks appVersion={appVersion} />
           <div className="flex items-center gap-3">
             {cancelButton}
             {saveButton}
@@ -395,7 +396,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
           {settingsContent}
         </div>
         <div className="flex items-center justify-between px-5 py-4 border-t border-line bg-line/10">
-          {appVersion && <span className="text-[11px] text-stone">v{appVersion}</span>}
+          <SettingsFooterLinks appVersion={appVersion} />
           <div className="flex items-center gap-3">
             {cancelButton}
             {saveButton}
