@@ -32,6 +32,7 @@ pub struct SearchResult {
     pub path: String,
     pub filename: String,
     pub folder: String,
+    pub title: String,
     pub snippet: String,
     pub created: String,
 }
@@ -180,6 +181,7 @@ pub fn search_notes(
             path: entry.path,
             filename: entry.filename,
             folder: entry.folder,
+            title: entry.title,
             snippet,
             created: entry.created,
         })

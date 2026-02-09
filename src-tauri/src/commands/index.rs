@@ -14,6 +14,7 @@ pub struct NoteEntry {
     pub path: String,
     pub filename: String,
     pub folder: String,
+    pub title: String,
     pub preview: String,
     pub created: String,
     pub content_len: usize,
@@ -165,6 +166,7 @@ pub fn rebuild_index(index: tauri::State<'_, NoteIndex>) -> Result<bool, String>
 fn read_note_entry(path: &PathBuf, folder: &str) -> Option<NoteEntry> {
     let content = fs::read_to_string(path).ok()?;
     let content_len = content.len();
+    let title = extract_title(&content);
 
     let preview = if content.len() > PREVIEW_LENGTH {
         content[..PREVIEW_LENGTH].to_string()
@@ -188,10 +190,26 @@ fn read_note_entry(path: &PathBuf, folder: &str) -> Option<NoteEntry> {
         path: path.to_string_lossy().to_string(),
         filename,
         folder: folder.to_string(),
+        title,
         preview,
         created,
         content_len,
     })
+}
+
+fn is_break_placeholder_line(line: &str) -> bool {
+    line.eq_ignore_ascii_case("<br>")
+        || line.eq_ignore_ascii_case("<br/>")
+        || line.eq_ignore_ascii_case("<br />")
+}
+
+fn extract_title(content: &str) -> String {
+    content
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty() && !is_break_placeholder_line(line))
+        .map(|line| line.chars().take(120).collect())
+        .unwrap_or_else(|| "Untitled".to_string())
 }
 
 fn extract_snippet(content: &str, query: &str, max_len: usize) -> String {
@@ -218,5 +236,31 @@ fn extract_snippet(content: &str, query: &str, max_len: usize) -> String {
             snippet.push_str("...");
         }
         snippet
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_title;
+
+    #[test]
+    fn title_uses_first_non_empty_line() {
+        assert_eq!(
+            extract_title("\n\nFirst title line\nSecond line"),
+            "First title line"
+        );
+    }
+
+    #[test]
+    fn title_skips_break_placeholders() {
+        assert_eq!(
+            extract_title("<br>\n\n<br />\n\nActual title"),
+            "Actual title"
+        );
+    }
+
+    #[test]
+    fn title_falls_back_when_content_is_effectively_empty() {
+        assert_eq!(extract_title("<br>\n\n"), "Untitled");
     }
 }

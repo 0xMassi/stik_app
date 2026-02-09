@@ -578,6 +578,9 @@ body,
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   animation: link-popover-in 0.12s ease-out;
+  max-width: calc(100% - 8px);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 @keyframes link-popover-in {
@@ -634,8 +637,25 @@ body,
 
 .link-popover-edit {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+  width: min(320px, calc(100vw - 32px));
+}
+
+.link-popover-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.link-popover-field-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgb(var(--color-stone));
+  letter-spacing: 0.02em;
 }
 
 .link-popover-input {
@@ -646,7 +666,14 @@ body,
   border-radius: 5px;
   padding: 3px 6px;
   width: 200px;
+  max-width: 100%;
+  min-width: 0;
   outline: none;
+}
+
+.link-popover-edit-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .link-popover-input:focus {

@@ -7,7 +7,7 @@ import SettingsModal from "./components/SettingsModal";
 import SearchModal from "./components/SearchModal";
 import ManagerModal from "./components/ManagerModal";
 import { useTheme } from "./hooks/useTheme";
-import type { StickedNote } from "@/types";
+import type { StickedNote, StikSettings } from "@/types";
 import { isMarkdownEffectivelyEmpty } from "@/utils/normalizeMarkdownForCopy";
 
 type WindowType = "postit" | "sticked" | "settings" | "search" | "manager";
@@ -46,6 +46,30 @@ export default function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const contentRef = useRef("");
   const windowInfo = getWindowInfo();
+
+  // Initialize capture window with configured default folder.
+  useEffect(() => {
+    if (windowInfo.type !== "postit") return;
+
+    let cancelled = false;
+
+    invoke<StikSettings>("get_settings")
+      .then((settings) => {
+        if (cancelled) return;
+
+        const configuredFolder = settings.default_folder?.trim();
+        if (!configuredFolder) return;
+
+        setCurrentFolder((previous) =>
+          previous === "Inbox" ? configuredFolder : previous
+        );
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [windowInfo.type]);
 
   // Load sticked note data if this is a sticked window
   useEffect(() => {

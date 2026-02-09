@@ -4,6 +4,19 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { NoteInfo, SearchResult, SemanticResult } from "@/types";
 import { formatRelativeDate } from "@/utils/formatRelativeDate";
 
+function getNoteTitleFromContent(content: string): string {
+  const title = content
+    .split("\n")
+    .map((line) => line.trim())
+    .find(
+      (line) =>
+        line.length > 0 &&
+        !line.toLowerCase().startsWith("<br")
+    );
+
+  return title || "Untitled";
+}
+
 export default function SearchModal() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -31,6 +44,7 @@ export default function SearchModal() {
           path: n.path,
           filename: n.filename,
           folder: n.folder,
+          title: getNoteTitleFromContent(n.content),
           snippet: n.content,
           created: n.created,
         }))
@@ -191,6 +205,7 @@ export default function SearchModal() {
       path: n.path,
       filename: n.filename,
       folder: n.folder,
+      title: getNoteTitleFromContent(n.content),
       snippet: n.content,
       created: n.created,
     }));
@@ -452,6 +467,9 @@ export default function SearchModal() {
                   </span>
                 </div>
                 <p className="text-[13px] text-ink leading-relaxed">
+                  {result.title}
+                </p>
+                <p className="text-[12px] text-stone leading-relaxed">
                   {highlightSnippet(result.snippet, query)}
                 </p>
               </button>
@@ -495,6 +513,9 @@ export default function SearchModal() {
                         </span>
                       </div>
                       <p className="text-[13px] text-ink leading-relaxed">
+                        {result.title}
+                      </p>
+                      <p className="text-[12px] text-stone leading-relaxed">
                         {result.snippet.length > 100
                           ? result.snippet.slice(0, 100) + "..."
                           : result.snippet}

@@ -19,6 +19,7 @@ import { installParagraphMarkdownSerializer } from "@/extensions/preserve-empty-
 import LinkPopover from "@/components/LinkPopover";
 import { invoke } from "@tauri-apps/api/core";
 import type { SearchResult } from "@/types";
+import { isImageUrl } from "@/utils/isImageUrl";
 
 interface EditorProps {
   onChange: (content: string) => void;
@@ -168,42 +169,73 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         },
         handlePaste: (view, event) => {
           const files = event.clipboardData?.files;
-          if (!files?.length) return false;
+          if (files?.length) {
+            const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
+            if (!imageFile || !onImagePasteRef.current) return false;
 
-          const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
-          if (!imageFile || !onImagePasteRef.current) return false;
+            event.preventDefault();
+            onImagePasteRef.current(imageFile).then((url) => {
+              if (url) {
+                view.dispatch(
+                  view.state.tr.replaceSelectionWith(
+                    view.state.schema.nodes.image.create({ src: url })
+                  )
+                );
+              }
+            });
+            return true;
+          }
+
+          const pastedText = event.clipboardData?.getData("text/plain")?.trim() ?? "";
+          if (!isImageUrl(pastedText)) return false;
 
           event.preventDefault();
-          onImagePasteRef.current(imageFile).then((url) => {
-            if (url) {
-              view.dispatch(
-                view.state.tr.replaceSelectionWith(
-                  view.state.schema.nodes.image.create({ src: url })
-                )
-              );
-            }
-          });
+          view.dispatch(
+            view.state.tr.replaceSelectionWith(
+              view.state.schema.nodes.image.create({ src: pastedText })
+            )
+          );
           return true;
         },
         handleDrop: (view, event) => {
           const files = event.dataTransfer?.files;
-          if (!files?.length) return false;
+          if (files?.length) {
+            const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
+            if (!imageFile || !onImagePasteRef.current) return false;
 
-          const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
-          if (!imageFile || !onImagePasteRef.current) return false;
+            event.preventDefault();
+            const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            onImagePasteRef.current(imageFile).then((url) => {
+              if (url && pos) {
+                view.dispatch(
+                  view.state.tr.insert(
+                    pos.pos,
+                    view.state.schema.nodes.image.create({ src: url })
+                  )
+                );
+              }
+            });
+            return true;
+          }
 
-          event.preventDefault();
+          const droppedUriList = event.dataTransfer?.getData("text/uri-list") ?? "";
+          const droppedUri = droppedUriList
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .find((line) => line && !line.startsWith("#"));
+          const droppedPlainText = event.dataTransfer?.getData("text/plain")?.trim() ?? "";
+          const imageUrl = droppedUri || droppedPlainText;
+          if (!isImageUrl(imageUrl)) return false;
+
           const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
-          onImagePasteRef.current(imageFile).then((url) => {
-            if (url && pos) {
-              view.dispatch(
-                view.state.tr.insert(
-                  pos.pos,
-                  view.state.schema.nodes.image.create({ src: url })
-                )
-              );
-            }
-          });
+          if (!pos) return false;
+          event.preventDefault();
+          view.dispatch(
+            view.state.tr.insert(
+              pos.pos,
+              view.state.schema.nodes.image.create({ src: imageUrl })
+            )
+          );
           return true;
         },
       },

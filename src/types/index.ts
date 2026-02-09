@@ -46,6 +46,7 @@ export interface SearchResult {
   path: string;
   filename: string;
   folder: string;
+  title: string;
   snippet: string;
   created: string;
 }
@@ -54,6 +55,7 @@ export interface SemanticResult {
   path: string;
   filename: string;
   folder: string;
+  title: string;
   snippet: string;
   created: string;
   similarity: number;

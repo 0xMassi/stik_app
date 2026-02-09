@@ -57,24 +57,9 @@ pub fn get_notes_directory() -> Result<String, String> {
     Ok(path.to_string_lossy().to_string())
 }
 
-/// Ensure default folders exist
-fn ensure_default_folders(stik_folder: &PathBuf) -> Result<(), String> {
-    let defaults = ["Inbox", "Work", "Ideas", "Personal", "Projects"];
-
-    for folder in defaults {
-        let path = stik_folder.join(folder);
-        fs::create_dir_all(&path).map_err(|e| e.to_string())?;
-    }
-
-    Ok(())
-}
-
 #[tauri::command]
 pub fn list_folders() -> Result<Vec<String>, String> {
     let stik_folder = get_stik_folder()?;
-
-    // Ensure defaults exist
-    ensure_default_folders(&stik_folder)?;
 
     // List all directories
     let entries = fs::read_dir(&stik_folder).map_err(|e| e.to_string())?;
@@ -168,9 +153,6 @@ pub fn rename_folder(old_name: String, new_name: String) -> Result<bool, String>
 #[tauri::command]
 pub fn get_folder_stats() -> Result<Vec<FolderStats>, String> {
     let stik_folder = get_stik_folder()?;
-
-    // Ensure defaults exist
-    ensure_default_folders(&stik_folder)?;
 
     // List all directories and count notes
     let entries = fs::read_dir(&stik_folder).map_err(|e| e.to_string())?;

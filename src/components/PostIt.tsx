@@ -12,6 +12,11 @@ import {
   normalizeMarkdownForCopy,
   normalizeMarkdownForState,
 } from "@/utils/normalizeMarkdownForCopy";
+import {
+  resolveImagePaths,
+  unresolveImagePaths,
+} from "@/utils/imageMarkdownPaths";
+import { normalizeImageLinksForMarkdown } from "@/utils/isImageUrl";
 
 interface PostItProps {
   folder: string;
@@ -35,25 +40,6 @@ function fallbackHtmlFromPlainText(text: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
   return `<pre>${escaped}</pre>`;
-}
-
-/** Convert relative `.assets/` paths in markdown to asset protocol URLs for display */
-function resolveImagePaths(markdown: string, folderPath: string): string {
-  return markdown.replace(
-    /!\[([^\]]*)\]\(\.assets\/([^)]+)\)/g,
-    (_match, alt, filename) => {
-      const absPath = `${folderPath}/.assets/${filename}`;
-      return `![${alt}](${convertFileSrc(absPath)})`;
-    }
-  );
-}
-
-/** Convert asset protocol URLs back to relative `.assets/` paths for storage */
-function unresolveImagePaths(markdown: string): string {
-  return markdown.replace(
-    /!\[([^\]]*)\]\(https?:\/\/asset\.localhost\/[^)]*[/\\]\.assets[/\\]([^)]+)\)/g,
-    (_match, alt, filename) => `![${alt}](.assets/${decodeURIComponent(filename)})`
-  );
 }
 
 type CopyMode = "markdown" | "rich" | "image";
@@ -126,9 +112,11 @@ export default function PostIt({
   }, []);
 
   // Resolve image paths for display when loading content with existing images
-  const baseInitialContent = normalizeMarkdownForState(initialContent);
+  const baseInitialContent = normalizeMarkdownForState(
+    normalizeImageLinksForMarkdown(initialContent)
+  );
   const resolvedInitialContent = notesDir && baseInitialContent
-    ? resolveImagePaths(baseInitialContent, `${notesDir}/${folder}`)
+    ? resolveImagePaths(baseInitialContent, `${notesDir}/${folder}`, convertFileSrc)
     : baseInitialContent;
 
   // Sync content state with initialContent (for sticked notes)
@@ -536,7 +524,8 @@ export default function PostIt({
   }, [stickedId, currentStickedId, isPinned]);
 
   const handleContentChange = useCallback((newContent: string) => {
-    const stored = normalizeMarkdownForState(unresolveImagePaths(newContent));
+    const withImageLinksPromoted = normalizeImageLinksForMarkdown(newContent);
+    const stored = normalizeMarkdownForState(unresolveImagePaths(withImageLinksPromoted));
     setContent(stored);
     onContentChange?.(stored);
 

@@ -14,10 +14,12 @@ interface LinkPopoverProps {
 
 interface LinkInfo {
   href: string;
+  text: string;
   from: number;
   to: number;
   bottom: number;
   left: number;
+  editorWidth: number;
 }
 
 function getActiveLinkInfo(editor: Editor): LinkInfo | null {
@@ -64,30 +66,46 @@ function getActiveLinkInfo(editor: Editor): LinkInfo | null {
   // Get coordinates for positioning
   const coords = editor.view.coordsAtPos(from);
   const editorRect = editor.view.dom.getBoundingClientRect();
+  const text = state.doc.textBetween(markFrom, markTo, " ", " ");
 
   return {
     href,
+    text,
     from: markFrom,
     to: markTo,
     bottom: coords.bottom - editorRect.top,
     left: coords.left - editorRect.left,
+    editorWidth: editorRect.width,
   };
 }
 
 export default function LinkPopover({ editor }: LinkPopoverProps) {
   const [linkInfo, setLinkInfo] = useState<LinkInfo | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState("");
+  const [editText, setEditText] = useState("");
+  const [editHref, setEditHref] = useState("");
   const [copied, setCopied] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [popoverWidth, setPopoverWidth] = useState(0);
+  const textInputRef = useRef<HTMLInputElement>(null);
+  const hrefInputRef = useRef<HTMLInputElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const isEditingRef = useRef(false);
+
+  useEffect(() => {
+    isEditingRef.current = isEditing;
+  }, [isEditing]);
 
   const updateLinkInfo = useCallback(() => {
-    if (!editor || !editor.isFocused) {
+    if (!editor) {
       setLinkInfo(null);
       setIsEditing(false);
       return;
     }
+
+    // While focus is transitioning from editor -> popover controls,
+    // avoid clearing state here. handleBlur owns hide timing.
+    if (!editor.isFocused) return;
+
     const info = getActiveLinkInfo(editor);
     setLinkInfo(info);
     if (!info) setIsEditing(false);
@@ -96,6 +114,7 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
   const handleBlur = useCallback(() => {
     // Delay so clicks on the popover itself register before hiding
     setTimeout(() => {
+      if (isEditingRef.current) return;
       if (!popoverRef.current?.contains(document.activeElement)) {
         setLinkInfo(null);
         setIsEditing(false);
@@ -107,13 +126,34 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
     if (!editor) return;
 
     editor.on("selectionUpdate", updateLinkInfo);
+    editor.on("transaction", updateLinkInfo);
     editor.on("blur", handleBlur);
+    window.addEventListener("resize", updateLinkInfo);
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        updateLinkInfo();
+      });
+      resizeObserver.observe(editor.view.dom);
+    }
 
     return () => {
       editor.off("selectionUpdate", updateLinkInfo);
+      editor.off("transaction", updateLinkInfo);
       editor.off("blur", handleBlur);
+      window.removeEventListener("resize", updateLinkInfo);
+      resizeObserver?.disconnect();
     };
   }, [editor, updateLinkInfo, handleBlur]);
+
+  useEffect(() => {
+    if (!linkInfo) return;
+    const frame = requestAnimationFrame(() => {
+      setPopoverWidth(popoverRef.current?.offsetWidth ?? 0);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [linkInfo, isEditing, copied, editHref, editText]);
 
   const handleOpen = useCallback(() => {
     if (linkInfo?.href) open(normalizeUrl(linkInfo.href));
@@ -142,26 +182,30 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
 
   const handleStartEdit = useCallback(() => {
     if (!linkInfo) return;
-    setEditValue(linkInfo.href);
+    setEditText(linkInfo.text);
+    setEditHref(linkInfo.href);
     setIsEditing(true);
-    setTimeout(() => inputRef.current?.select(), 0);
+    setTimeout(() => textInputRef.current?.select(), 0);
   }, [linkInfo]);
 
   const handleSaveEdit = useCallback(() => {
     if (!editor || !linkInfo) return;
-    const url = editValue.trim();
-    if (url) {
-      editor
-        .chain()
-        .focus()
-        .setTextSelection({ from: linkInfo.from, to: linkInfo.to })
-        .extendMarkRange("link")
-        .setLink({ href: url })
-        .run();
-    }
+    const href = editHref.trim() ? normalizeUrl(editHref.trim()) : "";
+    const text = editText.trim() || linkInfo.text || href;
+    if (!href || !text) return;
+
+    const linkMark = editor.state.schema.marks.link;
+    const mark = linkMark?.create({ href });
+    const textNode = mark
+      ? editor.state.schema.text(text, [mark])
+      : editor.state.schema.text(text);
+
+    const transaction = editor.state.tr.replaceWith(linkInfo.from, linkInfo.to, textNode);
+    editor.view.dispatch(transaction);
+
     setIsEditing(false);
     editor.commands.focus();
-  }, [editor, linkInfo, editValue]);
+  }, [editor, linkInfo, editHref, editText]);
 
   const handleUnlink = useCallback(() => {
     if (!editor || !linkInfo) return;
@@ -176,13 +220,16 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
 
   if (!linkInfo) return null;
 
+  const maxLeft = Math.max(4, linkInfo.editorWidth - popoverWidth - 4);
+  const left = Math.max(4, Math.min(linkInfo.left - 8, maxLeft));
+
   return (
     <div
       ref={popoverRef}
       className="link-popover"
       style={{
         top: `${linkInfo.bottom + 6}px`,
-        left: `${Math.max(4, linkInfo.left - 8)}px`,
+        left: `${left}px`,
       }}
     >
       {isEditing ? (
@@ -193,24 +240,51 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
             handleSaveEdit();
           }}
         >
-          <input
-            ref={inputRef}
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setIsEditing(false);
-                editor?.commands.focus();
-              }
-            }}
-            className="link-popover-input"
-            placeholder="https://"
-            spellCheck={false}
-          />
-          <button type="submit" className="link-popover-btn link-popover-save">
-            Save
-          </button>
+          <div className="link-popover-field">
+            <span className="link-popover-field-label">Text</span>
+            <input
+              ref={textInputRef}
+              type="text"
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setIsEditing(false);
+                  editor?.commands.focus();
+                } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "l") {
+                  e.preventDefault();
+                  hrefInputRef.current?.focus();
+                  hrefInputRef.current?.select();
+                }
+              }}
+              className="link-popover-input"
+              placeholder="Link text"
+              spellCheck={false}
+            />
+          </div>
+          <div className="link-popover-field">
+            <span className="link-popover-field-label">URL</span>
+            <input
+              ref={hrefInputRef}
+              type="text"
+              value={editHref}
+              onChange={(e) => setEditHref(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setIsEditing(false);
+                  editor?.commands.focus();
+                }
+              }}
+              className="link-popover-input"
+              placeholder="https://"
+              spellCheck={false}
+            />
+          </div>
+          <div className="link-popover-edit-actions">
+            <button type="submit" className="link-popover-btn link-popover-save">
+              Save
+            </button>
+          </div>
         </form>
       ) : (
         <>
@@ -258,7 +332,7 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
             <button
               onClick={handleStartEdit}
               className="link-popover-btn"
-              title="Edit URL"
+              title="Edit link"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
