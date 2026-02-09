@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-02-09
+Community and support links
+
+### Added
+- **Settings footer social links** — new Help/X/Discord quick actions next to the app version in both settings surfaces (modal and standalone settings window)
+- **Help action in app settings** — one-click support contact via `mailto:help@stik.ink`
+
+### Changed
+- **Support channels updated** — README now points to `help@stik.ink` plus official X and Discord community links
+
 ## [0.4.1] - 2026-02-09
 Editing and reliability polish
 
@@ -171,6 +181,7 @@ First release
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.4.2 | 2026-02-09 | Help/X/Discord links in settings footer, updated support/contact links |
 | 0.4.1 | 2026-02-09 | Link shortcuts (`Cmd+K`/`Cmd+L`), stronger link navigation control, robust image drag/drop and reopen, last-note reopen fixes |
 | 0.4.0 | 2026-02-08 | Vim mode, highlighting, collapsible headings, wiki-links, link popover, image handling, themes |
 | 0.3.3 | 2026-02-07 | Built-in auto-updater, version display in settings |
@@ -179,7 +190,8 @@ First release
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/0xMassi/stik_app/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/0xMassi/stik_app/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/0xMassi/stik_app/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/0xMassi/stik_app/compare/v0.3.2...v0.3.3
