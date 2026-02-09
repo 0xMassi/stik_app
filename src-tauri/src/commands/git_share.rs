@@ -342,7 +342,7 @@ fn status_for_config(config: Option<&GitSharingSettings>) -> GitSyncStatus {
     let branch = normalized_branch(&config.branch);
     let repository_layout = normalized_repository_layout(&config.repository_layout).to_string();
 
-    let repo_initialized = linked_folder_path(&config)
+    let repo_initialized = linked_folder_path_for_status(&config)
         .ok()
         .map(|path| path.join(".git").exists())
         .unwrap_or(false);
@@ -378,17 +378,36 @@ fn validate_git_config_fields(config: &GitSharingSettings) -> Result<(), String>
 }
 
 fn linked_folder_path(config: &GitSharingSettings) -> Result<PathBuf, String> {
+    let stik_folder = get_stik_folder()?;
+    linked_folder_path_with_mode(config, &stik_folder, true)
+}
+
+fn linked_folder_path_for_status(config: &GitSharingSettings) -> Result<PathBuf, String> {
+    let stik_folder = get_stik_folder()?;
+    linked_folder_path_with_mode(config, &stik_folder, false)
+}
+
+fn linked_folder_path_with_mode(
+    config: &GitSharingSettings,
+    stik_folder: &Path,
+    create_if_missing: bool,
+) -> Result<PathBuf, String> {
     match normalized_repository_layout(&config.repository_layout) {
-        "stik_root" => get_stik_folder(),
-        _ => resolve_folder_path(config.shared_folder.trim()),
+        "stik_root" => Ok(stik_folder.to_path_buf()),
+        _ => resolve_folder_path(stik_folder, config.shared_folder.trim(), create_if_missing),
     }
 }
 
-fn resolve_folder_path(folder: &str) -> Result<PathBuf, String> {
+fn resolve_folder_path(
+    stik_folder: &Path,
+    folder: &str,
+    create_if_missing: bool,
+) -> Result<PathBuf, String> {
     validate_name(folder)?;
-    let stik_folder = get_stik_folder()?;
     let folder_path = stik_folder.join(folder);
-    fs::create_dir_all(&folder_path).map_err(|e| e.to_string())?;
+    if create_if_missing {
+        fs::create_dir_all(&folder_path).map_err(|e| e.to_string())?;
+    }
     Ok(folder_path)
 }
 
@@ -859,6 +878,28 @@ pub fn git_open_remote_url(remote_url: String) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_dir(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be monotonic")
+            .as_nanos();
+        std::env::temp_dir().join(format!("stik-git-share-{label}-{nanos}"))
+    }
+
+    fn folder_root_config(folder: &str) -> GitSharingSettings {
+        GitSharingSettings {
+            enabled: false,
+            shared_folder: folder.to_string(),
+            remote_url: String::new(),
+            branch: "main".to_string(),
+            repository_layout: "folder_root".to_string(),
+            sync_interval_seconds: 300,
+        }
+    }
 
     #[test]
     fn appends_conflict_suffix_before_extension() {
@@ -897,7 +938,10 @@ mod tests {
     fn normalizes_unknown_layout_to_folder_root() {
         assert_eq!(normalized_repository_layout("folder_root"), "folder_root");
         assert_eq!(normalized_repository_layout("stik_root"), "stik_root");
-        assert_eq!(normalized_repository_layout("something_else"), "folder_root");
+        assert_eq!(
+            normalized_repository_layout("something_else"),
+            "folder_root"
+        );
     }
 
     #[test]
@@ -910,5 +954,43 @@ mod tests {
     fn converts_https_remote_to_browser_url() {
         let url = remote_to_browser_url("https://github.com/0xMassi/stik_notes.git").unwrap();
         assert_eq!(url, "https://github.com/0xMassi/stik_notes");
+    }
+
+    #[test]
+    fn folder_path_resolution_does_not_create_folder_when_not_requested() {
+        let root = unique_temp_dir("status-no-create");
+        fs::create_dir_all(&root).expect("temp root should be created");
+        let config = folder_root_config("Inbox");
+        let expected = root.join("Inbox");
+
+        let resolved =
+            linked_folder_path_with_mode(&config, &root, false).expect("path should resolve");
+
+        assert_eq!(resolved, expected);
+        assert!(
+            !expected.exists(),
+            "status path resolution must not create folders"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn folder_path_resolution_creates_folder_when_requested() {
+        let root = unique_temp_dir("sync-create");
+        fs::create_dir_all(&root).expect("temp root should be created");
+        let config = folder_root_config("Inbox");
+        let expected = root.join("Inbox");
+
+        let resolved =
+            linked_folder_path_with_mode(&config, &root, true).expect("path should resolve");
+
+        assert_eq!(resolved, expected);
+        assert!(
+            expected.exists(),
+            "sync path resolution should create folders"
+        );
+
+        let _ = fs::remove_dir_all(&root);
     }
 }
