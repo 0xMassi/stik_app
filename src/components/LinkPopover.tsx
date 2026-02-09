@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { open } from "@tauri-apps/plugin-shell";
 import { normalizeUrl } from "@/extensions/markdown-link-rule";
 import { isLinkEditShortcut } from "@/utils/linkShortcut";
+import { consumeEscapeForPopover } from "@/utils/popoverEscape";
 import type { Editor } from "@tiptap/core";
 
 interface LinkPopoverProps {
@@ -298,6 +299,11 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
     editor.commands.focus();
   }, [editor, linkInfo, editHref, editText]);
 
+  const handleCancelEdit = useCallback(() => {
+    setIsEditing(false);
+    editor?.commands.focus();
+  }, [editor]);
+
   const handleUnlink = useCallback(() => {
     if (!editor || !linkInfo) return;
     editor
@@ -330,6 +336,9 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
             e.preventDefault();
             handleSaveEdit();
           }}
+          onKeyDown={(e) => {
+            consumeEscapeForPopover(e, handleCancelEdit);
+          }}
         >
           <div className="link-popover-field">
             <span className="link-popover-field-label">Text</span>
@@ -339,11 +348,10 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setIsEditing(false);
-                  editor?.commands.focus();
-                } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "l") {
+                if (consumeEscapeForPopover(e, handleCancelEdit)) return;
+                if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "l") {
                   e.preventDefault();
+                  e.stopPropagation();
                   hrefInputRef.current?.focus();
                   hrefInputRef.current?.select();
                 }
@@ -361,10 +369,7 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
               value={editHref}
               onChange={(e) => setEditHref(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setIsEditing(false);
-                  editor?.commands.focus();
-                }
+                consumeEscapeForPopover(e, handleCancelEdit);
               }}
               className="link-popover-input"
               placeholder="https://"

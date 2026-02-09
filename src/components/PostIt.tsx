@@ -242,6 +242,9 @@ export default function PostIt({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
 
+      const target = e.target as Element | null;
+      if (target?.closest(".link-popover")) return;
+
       if (isCopyMenuOpen) {
         e.preventDefault();
         setIsCopyMenuOpen(false);
