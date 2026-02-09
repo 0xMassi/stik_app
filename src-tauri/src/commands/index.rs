@@ -2,7 +2,10 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
+use std::time::SystemTime;
 use std::time::Instant;
+
+use chrono::{DateTime, Local};
 
 use super::folders::get_stik_folder;
 
@@ -180,11 +183,10 @@ fn read_note_entry(path: &PathBuf, folder: &str) -> Option<NoteEntry> {
         .to_string_lossy()
         .to_string();
 
-    let created = filename
-        .split('-')
-        .take(2)
-        .collect::<Vec<_>>()
-        .join("-");
+    let created = fs::metadata(path)
+        .and_then(|metadata| metadata.modified())
+        .map(format_timestamp)
+        .unwrap_or_else(|_| filename.split('-').take(2).collect::<Vec<_>>().join("-"));
 
     Some(NoteEntry {
         path: path.to_string_lossy().to_string(),
@@ -195,6 +197,11 @@ fn read_note_entry(path: &PathBuf, folder: &str) -> Option<NoteEntry> {
         created,
         content_len,
     })
+}
+
+fn format_timestamp(time: SystemTime) -> String {
+    let dt: DateTime<Local> = time.into();
+    dt.format("%Y%m%d-%H%M%S").to_string()
 }
 
 fn is_break_placeholder_line(line: &str) -> bool {
@@ -241,7 +248,10 @@ fn extract_snippet(content: &str, query: &str, max_len: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::extract_title;
+    use super::{extract_title, read_note_entry};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn title_uses_first_non_empty_line() {
@@ -262,5 +272,25 @@ mod tests {
     #[test]
     fn title_falls_back_when_content_is_effectively_empty() {
         assert_eq!(extract_title("<br>\n\n"), "Untitled");
+    }
+
+    #[test]
+    fn note_entry_created_uses_modified_time_not_filename_timestamp() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be after unix epoch")
+            .as_nanos();
+
+        let test_dir = std::env::temp_dir().join(format!("stik-index-test-{}", unique));
+        fs::create_dir_all(&test_dir).expect("create temp test dir");
+
+        let note_path: PathBuf = test_dir.join("20000101-000000-legacy-title.md");
+        fs::write(&note_path, "updated content").expect("write note");
+
+        let entry = read_note_entry(&note_path, "Inbox").expect("note entry should load");
+        assert_ne!(entry.created, "20000101-000000");
+
+        let _ = fs::remove_file(&note_path);
+        let _ = fs::remove_dir(&test_dir);
     }
 }

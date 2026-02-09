@@ -3,19 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { NoteInfo, SearchResult, SemanticResult } from "@/types";
 import { formatRelativeDate } from "@/utils/formatRelativeDate";
-
-function getNoteTitleFromContent(content: string): string {
-  const title = content
-    .split("\n")
-    .map((line) => line.trim())
-    .find(
-      (line) =>
-        line.length > 0 &&
-        !line.toLowerCase().startsWith("<br")
-    );
-
-  return title || "Untitled";
-}
+import {
+  extractNoteTitle,
+  normalizeNoteSnippet,
+  normalizeNoteTitle,
+} from "@/utils/notePresentation";
 
 export default function SearchModal() {
   const [query, setQuery] = useState("");
@@ -44,8 +36,8 @@ export default function SearchModal() {
           path: n.path,
           filename: n.filename,
           folder: n.folder,
-          title: getNoteTitleFromContent(n.content),
-          snippet: n.content,
+          title: extractNoteTitle(n.content),
+          snippet: normalizeNoteSnippet(n.content),
           created: n.created,
         }))
       );
@@ -205,8 +197,8 @@ export default function SearchModal() {
       path: n.path,
       filename: n.filename,
       folder: n.folder,
-      title: getNoteTitleFromContent(n.content),
-      snippet: n.content,
+      title: extractNoteTitle(n.content),
+      snippet: normalizeNoteSnippet(n.content),
       created: n.created,
     }));
     setRecentNotes(recent);
@@ -287,6 +279,8 @@ export default function SearchModal() {
       )
     );
   };
+
+  const hasQuery = query.trim().length > 0;
 
   // Render delete confirmation overlay
   if (confirmDelete) {
@@ -442,38 +436,49 @@ export default function SearchModal() {
               </div>
             )}
 
-            {results.map((result, index) => (
-              <button
-                key={result.path}
-                onClick={() => handleSelectResult(result)}
-                className={`w-full px-4 py-3 text-left border-b border-line/50 transition-colors ${
-                  index === selectedIndex
-                    ? "bg-coral/10"
-                    : "hover:bg-line/30"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                      result.folder === "Inbox"
-                        ? "bg-line text-stone"
-                        : "bg-coral-light text-coral"
-                    }`}
-                  >
-                    {result.folder}
-                  </span>
-                  <span className="text-[10px] text-stone font-mono">
-                    {formatRelativeDate(result.created)}
-                  </span>
-                </div>
-                <p className="text-[13px] text-ink leading-relaxed">
-                  {result.title}
-                </p>
-                <p className="text-[12px] text-stone leading-relaxed">
-                  {highlightSnippet(result.snippet, query)}
-                </p>
-              </button>
-            ))}
+            {results.map((result, index) => {
+              const displayTitle = normalizeNoteTitle(result.title || result.filename || "Untitled");
+              const displaySnippet = normalizeNoteSnippet(result.snippet);
+              const shouldShowSnippet =
+                hasQuery &&
+                displaySnippet.length > 0 &&
+                displaySnippet !== displayTitle;
+
+              return (
+                <button
+                  key={result.path}
+                  onClick={() => handleSelectResult(result)}
+                  className={`w-full px-4 py-3 text-left border-b border-line/50 transition-colors ${
+                    index === selectedIndex
+                      ? "bg-coral/10"
+                      : "hover:bg-line/30"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                        result.folder === "Inbox"
+                          ? "bg-line text-stone"
+                          : "bg-coral-light text-coral"
+                      }`}
+                    >
+                      {result.folder}
+                    </span>
+                    <span className="text-[10px] text-stone font-mono">
+                      {formatRelativeDate(result.created)}
+                    </span>
+                  </div>
+                  <p className="text-[14px] font-medium text-ink leading-relaxed">
+                    {displayTitle}
+                  </p>
+                  {shouldShowSnippet && (
+                    <p className="text-[12px] text-stone leading-relaxed mt-0.5">
+                      {highlightSnippet(displaySnippet, query)}
+                    </p>
+                  )}
+                </button>
+              );
+            })}
 
             {/* Semantic "Related" section */}
             {semanticResults.length > 0 && (
@@ -485,6 +490,13 @@ export default function SearchModal() {
                 </div>
                 {semanticResults.map((result, index) => {
                   const globalIndex = results.length + index;
+                  const displayTitle = normalizeNoteTitle(result.title || result.filename || "Untitled");
+                  const displaySnippet = normalizeNoteSnippet(result.snippet);
+                  const shouldShowSnippet =
+                    hasQuery &&
+                    displaySnippet.length > 0 &&
+                    displaySnippet !== displayTitle;
+
                   return (
                     <button
                       key={result.path}
@@ -512,14 +524,16 @@ export default function SearchModal() {
                           {Math.round(result.similarity * 100)}% match
                         </span>
                       </div>
-                      <p className="text-[13px] text-ink leading-relaxed">
-                        {result.title}
+                      <p className="text-[14px] font-medium text-ink leading-relaxed">
+                        {displayTitle}
                       </p>
-                      <p className="text-[12px] text-stone leading-relaxed">
-                        {result.snippet.length > 100
-                          ? result.snippet.slice(0, 100) + "..."
-                          : result.snippet}
-                      </p>
+                      {shouldShowSnippet && (
+                        <p className="text-[12px] text-stone leading-relaxed mt-0.5">
+                          {displaySnippet.length > 100
+                            ? `${displaySnippet.slice(0, 100)}...`
+                            : displaySnippet}
+                        </p>
+                      )}
                     </button>
                   );
                 })}
