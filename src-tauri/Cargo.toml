@@ -1,6 +1,6 @@
 [package]
 name = "stik"
-version = "0.4.2"
+version = "0.4.3"
 description = "Instant thought capture"
 authors = ["Massi"]
 edition = "2021"

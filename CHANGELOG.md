@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-02-09
+Stability fixes for link editing and settings
+
+### Fixed
+- **Escape behavior while editing links** — pressing `Esc` in the link edit popover now closes only the popover and returns focus to the note, without closing/saving the whole capture window
+- **Settings side-effect folder recreation** — opening Settings no longer recreates deleted folders (including `Inbox`) during Git status checks
+
 ## [0.4.2] - 2026-02-09
 Community and support links
 
@@ -181,6 +188,7 @@ First release
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.4.3 | 2026-02-09 | Escape handling in link popover fixed; opening Settings no longer recreates deleted folders |
 | 0.4.2 | 2026-02-09 | Help/X/Discord links in settings footer, updated support/contact links |
 | 0.4.1 | 2026-02-09 | Link shortcuts (`Cmd+K`/`Cmd+L`), stronger link navigation control, robust image drag/drop and reopen, last-note reopen fixes |
 | 0.4.0 | 2026-02-08 | Vim mode, highlighting, collapsible headings, wiki-links, link popover, image handling, themes |
@@ -190,7 +198,8 @@ First release
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/0xMassi/stik_app/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/0xMassi/stik_app/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/0xMassi/stik_app/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/0xMassi/stik_app/compare/v0.3.3...v0.4.0
