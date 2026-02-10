@@ -131,7 +131,7 @@ impl NoteIndex {
         Ok(result)
     }
 
-    pub fn search(&self, query: &str) -> Result<Vec<(NoteEntry, String)>, String> {
+    pub fn search(&self, query: &str, folder: Option<&str>) -> Result<Vec<(NoteEntry, String)>, String> {
         self.ensure_fresh()?;
         let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         let query_lower = query.to_lowercase();
@@ -139,6 +139,12 @@ impl NoteIndex {
         let mut results: Vec<(NoteEntry, String)> = Vec::new();
 
         for entry in entries.values() {
+            if let Some(f) = folder {
+                if entry.folder != f {
+                    continue;
+                }
+            }
+
             let preview_lower = entry.preview.to_lowercase();
             if preview_lower.contains(&query_lower) {
                 let snippet = extract_snippet(&entry.preview, query, 100);

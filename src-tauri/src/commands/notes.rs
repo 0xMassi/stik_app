@@ -171,13 +171,14 @@ pub fn list_notes(
 #[tauri::command]
 pub fn search_notes(
     query: String,
+    folder: Option<String>,
     index: State<'_, NoteIndex>,
 ) -> Result<Vec<SearchResult>, String> {
     if query.trim().is_empty() {
         return Ok(Vec::new());
     }
 
-    let results = index.search(&query)?;
+    let results = index.search(&query, folder.as_deref())?;
 
     Ok(results
         .into_iter()

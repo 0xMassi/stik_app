@@ -370,11 +370,12 @@ pub async fn darwinkit_call(method: String, params: Option<Value>) -> Result<Val
 pub async fn semantic_search(
     app: tauri::AppHandle,
     query: String,
+    folder: Option<String>,
 ) -> Result<Vec<SemanticResult>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let index = app.state::<super::index::NoteIndex>();
         let embeddings = app.state::<super::embeddings::EmbeddingIndex>();
-        semantic_search_inner(&query, &index, &embeddings)
+        semantic_search_inner(&query, folder.as_deref(), &index, &embeddings)
     })
     .await
     .map_err(|e| format!("Semantic search failed: {}", e))?
@@ -382,6 +383,7 @@ pub async fn semantic_search(
 
 fn semantic_search_inner(
     query: &str,
+    folder: Option<&str>,
     index: &super::index::NoteIndex,
     embeddings: &super::embeddings::EmbeddingIndex,
 ) -> Result<Vec<SemanticResult>, String> {
@@ -434,6 +436,11 @@ fn semantic_search_inner(
             continue;
         }
         if let Some(entry) = index.get(&path) {
+            if let Some(f) = folder {
+                if entry.folder != f {
+                    continue;
+                }
+            }
             results.push(SemanticResult {
                 path: entry.path,
                 filename: entry.filename,

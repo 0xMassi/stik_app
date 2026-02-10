@@ -23,17 +23,20 @@ export default function SearchModal() {
   const [folders, setFolders] = useState<string[]>([]);
   const [moveFolderIndex, setMoveFolderIndex] = useState(0);
   const [folderColors, setFolderColors] = useState<Record<string, string>>({});
+  const [filterFolder, setFilterFolder] = useState<string | null>(null);
+  const [showFolderFilter, setShowFolderFilter] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
 
   // Focus input on mount
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
-  // Load recent notes on mount
+  // Load recent notes on mount and when folder filter changes
   useEffect(() => {
-    invoke<NoteInfo[]>("list_notes", {}).then((notes) => {
+    invoke<NoteInfo[]>("list_notes", { folder: filterFolder }).then((notes) => {
       setRecentNotes(
         notes.slice(0, 10).map((n) => ({
           path: n.path,
@@ -45,7 +48,7 @@ export default function SearchModal() {
         }))
       );
     });
-  }, []);
+  }, [filterFolder]);
 
   // Load folders for move modal + folder colors
   useEffect(() => {
@@ -72,8 +75,8 @@ export default function SearchModal() {
       const trimmed = query.trim();
 
       const [textResult, semanticResult] = await Promise.allSettled([
-        invoke<SearchResult[]>("search_notes", { query: trimmed }),
-        invoke<SemanticResult[]>("semantic_search", { query: trimmed }),
+        invoke<SearchResult[]>("search_notes", { query: trimmed, folder: filterFolder }),
+        invoke<SemanticResult[]>("semantic_search", { query: trimmed, folder: filterFolder }),
       ]);
 
       const textResults =
@@ -95,7 +98,7 @@ export default function SearchModal() {
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [query, recentNotes]);
+  }, [query, recentNotes, filterFolder]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -182,6 +185,20 @@ export default function SearchModal() {
     }
   }, [selectedIndex]);
 
+  // Close folder filter popover on outside click
+  useEffect(() => {
+    if (!showFolderFilter) return;
+
+    const handlePointerDown = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setShowFolderFilter(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    return () => window.removeEventListener("mousedown", handlePointerDown);
+  }, [showFolderFilter]);
+
   const handleSelectResult = useCallback(async (result: SearchResult) => {
     try {
       const content = await invoke<string>("get_note_content", { path: result.path });
@@ -201,7 +218,7 @@ export default function SearchModal() {
   }, []);
 
   const refreshRecentNotes = useCallback(async () => {
-    const notes = await invoke<NoteInfo[]>("list_notes", {});
+    const notes = await invoke<NoteInfo[]>("list_notes", { folder: filterFolder });
     const recent = notes.slice(0, 10).map((n) => ({
       path: n.path,
       filename: n.filename,
@@ -212,7 +229,7 @@ export default function SearchModal() {
     }));
     setRecentNotes(recent);
     return recent;
-  }, []);
+  }, [filterFolder]);
 
   const handleDeleteNote = async (note: SearchResult) => {
     try {
@@ -221,6 +238,7 @@ export default function SearchModal() {
       if (query.trim()) {
         const searchResults = await invoke<SearchResult[]>("search_notes", {
           query: query.trim(),
+          folder: filterFolder,
         });
         setResults(searchResults);
         setSelectedIndex(Math.min(selectedIndex, searchResults.length - 1));
@@ -248,6 +266,7 @@ export default function SearchModal() {
       if (query.trim()) {
         const searchResults = await invoke<SearchResult[]>("search_notes", {
           query: query.trim(),
+          folder: filterFolder,
         });
         setResults(searchResults);
         setSelectedIndex(Math.min(selectedIndex, searchResults.length - 1));
@@ -424,11 +443,63 @@ export default function SearchModal() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search across all notes..."
+            placeholder={filterFolder ? `Search in ${filterFolder}...` : "Search across all notes..."}
             className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-stone outline-none"
           />
           {isSearching && (
             <span className="text-stone text-sm animate-pulse">...</span>
+          )}
+          {folders.length > 1 && (
+            <div className="relative" ref={filterRef}>
+              <button
+                type="button"
+                onClick={() => setShowFolderFilter((v) => !v)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors ${
+                  filterFolder
+                    ? `${getFolderColor(filterFolder, folderColors).badgeBg} ${getFolderColor(filterFolder, folderColors).badgeText}`
+                    : "text-stone hover:text-ink hover:bg-line"
+                }`}
+                title="Filter by folder"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                </svg>
+                {filterFolder || "All"}
+              </button>
+              {showFolderFilter && (
+                <div className="absolute top-full right-0 mt-1 w-44 rounded-lg border border-line bg-bg shadow-stik overflow-hidden z-[240]">
+                  <button
+                    type="button"
+                    onClick={() => { setFilterFolder(null); setShowFolderFilter(false); }}
+                    className={`w-full px-3 py-2 text-left text-[11px] transition-colors flex items-center gap-2 ${
+                      !filterFolder ? "text-coral bg-coral/5 font-medium" : "text-ink hover:bg-line/50"
+                    }`}
+                  >
+                    All folders
+                  </button>
+                  <div className="border-t border-line/50" />
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {folders.map((f) => {
+                      const isActive = filterFolder === f;
+                      const color = getFolderColor(f, folderColors);
+                      return (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => { setFilterFolder(isActive ? null : f); setShowFolderFilter(false); }}
+                          className={`w-full px-3 py-2 text-left text-[11px] transition-colors flex items-center gap-2 ${
+                            isActive ? "text-coral bg-coral/5 font-medium" : "text-ink hover:bg-line/50"
+                          }`}
+                        >
+                          <span className="text-[8px]" style={{ color: color.dot }}>●</span>
+                          {f}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
