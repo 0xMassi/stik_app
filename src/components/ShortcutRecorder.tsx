@@ -8,9 +8,33 @@ interface ShortcutRecorderProps {
   existingShortcuts?: string[];
 }
 
+// Map key names to compact display symbols
+const KEY_DISPLAY: Record<string, string> = {
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+  Backslash: "\\",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Semicolon: ";",
+  Quote: "'",
+  Backquote: "`",
+  Minus: "-",
+  Equal: "=",
+  Space: "Space",
+  Enter: "↵",
+  Backspace: "⌫",
+  Tab: "⇥",
+  Escape: "⎋",
+  Up: "↑",
+  Down: "↓",
+  Left: "←",
+  Right: "→",
+};
+
 // Convert shortcut string to display format
 export function formatShortcutDisplay(shortcut: string): string {
-  return shortcut
+  let result = shortcut
     .replace(/Cmd\+/g, "⌘")
     .replace(/CommandOrControl\+/g, "⌘")
     .replace(/Ctrl\+/g, "⌃")
@@ -18,6 +42,16 @@ export function formatShortcutDisplay(shortcut: string): string {
     .replace(/Shift\+/g, "⇧")
     .replace(/Alt\+/g, "⌥")
     .replace(/Option\+/g, "⌥");
+
+  // Replace key names with symbols
+  for (const [name, symbol] of Object.entries(KEY_DISPLAY)) {
+    if (result.endsWith(name)) {
+      result = result.slice(0, -name.length) + symbol;
+      break;
+    }
+  }
+
+  return result;
 }
 
 // Convert key event to shortcut string
@@ -96,14 +130,6 @@ function keyEventToShortcut(e: KeyboardEvent): string | null {
   return parts.join("+");
 }
 
-// Reserved system shortcuts that cannot be overridden
-const SYSTEM_RESERVED = [
-  "Cmd+Shift+P", // Search
-  "Cmd+Shift+M", // Manager
-  "Cmd+Shift+Comma", // Settings
-  "Cmd+Shift+L", // Last note
-];
-
 // Toast component
 function Toast({
   message,
@@ -154,7 +180,7 @@ function Toast({
 export default function ShortcutRecorder({
   value,
   onChange,
-  reservedShortcuts = SYSTEM_RESERVED,
+  reservedShortcuts = [],
   existingShortcuts = [],
 }: ShortcutRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);

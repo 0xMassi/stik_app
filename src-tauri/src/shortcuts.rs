@@ -217,18 +217,21 @@ pub fn register_shortcuts_from_settings(app: &AppHandle, settings: &StikSettings
         }
     }
 
-    // Always register built-in shortcuts
-    let search_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyP);
-    let _ = app.global_shortcut().register(search_shortcut);
+    // Register system shortcuts from settings
+    let mut action_map = state
+        .shortcut_to_action
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    action_map.clear();
 
-    let manager_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyM);
-    let _ = app.global_shortcut().register(manager_shortcut);
-
-    let settings_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Comma);
-    let _ = app.global_shortcut().register(settings_shortcut);
-
-    let last_note_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyL);
-    let _ = app.global_shortcut().register(last_note_shortcut);
+    for (action, shortcut_str) in &settings.system_shortcuts {
+        if let Some(shortcut) = parse_shortcut_string(shortcut_str) {
+            let key = shortcut_to_string(&shortcut);
+            action_map.insert(key, action.clone());
+            let _ = app.global_shortcut().register(shortcut);
+        }
+    }
+    drop(action_map);
 
     #[cfg(debug_assertions)]
     {

@@ -19,6 +19,7 @@ import {
 import { normalizeImageLinksForMarkdown } from "@/utils/isImageUrl";
 import { resolveCaptureFolder } from "@/utils/folderSelection";
 import { getFolderColor } from "@/utils/folderColors";
+import { formatShortcutDisplay } from "./ShortcutRecorder";
 
 interface PostItProps {
   folder: string;
@@ -101,6 +102,7 @@ export default function PostIt({
   const [currentStickedId, setCurrentStickedId] = useState(stickedId);
   const [vimEnabled, setVimEnabled] = useState<boolean | null>(null); // null = loading
   const [folderColors, setFolderColors] = useState<Record<string, string>>({});
+  const [systemShortcuts, setSystemShortcuts] = useState<Record<string, string>>({});
   const [vimMode, setVimMode] = useState<VimMode>("normal");
   const [vimCommand, setVimCommand] = useState("");
   const [vimCommandError, setVimCommandError] = useState("");
@@ -156,12 +158,14 @@ export default function PostIt({
       .then((s) => {
         setVimEnabled(s.vim_mode_enabled);
         setFolderColors(s.folder_colors ?? {});
+        setSystemShortcuts(s.system_shortcuts ?? {});
       })
       .catch(() => {});
 
     const unlisten = listen<StikSettings>("settings-changed", (event) => {
       setVimEnabled(event.payload.vim_mode_enabled);
       setFolderColors(event.payload.folder_colors ?? {});
+      setSystemShortcuts(event.payload.system_shortcuts ?? {});
     });
     return () => { unlisten.then((fn) => fn()); };
   }, []);
@@ -1161,7 +1165,7 @@ export default function PostIt({
               <button
                 onClick={() => isSticked ? invoke("open_settings") : onOpenSettings?.()}
                 className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
-                title="Settings (⌘⇧,)"
+                title={`Settings (${formatShortcutDisplay(systemShortcuts.settings || "Cmd+Shift+Comma")})`}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3"/>

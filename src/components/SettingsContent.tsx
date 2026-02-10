@@ -2,14 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import ShortcutRecorder from "./ShortcutRecorder";
 import type { GitSyncStatus, ShortcutMapping, StikSettings } from "@/types";
-
-// Reserved shortcuts that Stik uses internally
-export const RESERVED_SHORTCUTS = [
-  "Cmd+Shift+P", // Search
-  "Cmd+Shift+M", // Manager
-  "Cmd+Shift+Comma", // Settings
-  "Cmd+Shift+L", // Last note
-];
+import {
+  SYSTEM_SHORTCUT_ACTIONS,
+  SYSTEM_SHORTCUT_DEFAULTS,
+  SYSTEM_SHORTCUT_LABELS,
+  type SystemAction,
+} from "@/utils/systemShortcuts";
 
 function remoteToWebUrl(remoteUrl: string): string | null {
   const trimmed = remoteUrl.trim();
@@ -165,6 +163,8 @@ export default function SettingsContent({
     onSettingsChange({ ...settings, shortcut_mappings: newMappings });
   };
 
+  const systemShortcutValues = Object.values(settings.system_shortcuts ?? {});
+
   const addMapping = () => {
     const usedShortcuts = settings.shortcut_mappings.map((m) => m.shortcut);
     let defaultShortcut = "Cmd+Shift+S";
@@ -172,7 +172,7 @@ export default function SettingsContent({
     const letters = "ABCDEFGHIJKLNOQRTUVWXYZ".split("");
     for (const letter of letters) {
       const shortcut = `Cmd+Shift+${letter}`;
-      if (!usedShortcuts.includes(shortcut) && !RESERVED_SHORTCUTS.includes(shortcut)) {
+      if (!usedShortcuts.includes(shortcut) && !systemShortcutValues.includes(shortcut)) {
         defaultShortcut = shortcut;
         break;
       }
@@ -211,17 +211,17 @@ export default function SettingsContent({
               Configure global shortcuts that instantly open capture in a chosen folder.
             </p>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {settings.shortcut_mappings.map((mapping, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-3 p-3 bg-line/30 rounded-xl border border-line/50"
+                  className="flex items-center gap-2 px-3 py-2 bg-line/30 rounded-xl border border-line/50"
                 >
-                  <div className="w-28">
+                  <div className="flex-1 min-w-0">
                     <ShortcutRecorder
                       value={mapping.shortcut}
                       onChange={(value) => updateMapping(index, { shortcut: value })}
-                      reservedShortcuts={RESERVED_SHORTCUTS}
+                      reservedShortcuts={systemShortcutValues}
                       existingShortcuts={getExistingShortcuts(index)}
                     />
                   </div>
@@ -236,7 +236,7 @@ export default function SettingsContent({
                   <button
                     type="button"
                     onClick={() => removeMapping(index)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-coral-light text-stone hover:text-coral transition-colors"
+                    className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-coral-light text-stone hover:text-coral transition-colors"
                     title="Remove shortcut"
                   >
                     <svg
@@ -267,17 +267,95 @@ export default function SettingsContent({
               <span>Add shortcut</span>
             </button>
 
-            <div className="mt-4 p-3 bg-line/30 rounded-xl border border-line/50">
-              <p className="text-[12px] text-stone mb-1.5">System shortcuts (reserved)</p>
-              <p className="text-[12px] text-ink leading-relaxed">
-                <span className="font-mono">&#x2318;&#x21E7;P</span> Search
-                <span className="mx-1.5 text-stone">&#xB7;</span>
-                <span className="font-mono">&#x2318;&#x21E7;M</span> Manager
-                <span className="mx-1.5 text-stone">&#xB7;</span>
-                <span className="font-mono">&#x2318;&#x21E7;,</span> Settings
-                <span className="mx-1.5 text-stone">&#xB7;</span>
-                <span className="font-mono">&#x2318;&#x21E7;L</span> Last note
-              </p>
+            <div className="mt-6">
+              <p className="text-[12px] text-stone mb-3">System shortcuts</p>
+              <div className="space-y-2">
+                {SYSTEM_SHORTCUT_ACTIONS.map((action) => {
+                  const currentShortcut =
+                    settings.system_shortcuts?.[action] ?? SYSTEM_SHORTCUT_DEFAULTS[action];
+                  const isDefault = currentShortcut === SYSTEM_SHORTCUT_DEFAULTS[action];
+                  // Other system shortcuts + all folder shortcuts are reserved for this recorder
+                  const otherSystemShortcuts = SYSTEM_SHORTCUT_ACTIONS
+                    .filter((a) => a !== action)
+                    .map((a) => settings.system_shortcuts?.[a] ?? SYSTEM_SHORTCUT_DEFAULTS[a]);
+                  const folderShortcuts = settings.shortcut_mappings.map((m) => m.shortcut);
+
+                  return (
+                    <div
+                      key={action}
+                      className="flex items-center gap-2 px-3 py-2 bg-line/30 rounded-xl border border-line/50"
+                    >
+                      <span className="w-[70px] shrink-0 text-[12px] text-ink font-medium">
+                        {SYSTEM_SHORTCUT_LABELS[action as SystemAction]}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <ShortcutRecorder
+                          value={currentShortcut}
+                          onChange={(value) =>
+                            onSettingsChange({
+                              ...settings,
+                              system_shortcuts: {
+                                ...settings.system_shortcuts,
+                                [action]: value,
+                              },
+                            })
+                          }
+                          reservedShortcuts={otherSystemShortcuts}
+                          existingShortcuts={folderShortcuts}
+                        />
+                      </div>
+                      {!isDefault && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSettingsChange({
+                              ...settings,
+                              system_shortcuts: {
+                                ...settings.system_shortcuts,
+                                [action]: SYSTEM_SHORTCUT_DEFAULTS[action as SystemAction],
+                              },
+                            })
+                          }
+                          className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-coral-light text-stone hover:text-coral transition-colors"
+                          title="Reset to default"
+                        >
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                            <path d="M3 3v5h5" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {SYSTEM_SHORTCUT_ACTIONS.some(
+                (a) =>
+                  (settings.system_shortcuts?.[a] ?? SYSTEM_SHORTCUT_DEFAULTS[a]) !==
+                  SYSTEM_SHORTCUT_DEFAULTS[a]
+              ) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onSettingsChange({
+                      ...settings,
+                      system_shortcuts: { ...SYSTEM_SHORTCUT_DEFAULTS },
+                    })
+                  }
+                  className="mt-2 text-[11px] text-coral hover:underline"
+                >
+                  Reset all to defaults
+                </button>
+              )}
             </div>
           </div>
         )}

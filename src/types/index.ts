@@ -34,6 +34,7 @@ export interface StikSettings {
   notes_directory: string;
   hide_dock_icon: boolean;
   folder_colors: Record<string, string>;
+  system_shortcuts: Record<string, string>;
 }
 
 export interface NoteInfo {

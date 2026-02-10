@@ -31,24 +31,41 @@ fn main() {
                         return;
                     }
 
-                    if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyP) {
-                        show_search(app);
-                        return;
-                    }
-                    if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyM) {
-                        show_manager(app);
-                        return;
-                    }
-                    if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::Comma) {
-                        show_settings(app);
-                        return;
-                    }
-                    if shortcut.matches(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyL) {
-                        let app = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let _ = windows::reopen_last_note(app).await;
-                        });
-                        return;
+                    // Check system shortcuts via dynamic mapping
+                    {
+                        let state = app.state::<AppState>();
+                        let action_map = state
+                            .shortcut_to_action
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
+                        let key = shortcut_to_string(shortcut);
+                        let action = action_map.get(&key).cloned();
+                        drop(action_map);
+
+                        if let Some(action) = action {
+                            match action.as_str() {
+                                "search" => {
+                                    show_search(app);
+                                    return;
+                                }
+                                "manager" => {
+                                    show_manager(app);
+                                    return;
+                                }
+                                "settings" => {
+                                    show_settings(app);
+                                    return;
+                                }
+                                "last_note" => {
+                                    let app = app.clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        let _ = windows::reopen_last_note(app).await;
+                                    });
+                                    return;
+                                }
+                                _ => {}
+                            }
+                        }
                     }
 
                     #[cfg(debug_assertions)]

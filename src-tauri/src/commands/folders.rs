@@ -278,6 +278,7 @@ mod tests {
             notes_directory: String::new(),
             hide_dock_icon: false,
             folder_colors: HashMap::new(),
+            system_shortcuts: HashMap::new(),
         }
     }
 
