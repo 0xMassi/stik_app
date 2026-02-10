@@ -20,6 +20,7 @@ import { normalizeImageLinksForMarkdown } from "@/utils/isImageUrl";
 import { resolveCaptureFolder } from "@/utils/folderSelection";
 import { getFolderColor } from "@/utils/folderColors";
 import { formatShortcutDisplay } from "./ShortcutRecorder";
+import { normalizeHtmlForAppleNotes } from "@/utils/appleNotesExport";
 
 interface PostItProps {
   folder: string;
@@ -231,6 +232,29 @@ export default function PostIt({
       unlisten.then((fn) => fn());
     };
   }, [isSticked, notesDir, onFolderChange]);
+
+  // Listen for Apple Notes import events (capture mode only)
+  useEffect(() => {
+    if (isSticked) return;
+
+    const unlisten = listen<{ markdown: string; title: string; folder_name: string }>(
+      "apple-note-imported",
+      (event) => {
+        const md = normalizeMarkdownForState(event.payload.markdown);
+        setContent(md);
+        onContentChange?.(md);
+        setTimeout(() => {
+          editorRef.current?.setContent(md);
+          editorRef.current?.focus();
+          editorRef.current?.moveToEnd?.();
+        }, 100);
+      }
+    );
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [isSticked, onContentChange]);
 
   const handleSaveAndClose = useCallback(async () => {
     if (!isMarkdownEffectivelyEmpty(content)) {
@@ -1052,6 +1076,37 @@ export default function PostIt({
                   className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors"
                 >
                   Copy as image
+                </button>
+                <div className="border-t border-line" />
+                <button
+                  onClick={async () => {
+                    setIsCopyMenuOpen(false);
+                    try {
+                      const html = editorRef.current?.getHTML() || "";
+                      const normalized = normalizeHtmlForAppleNotes(html);
+                      await invoke("export_to_apple_notes", { html: normalized });
+                      showToast("Sent to Apple Notes");
+                    } catch (err) {
+                      console.error("Apple Notes export failed:", err);
+                      showToast("Export failed");
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors"
+                >
+                  Send to Apple Notes
+                </button>
+                <button
+                  onClick={async () => {
+                    setIsCopyMenuOpen(false);
+                    try {
+                      await invoke("show_apple_notes_picker_cmd");
+                    } catch (err) {
+                      console.error("Failed to open Apple Notes picker:", err);
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors"
+                >
+                  Import from Apple Notes
                 </button>
               </div>
             )}

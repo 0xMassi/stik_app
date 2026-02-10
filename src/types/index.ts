@@ -90,6 +90,15 @@ export interface ClipboardPayload {
   html: string;
 }
 
+export interface AppleNoteEntry {
+  note_id: number;
+  title: string;
+  folder_name: string;
+  snippet: string;
+  modified_date: string;
+  account_name: string;
+}
+
 export interface GitSyncStatus {
   enabled: boolean;
   linked_folder: string | null;

@@ -10,8 +10,8 @@ mod windows;
 use commands::embeddings::EmbeddingIndex;
 use commands::index::NoteIndex;
 use commands::{
-    analytics, darwinkit, embeddings, folders, git_share, index, notes, on_this_day, settings,
-    share, stats, sticked_notes,
+    analytics, apple_notes, darwinkit, embeddings, folders, git_share, index, notes, on_this_day,
+    settings, share, stats, sticked_notes,
 };
 use shortcuts::shortcut_to_string;
 use state::AppState;
@@ -146,6 +146,12 @@ fn main() {
             darwinkit::semantic_search,
             darwinkit::suggest_folder,
             analytics::get_analytics_device_id,
+            apple_notes::list_apple_notes,
+            apple_notes::import_apple_note,
+            apple_notes::export_to_apple_notes,
+            apple_notes::check_apple_notes_access,
+            apple_notes::open_full_disk_access_settings,
+            windows::show_apple_notes_picker_cmd,
         ])
         .setup(|app| {
             // Build in-memory note index for fast search/list
