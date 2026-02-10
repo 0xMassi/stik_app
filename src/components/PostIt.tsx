@@ -18,6 +18,7 @@ import {
 } from "@/utils/imageMarkdownPaths";
 import { normalizeImageLinksForMarkdown } from "@/utils/isImageUrl";
 import { resolveCaptureFolder } from "@/utils/folderSelection";
+import { getFolderColor } from "@/utils/folderColors";
 
 interface PostItProps {
   folder: string;
@@ -99,6 +100,7 @@ export default function PostIt({
   // Track the actual sticked note ID (can change when pinning a viewing note)
   const [currentStickedId, setCurrentStickedId] = useState(stickedId);
   const [vimEnabled, setVimEnabled] = useState<boolean | null>(null); // null = loading
+  const [folderColors, setFolderColors] = useState<Record<string, string>>({});
   const [vimMode, setVimMode] = useState<VimMode>("normal");
   const [vimCommand, setVimCommand] = useState("");
   const [vimCommandError, setVimCommandError] = useState("");
@@ -148,14 +150,18 @@ export default function PostIt({
     }
   }, [baseInitialContent]);
 
-  // Fetch vim mode setting on mount + listen for changes
+  // Fetch vim mode + folder colors on mount + listen for changes
   useEffect(() => {
     invoke<StikSettings>("get_settings")
-      .then((s) => setVimEnabled(s.vim_mode_enabled))
+      .then((s) => {
+        setVimEnabled(s.vim_mode_enabled);
+        setFolderColors(s.folder_colors ?? {});
+      })
       .catch(() => {});
 
     const unlisten = listen<StikSettings>("settings-changed", (event) => {
       setVimEnabled(event.payload.vim_mode_enabled);
+      setFolderColors(event.payload.folder_colors ?? {});
     });
     return () => { unlisten.then((fn) => fn()); };
   }, []);
@@ -936,10 +942,12 @@ export default function PostIt({
           <button
             onClick={() => setShowPicker(!showPicker)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-pill text-[11px] font-semibold transition-colors hover:opacity-80 ${
-              hasValidFolder ? "bg-coral-light text-coral" : "bg-line text-stone"
+              hasValidFolder
+                ? `${getFolderColor(folder, folderColors).badgeBg} ${getFolderColor(folder, folderColors).badgeText}`
+                : "bg-line text-stone"
             }`}
           >
-            <span className="text-[8px] text-coral">●</span>
+            <span className="text-[8px]" style={{ color: getFolderColor(folder, folderColors).dot }}>●</span>
             <span>{folder || "No folder"}</span>
             <span className="text-[8px] opacity-50">▼</span>
           </button>
@@ -1076,6 +1084,7 @@ export default function PostIt({
               setShowPicker(false);
               editorRef.current?.focus();
             }}
+            folderColors={folderColors}
           />
         )}
       </div>

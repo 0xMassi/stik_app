@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getFolderColor } from "@/utils/folderColors";
 
 interface FolderPickerProps {
   query: string;
   onSelect: (folder: string) => void;
   onClose: () => void;
+  folderColors?: Record<string, string>;
 }
 
 export default function FolderPicker({
   query,
   onSelect,
   onClose,
+  folderColors = {},
 }: FolderPickerProps) {
   const [folders, setFolders] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -74,7 +77,10 @@ export default function FolderPicker({
                   : "hover:bg-line/50 text-ink"
               }`}
             >
-              <span className={`text-[10px] ${i === selectedIndex ? "text-white/80" : "text-coral"}`}>
+              <span
+                className="text-[10px]"
+                style={{ color: i === selectedIndex ? "rgba(255,255,255,0.8)" : getFolderColor(folder, folderColors).dot }}
+              >
                 ●
               </span>
               <span className="flex-1 text-[13px] font-medium">{folder}</span>

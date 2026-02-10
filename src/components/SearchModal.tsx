@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { NoteInfo, SearchResult, SemanticResult } from "@/types";
+import type { NoteInfo, SearchResult, SemanticResult, StikSettings } from "@/types";
 import { formatRelativeDate } from "@/utils/formatRelativeDate";
 import {
   extractNoteTitle,
   normalizeNoteSnippet,
   normalizeNoteTitle,
 } from "@/utils/notePresentation";
+import { getFolderColor } from "@/utils/folderColors";
 
 export default function SearchModal() {
   const [query, setQuery] = useState("");
@@ -20,6 +22,7 @@ export default function SearchModal() {
   const [showMoveModal, setShowMoveModal] = useState<SearchResult | null>(null);
   const [folders, setFolders] = useState<string[]>([]);
   const [moveFolderIndex, setMoveFolderIndex] = useState(0);
+  const [folderColors, setFolderColors] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -44,9 +47,15 @@ export default function SearchModal() {
     });
   }, []);
 
-  // Load folders for move modal
+  // Load folders for move modal + folder colors
   useEffect(() => {
     invoke<string[]>("list_folders").then(setFolders);
+    invoke<StikSettings>("get_settings").then((s) => setFolderColors(s.folder_colors ?? {}));
+
+    const unlisten = listen<StikSettings>("settings-changed", (event) => {
+      setFolderColors(event.payload.folder_colors ?? {});
+    });
+    return () => { unlisten.then((fn) => fn()); };
   }, []);
 
   // Search when query changes (debounced) — text + semantic in parallel
@@ -351,11 +360,16 @@ export default function SearchModal() {
                 }`}
               >
                 <span
-                  className={`text-[10px] ${
-                    isSelected && !isCurrent ? "text-white/80" : isCurrent ? "text-stone/50" : "text-coral"
-                  }`}
+                  className="text-[10px]"
+                  style={{
+                    color: isSelected && !isCurrent
+                      ? "rgba(255,255,255,0.8)"
+                      : isCurrent
+                      ? undefined
+                      : getFolderColor(folder, folderColors).dot,
+                  }}
                 >
-                  {isCurrent ? "●" : "○"}
+                  {isCurrent ? <span className="text-stone/50">●</span> : "○"}
                 </span>
                 <span className="flex-1 text-[13px] font-medium">{folder}</span>
                 {isCurrent && (
@@ -443,6 +457,7 @@ export default function SearchModal() {
                 hasQuery &&
                 displaySnippet.length > 0 &&
                 displaySnippet !== displayTitle;
+              const color = getFolderColor(result.folder, folderColors);
 
               return (
                 <button
@@ -454,23 +469,19 @@ export default function SearchModal() {
                       : "hover:bg-line/30"
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2">
+                    <p className="flex-1 text-[14px] font-medium text-ink leading-relaxed truncate">
+                      {displayTitle}
+                    </p>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                        result.folder === "Inbox"
-                          ? "bg-line text-stone"
-                          : "bg-coral-light text-coral"
-                      }`}
+                      className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${color.badgeBg} ${color.badgeText}`}
                     >
                       {result.folder}
                     </span>
-                    <span className="text-[10px] text-stone font-mono">
-                      {formatRelativeDate(result.created)}
-                    </span>
                   </div>
-                  <p className="text-[14px] font-medium text-ink leading-relaxed">
-                    {displayTitle}
-                  </p>
+                  <span className="text-[10px] text-stone font-mono">
+                    {formatRelativeDate(result.created)}
+                  </span>
                   {shouldShowSnippet && (
                     <p className="text-[12px] text-stone leading-relaxed mt-0.5">
                       {highlightSnippet(displaySnippet, query)}
@@ -496,6 +507,7 @@ export default function SearchModal() {
                     hasQuery &&
                     displaySnippet.length > 0 &&
                     displaySnippet !== displayTitle;
+                  const color = getFolderColor(result.folder, folderColors);
 
                   return (
                     <button
@@ -507,16 +519,17 @@ export default function SearchModal() {
                           : "hover:bg-line/30"
                       }`}
                     >
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2">
+                        <p className="flex-1 text-[14px] font-medium text-ink leading-relaxed truncate">
+                          {displayTitle}
+                        </p>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            result.folder === "Inbox"
-                              ? "bg-line text-stone"
-                              : "bg-coral-light text-coral"
-                          }`}
+                          className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${color.badgeBg} ${color.badgeText}`}
                         >
                           {result.folder}
                         </span>
+                      </div>
+                      <div className="flex items-center gap-2">
                         <span className="text-[10px] text-stone font-mono">
                           {result.created}
                         </span>
@@ -524,9 +537,6 @@ export default function SearchModal() {
                           {Math.round(result.similarity * 100)}% match
                         </span>
                       </div>
-                      <p className="text-[14px] font-medium text-ink leading-relaxed">
-                        {displayTitle}
-                      </p>
                       {shouldShowSnippet && (
                         <p className="text-[12px] text-stone leading-relaxed mt-0.5">
                           {displaySnippet.length > 100

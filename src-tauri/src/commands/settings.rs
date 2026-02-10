@@ -1,5 +1,6 @@
 use super::{git_share, versioning};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -54,6 +55,8 @@ pub struct StikSettings {
     pub notes_directory: String,
     #[serde(default)]
     pub hide_dock_icon: bool,
+    #[serde(default)]
+    pub folder_colors: HashMap<String, String>,
 }
 
 impl Default for StikSettings {
@@ -88,6 +91,7 @@ impl Default for StikSettings {
             theme_mode: String::new(),
             notes_directory: String::new(),
             hide_dock_icon: false,
+            folder_colors: HashMap::new(),
         }
     }
 }

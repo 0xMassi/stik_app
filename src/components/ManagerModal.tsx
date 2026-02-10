@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { FolderStats, NoteInfo } from "@/types";
+import type { FolderStats, NoteInfo, StikSettings } from "@/types";
 import { formatRelativeDate } from "@/utils/formatRelativeDate";
+import { FOLDER_COLORS, FOLDER_COLOR_KEYS, getFolderColor } from "@/utils/folderColors";
 
 type SelectedItem =
   | { type: "folder"; name: string }
@@ -48,6 +50,8 @@ export default function ManagerModal() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderColor, setNewFolderColor] = useState("coral");
+  const [folderColors, setFolderColors] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<string | null>(null);
 
   const loadFolderStats = useCallback(async () => {
@@ -66,6 +70,9 @@ export default function ManagerModal() {
 
   useEffect(() => {
     loadFolderStats();
+    invoke<StikSettings>("get_settings")
+      .then((s) => setFolderColors(s.folder_colors ?? {}))
+      .catch(() => {});
   }, []);
 
   const loadFolderNotes = async (folderName: string) => {
@@ -188,14 +195,30 @@ export default function ManagerModal() {
 
     try {
       await invoke("create_folder", { name: name.trim() });
+      if (newFolderColor !== "coral") {
+        await handleSetFolderColor(name.trim(), newFolderColor);
+      }
       setIsCreating(false);
       setNewFolderName("");
+      setNewFolderColor("coral");
       await loadFolderStats();
-      // Select the new folder
       setSelectedItem({ type: "folder", name: name.trim() });
     } catch (error) {
       console.error("Failed to create folder:", error);
       setToast(String(error));
+    }
+  };
+
+  const handleSetFolderColor = async (folderName: string, colorKey: string) => {
+    const updated = { ...folderColors, [folderName]: colorKey };
+    setFolderColors(updated);
+    try {
+      const settings = await invoke<StikSettings>("get_settings");
+      settings.folder_colors = updated;
+      await invoke("save_settings", { settings });
+      await emit("settings-changed", settings);
+    } catch (error) {
+      console.error("Failed to save folder color:", error);
     }
   };
 
@@ -466,32 +489,51 @@ export default function ManagerModal() {
       <div className="flex-1 overflow-y-auto py-1">
         {/* Create new folder input */}
         {isCreating && (
-          <div className="px-4 py-2.5 flex items-center gap-3 bg-coral/10 border-b border-coral/20">
-            <svg className="w-4 h-4 text-coral" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-              <line x1="12" y1="11" x2="12" y2="17" />
-              <line x1="9" y1="14" x2="15" y2="14" />
-            </svg>
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="New folder name..."
-              autoFocus
-              className="flex-1 text-[13px] font-medium bg-transparent text-ink placeholder:text-stone outline-none"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleCreateFolder(newFolderName);
-                } else if (e.key === "Escape") {
-                  e.preventDefault();
-                  setIsCreating(false);
-                  setNewFolderName("");
-                }
-                e.stopPropagation();
-              }}
-            />
-            <span className="text-[10px] text-stone">enter to create</span>
+          <div className="border-b border-coral/20">
+            <div className="px-4 py-2.5 flex items-center gap-3 bg-coral/10">
+              <svg className="w-4 h-4 text-coral" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                <line x1="12" y1="11" x2="12" y2="17" />
+                <line x1="9" y1="14" x2="15" y2="14" />
+              </svg>
+              <input
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="New folder name..."
+                autoFocus
+                className="flex-1 text-[13px] font-medium bg-transparent text-ink placeholder:text-stone outline-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleCreateFolder(newFolderName);
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setIsCreating(false);
+                    setNewFolderName("");
+                    setNewFolderColor("coral");
+                  }
+                  e.stopPropagation();
+                }}
+              />
+              <span className="text-[10px] text-stone">enter to create</span>
+            </div>
+            <div className="px-4 py-1.5 flex items-center gap-1.5 bg-line/20">
+              {FOLDER_COLOR_KEYS.map((key) => (
+                <button
+                  key={key}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setNewFolderColor(key);
+                  }}
+                  className={`w-5 h-5 rounded-full border-2 transition-all ${
+                    newFolderColor === key ? "border-ink scale-110" : "border-transparent hover:scale-110"
+                  }`}
+                  style={{ backgroundColor: FOLDER_COLORS[key].dot }}
+                  title={key}
+                />
+              ))}
+            </div>
           </div>
         )}
 
@@ -520,9 +562,8 @@ export default function ManagerModal() {
                 }`}
               >
                 <span
-                  className={`text-[10px] transition-transform ${
-                    isExpanded ? "rotate-90" : ""
-                  } ${isFolderSelected ? "text-white/80" : "text-coral"}`}
+                  className={`text-[10px] transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                  style={{ color: isFolderSelected ? "rgba(255,255,255,0.8)" : getFolderColor(folder.name, folderColors).dot }}
                 >
                   ▶
                 </span>
@@ -561,6 +602,29 @@ export default function ManagerModal() {
                   </span>
                 )}
               </button>
+
+              {/* Color picker strip — visible only during rename */}
+              {isCurrentlyRenaming && (
+                <div className="px-4 py-1.5 flex items-center gap-1.5 bg-line/20 border-b border-line/30">
+                  {FOLDER_COLOR_KEYS.map((key) => {
+                    const isActive = (folderColors[folder.name] || "coral") === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSetFolderColor(folder.name, key);
+                        }}
+                        className={`w-5 h-5 rounded-full border-2 transition-all ${
+                          isActive ? "border-ink scale-110" : "border-transparent hover:scale-110"
+                        }`}
+                        style={{ backgroundColor: FOLDER_COLORS[key].dot }}
+                        title={key}
+                      />
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Notes inside expanded folder */}
               {isExpanded && (

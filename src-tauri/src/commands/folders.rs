@@ -55,6 +55,8 @@ fn reconcile_settings_after_folder_delete(
     if uses_folder_root_layout(settings) && settings.git_sharing.shared_folder == deleted_folder {
         settings.git_sharing.shared_folder = fallback.to_string();
     }
+
+    settings.folder_colors.remove(deleted_folder);
 }
 
 fn reconcile_settings_after_folder_rename(
@@ -74,6 +76,10 @@ fn reconcile_settings_after_folder_rename(
 
     if uses_folder_root_layout(settings) && settings.git_sharing.shared_folder == old_name {
         settings.git_sharing.shared_folder = new_name.to_string();
+    }
+
+    if let Some(color) = settings.folder_colors.remove(old_name) {
+        settings.folder_colors.insert(new_name.to_string(), color);
     }
 }
 
@@ -241,6 +247,7 @@ mod tests {
         reconcile_settings_after_folder_rename, validate_name,
     };
     use crate::commands::settings::{GitSharingSettings, ShortcutMapping, StikSettings};
+    use std::collections::HashMap;
 
     fn sample_settings() -> StikSettings {
         StikSettings {
@@ -269,6 +276,8 @@ mod tests {
             vim_mode_enabled: false,
             theme_mode: String::new(),
             notes_directory: String::new(),
+            hide_dock_icon: false,
+            folder_colors: HashMap::new(),
         }
     }
 
