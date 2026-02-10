@@ -32,6 +32,7 @@ export interface StikSettings {
   vim_mode_enabled: boolean;
   theme_mode: string;
   notes_directory: string;
+  hide_dock_icon: boolean;
 }
 
 export interface NoteInfo {

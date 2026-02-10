@@ -52,6 +52,8 @@ pub struct StikSettings {
     pub theme_mode: String,
     #[serde(default)]
     pub notes_directory: String,
+    #[serde(default)]
+    pub hide_dock_icon: bool,
 }
 
 impl Default for StikSettings {
@@ -85,6 +87,7 @@ impl Default for StikSettings {
             vim_mode_enabled: false,
             theme_mode: String::new(),
             notes_directory: String::new(),
+            hide_dock_icon: false,
         }
     }
 }
@@ -142,6 +145,28 @@ pub fn save_settings(settings: StikSettings) -> Result<bool, String> {
     save_settings_to_file(&settings)?;
     git_share::notify_force_sync();
     Ok(true)
+}
+
+#[cfg(target_os = "macos")]
+pub fn apply_dock_icon_visibility(hide: bool) {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSApplicationActivationPolicy;
+
+    if let Some(mtm) = MainThreadMarker::new() {
+        let app = objc2_app_kit::NSApplication::sharedApplication(mtm);
+        let policy = if hide {
+            NSApplicationActivationPolicy::Accessory
+        } else {
+            NSApplicationActivationPolicy::Regular
+        };
+        app.setActivationPolicy(policy);
+    }
+}
+
+#[tauri::command]
+pub fn set_dock_icon_visibility(hide: bool) {
+    #[cfg(target_os = "macos")]
+    apply_dock_icon_visibility(hide);
 }
 
 #[cfg(test)]

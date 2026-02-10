@@ -121,6 +121,7 @@ fn main() {
             shortcuts::reload_shortcuts,
             shortcuts::pause_shortcuts,
             shortcuts::resume_shortcuts,
+            settings::set_dock_icon_visibility,
             darwinkit::darwinkit_status,
             darwinkit::darwinkit_call,
             darwinkit::semantic_search,
@@ -135,6 +136,11 @@ fn main() {
 
             let settings = settings::get_settings().unwrap_or_default();
             shortcuts::register_shortcuts_from_settings(app.handle(), &settings);
+
+            #[cfg(target_os = "macos")]
+            if settings.hide_dock_icon {
+                settings::apply_dock_icon_visibility(true);
+            }
 
             if let Err(e) = on_this_day::maybe_show_on_this_day_notification() {
                 eprintln!("Failed to check On This Day notification: {}", e);
