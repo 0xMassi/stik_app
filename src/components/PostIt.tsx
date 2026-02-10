@@ -160,6 +160,22 @@ export default function PostIt({
     return () => { unlisten.then((fn) => fn()); };
   }, []);
 
+  // Close viewing window when its note is deleted from another window (e.g. search)
+  useEffect(() => {
+    if (!isViewing || !originalPath) return;
+
+    const unlisten = listen<string>("note-deleted", (event) => {
+      if (event.payload === originalPath) {
+        const idToClose = currentStickedId || stickedId;
+        if (idToClose) {
+          invoke("close_sticked_window", { id: idToClose });
+        }
+      }
+    });
+
+    return () => { unlisten.then((fn) => fn()); };
+  }, [isViewing, originalPath, currentStickedId, stickedId]);
+
   // Focus editor on mount, when folder changes, or when editor becomes available after settings load
   useEffect(() => {
     if (vimEnabled === null) return; // editor not mounted yet

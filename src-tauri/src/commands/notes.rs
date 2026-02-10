@@ -3,7 +3,7 @@ use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::state::{AppState, LastSavedNote};
 use super::embeddings::{self, EmbeddingIndex};
@@ -274,6 +274,7 @@ pub fn update_note(
 
 #[tauri::command]
 pub fn delete_note(
+    app: AppHandle,
     path: String,
     index: State<'_, NoteIndex>,
     emb_index: State<'_, EmbeddingIndex>,
@@ -303,6 +304,9 @@ pub fn delete_note(
     emb_index.remove_entry(&path);
     let _ = emb_index.save();
     git_share::notify_note_changed(&folder);
+
+    // Notify any viewing windows so they can close themselves
+    let _ = app.emit("note-deleted", &path);
 
     Ok(true)
 }
