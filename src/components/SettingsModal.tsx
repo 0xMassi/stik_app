@@ -68,6 +68,16 @@ const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
       </svg>
     ),
   },
+  {
+    id: "privacy",
+    label: "Privacy",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+    ),
+  },
 ];
 
 interface SettingsModalProps {
@@ -300,7 +310,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   );
 
   const tabBar = (
-    <div className="flex items-center gap-1 px-5 pb-3">
+    <div className="flex items-center gap-0.5 px-4 pb-3">
       {TABS.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
@@ -308,7 +318,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium rounded-lg transition-colors ${
+            className={`flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium rounded-lg transition-colors ${
               isActive
                 ? "text-coral bg-coral/10"
                 : "text-stone hover:text-ink hover:bg-line/50"

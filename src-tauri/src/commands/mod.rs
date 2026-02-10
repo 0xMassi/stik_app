@@ -1,3 +1,4 @@
+pub mod analytics;
 pub mod darwinkit;
 pub mod embeddings;
 pub mod folders;

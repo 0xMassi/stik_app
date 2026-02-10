@@ -279,6 +279,8 @@ mod tests {
             hide_dock_icon: false,
             folder_colors: HashMap::new(),
             system_shortcuts: HashMap::new(),
+            analytics_enabled: true,
+            analytics_notice_dismissed: false,
         }
     }
 

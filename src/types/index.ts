@@ -35,6 +35,8 @@ export interface StikSettings {
   hide_dock_icon: boolean;
   folder_colors: Record<string, string>;
   system_shortcuts: Record<string, string>;
+  analytics_enabled: boolean;
+  analytics_notice_dismissed: boolean;
 }
 
 export interface NoteInfo {

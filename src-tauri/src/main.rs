@@ -10,8 +10,8 @@ mod windows;
 use commands::embeddings::EmbeddingIndex;
 use commands::index::NoteIndex;
 use commands::{
-    darwinkit, embeddings, folders, git_share, index, notes, on_this_day, settings, share, stats,
-    sticked_notes,
+    analytics, darwinkit, embeddings, folders, git_share, index, notes, on_this_day, settings,
+    share, stats, sticked_notes,
 };
 use shortcuts::shortcut_to_string;
 use state::AppState;
@@ -143,6 +143,7 @@ fn main() {
             darwinkit::darwinkit_call,
             darwinkit::semantic_search,
             darwinkit::suggest_folder,
+            analytics::get_analytics_device_id,
         ])
         .setup(|app| {
             // Build in-memory note index for fast search/list
@@ -153,6 +154,7 @@ fn main() {
 
             let settings = settings::get_settings().unwrap_or_default();
             shortcuts::register_shortcuts_from_settings(app.handle(), &settings);
+            analytics::start_analytics(app.handle());
 
             #[cfg(target_os = "macos")]
             if settings.hide_dock_icon {

@@ -6,6 +6,7 @@ import PostIt from "./components/PostIt";
 import SettingsModal from "./components/SettingsModal";
 import SearchModal from "./components/SearchModal";
 import ManagerModal from "./components/ManagerModal";
+import AnalyticsNotice from "./components/AnalyticsNotice";
 import { useTheme } from "./hooks/useTheme";
 import type { StickedNote, StikSettings } from "@/types";
 import { isMarkdownEffectivelyEmpty } from "@/utils/normalizeMarkdownForCopy";
@@ -46,6 +47,7 @@ export default function App() {
   const [stickedNote, setStickedNote] = useState<StickedNote | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const contentRef = useRef("");
+  const [showAnalyticsNotice, setShowAnalyticsNotice] = useState(false);
   const windowInfo = getWindowInfo();
 
   const resolveFolder = useCallback(
@@ -211,6 +213,30 @@ export default function App() {
       .catch((e) => console.debug("Update check skipped:", e));
   }, [windowInfo.type]);
 
+  // One-time analytics notice for existing users
+  useEffect(() => {
+    if (windowInfo.type !== "postit") return;
+
+    invoke<StikSettings>("get_settings")
+      .then((s) => {
+        if (!s.analytics_notice_dismissed) {
+          setShowAnalyticsNotice(true);
+        }
+      })
+      .catch(() => {});
+  }, [windowInfo.type]);
+
+  const handleDismissAnalyticsNotice = useCallback(async () => {
+    try {
+      const settings = await invoke<StikSettings>("get_settings");
+      settings.analytics_notice_dismissed = true;
+      await invoke("save_settings", { settings });
+    } catch (error) {
+      console.error("Failed to dismiss analytics notice:", error);
+    }
+    setShowAnalyticsNotice(false);
+  }, []);
+
   const handleSave = useCallback(
     async (content: string, preferredFolder?: string) => {
       if (isMarkdownEffectivelyEmpty(content)) return;
@@ -316,13 +342,16 @@ export default function App() {
   }, []);
 
   return (
-    <PostIt
-      folder={currentFolder}
-      onSave={handleSave}
-      onClose={handleClose}
-      onFolderChange={handleFolderChange}
-      onOpenSettings={handleOpenSettings}
-      onContentChange={handleContentChange}
-    />
+    <>
+      <PostIt
+        folder={currentFolder}
+        onSave={handleSave}
+        onClose={handleClose}
+        onFolderChange={handleFolderChange}
+        onOpenSettings={handleOpenSettings}
+        onContentChange={handleContentChange}
+      />
+      {showAnalyticsNotice && <AnalyticsNotice onDismiss={handleDismissAnalyticsNotice} />}
+    </>
   );
 }

@@ -59,6 +59,10 @@ pub struct StikSettings {
     pub folder_colors: HashMap<String, String>,
     #[serde(default)]
     pub system_shortcuts: HashMap<String, String>,
+    #[serde(default = "default_true")]
+    pub analytics_enabled: bool,
+    #[serde(default)]
+    pub analytics_notice_dismissed: bool,
 }
 
 impl Default for StikSettings {
@@ -95,6 +99,8 @@ impl Default for StikSettings {
             hide_dock_icon: false,
             folder_colors: HashMap::new(),
             system_shortcuts: default_system_shortcuts(),
+            analytics_enabled: true,
+            analytics_notice_dismissed: false,
         }
     }
 }

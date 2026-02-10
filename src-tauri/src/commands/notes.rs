@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::state::{AppState, LastSavedNote};
+use super::analytics;
 use super::embeddings::{self, EmbeddingIndex};
 use super::folders::get_stik_folder;
 use super::git_share;
@@ -125,6 +126,9 @@ pub fn save_note(
     let result = save_note_inner(folder, content.clone())?;
 
     if !result.path.is_empty() {
+        let word_count = content.split_whitespace().count();
+        analytics::track("note_created", serde_json::json!({ "word_count": word_count }));
+
         index.add(&result.path, &result.folder);
         git_share::notify_note_changed(&result.folder);
         if super::settings::load_settings_from_file().map(|s| s.ai_features_enabled).unwrap_or(false) {
@@ -255,6 +259,9 @@ pub fn update_note(
     // Write updated content
     fs::write(&note_path, &content).map_err(|e| e.to_string())?;
 
+    let word_count = content.split_whitespace().count();
+    analytics::track("note_updated", serde_json::json!({ "word_count": word_count }));
+
     // Re-index with updated content
     index.add(&path, &folder);
     git_share::notify_note_changed(&folder);
@@ -300,6 +307,7 @@ pub fn delete_note(
 
     // Delete the file
     fs::remove_file(&note_path).map_err(|e| format!("Failed to delete note: {}", e))?;
+    analytics::track("note_deleted", serde_json::json!({}));
     index.remove(&path);
     emb_index.remove_entry(&path);
     let _ = emb_index.save();

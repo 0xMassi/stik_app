@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import ShortcutRecorder from "./ShortcutRecorder";
 import type { GitSyncStatus, ShortcutMapping, StikSettings } from "@/types";
@@ -92,7 +93,7 @@ export function Dropdown({ value, options, onChange, placeholder }: DropdownProp
   );
 }
 
-export type SettingsTab = "shortcuts" | "folders" | "editor" | "git" | "ai" | "insights";
+export type SettingsTab = "shortcuts" | "folders" | "editor" | "git" | "ai" | "insights" | "privacy";
 
 interface SettingsContentProps {
   activeTab: SettingsTab;
@@ -117,6 +118,146 @@ interface SettingsContentProps {
   onPrepareGitRepository: () => Promise<void>;
   onSyncGitNow: () => Promise<void>;
   onOpenGitRemote: () => Promise<void>;
+}
+
+function SettingsToast({ message, onDone }: { message: string; onDone: () => void }) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setIsVisible(true));
+    const timer = setTimeout(() => {
+      setIsVisible(false);
+      setTimeout(onDone, 200);
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, [onDone]);
+
+  return (
+    <div
+      className={`
+        fixed bottom-6 left-1/2 -translate-x-1/2 z-[250]
+        px-4 py-2.5 rounded-xl shadow-stik
+        text-[13px] font-medium bg-ink text-bg
+        transition-all duration-200 ease-out
+        ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
+      `}
+    >
+      {message}
+    </div>
+  );
+}
+
+function PrivacySection({
+  settings,
+  onSettingsChange,
+}: {
+  settings: StikSettings;
+  onSettingsChange: (settings: StikSettings) => void;
+}) {
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const loadDeviceId = useCallback(async () => {
+    try {
+      const id = await invoke<string>("get_analytics_device_id");
+      setDeviceId(id);
+    } catch {
+      setDeviceId(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDeviceId();
+  }, [loadDeviceId]);
+
+  const copyDeviceId = () => {
+    if (!deviceId) return;
+    navigator.clipboard.writeText(deviceId);
+    setToast("Device ID copied");
+  };
+
+  return (
+    <>
+    <div className="space-y-4">
+      <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
+        <div>
+          <p className="text-[13px] text-ink font-medium">Share anonymous usage data</p>
+          <p className="mt-1 text-[12px] text-stone leading-relaxed">
+            Help improve Stik by sharing anonymous usage statistics.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            onSettingsChange({
+              ...settings,
+              analytics_enabled: !settings.analytics_enabled,
+            })
+          }
+          className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+            settings.analytics_enabled ? "bg-coral" : "bg-line"
+          }`}
+          title="Toggle anonymous analytics"
+        >
+          <span
+            className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform pointer-events-none ${
+              settings.analytics_enabled ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </label>
+
+      <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-3">
+        <div>
+          <p className="text-[13px] text-ink font-medium mb-2">What we collect</p>
+          <ul className="text-[12px] text-stone leading-relaxed space-y-1">
+            <li>App opens (daily active usage)</li>
+            <li>Device type (macOS version, CPU architecture)</li>
+            <li>Screen resolution and app version</li>
+            <li>Anonymous device identifier</li>
+          </ul>
+        </div>
+        <div>
+          <p className="text-[13px] text-ink font-medium mb-2">What we NEVER collect</p>
+          <ul className="text-[12px] text-stone leading-relaxed space-y-1">
+            <li>Your notes, titles, or folder names</li>
+            <li>File paths or personal information</li>
+            <li>Anything that could identify you</li>
+          </ul>
+        </div>
+      </div>
+
+      {deviceId && (
+        <div className="p-4 bg-line/30 rounded-xl border border-line/50">
+          <p className="text-[12px] text-stone mb-2">Your device ID</p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 px-2.5 py-2 text-[11px] rounded-lg bg-bg border border-line text-ink font-mono truncate">
+              {deviceId}
+            </code>
+            <button
+              type="button"
+              onClick={copyDeviceId}
+              className="px-3 py-2 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors whitespace-nowrap"
+            >
+              Copy
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] text-stone">
+            This random identifier is not linked to your identity.
+          </p>
+        </div>
+      )}
+
+      <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
+        <p className="text-[12px] text-stone leading-relaxed">
+          Analytics are sent to PostHog using a write-only key. Stik is open-source — you
+          can verify exactly what is collected in the source code.
+        </p>
+      </div>
+    </div>
+    {toast && <SettingsToast message={toast} onDone={() => setToast(null)} />}
+    </>
+  );
 }
 
 export default function SettingsContent({
@@ -835,6 +976,8 @@ export default function SettingsContent({
             </div>
           </div>
         )}
+
+        {activeTab === "privacy" && <PrivacySection settings={settings} onSettingsChange={onSettingsChange} />}
 
     </div>
   );
