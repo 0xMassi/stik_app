@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-02-10
+Features, privacy, and search improvements
+
+### Added
+- **Hide dock icon** — tray-only mode via Settings > Editor
+- **Folder colors** — assign colors to folders, reflected in search badges and folder picker
+- **Customizable system shortcuts** — rebind Cmd+Shift+P/M/L/, in Settings > Shortcuts
+- **Anonymous analytics** — privacy-respecting usage telemetry via PostHog (EU endpoint, opt-out in Settings > Privacy)
+- **Analytics notice popup** — one-time "What's New" notice for existing users with opt-out path and community links
+- **Privacy settings tab** — toggle analytics, view what's collected, copy anonymous device ID
+- **Folder-scoped search** — filter search results by folder via popover in the search header (#23)
+
+### Fixed
+- **Viewing window left open after note deletion** — close viewing window when its note is deleted from another window (#19)
+- **Disabled folder shortcuts persisting** — normalization now force-enables all visible shortcuts
+
 ## [0.4.3] - 2026-02-09
 Stability fixes for link editing and settings
 
@@ -188,6 +204,7 @@ First release
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.4.4 | 2026-02-10 | Dock icon hiding, folder colors, custom shortcuts, anonymous analytics, folder-scoped search |
 | 0.4.3 | 2026-02-09 | Escape handling in link popover fixed; opening Settings no longer recreates deleted folders |
 | 0.4.2 | 2026-02-09 | Help/X/Discord links in settings footer, updated support/contact links |
 | 0.4.1 | 2026-02-09 | Link shortcuts (`Cmd+K`/`Cmd+L`), stronger link navigation control, robust image drag/drop and reopen, last-note reopen fixes |
@@ -198,7 +215,8 @@ First release
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/0xMassi/stik_app/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/0xMassi/stik_app/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/0xMassi/stik_app/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/0xMassi/stik_app/compare/v0.4.0...v0.4.1
