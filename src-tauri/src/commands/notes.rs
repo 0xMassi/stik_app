@@ -306,6 +306,12 @@ pub fn delete_note(
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
 
+    // Delete referenced .assets/ images
+    if let Ok(content) = fs::read_to_string(&note_path) {
+        let folder_path = note_path.parent().unwrap_or(&stik_folder);
+        delete_note_assets(&content, folder_path);
+    }
+
     // Delete the file
     fs::remove_file(&note_path).map_err(|e| format!("Failed to delete note: {}", e))?;
     analytics::track("note_deleted", serde_json::json!({}));
@@ -362,6 +368,12 @@ pub fn move_note(
     // Read content before moving
     let content = fs::read_to_string(&source_path).map_err(|e| e.to_string())?;
 
+    // Move referenced .assets/ images to the target folder
+    if source_folder != target_folder {
+        let source_folder_path = stik_folder.join(&source_folder);
+        move_note_assets(&content, &source_folder_path, &target_folder_path);
+    }
+
     // Move the file
     fs::rename(&source_path, &target_path).map_err(|e| format!("Failed to move note: {}", e))?;
 
@@ -402,6 +414,68 @@ fn detect_image_ext(data: &str) -> &'static str {
         return "png";
     }
     "png"
+}
+
+/// Extract `.assets/<filename>` references from markdown content.
+fn extract_asset_filenames(content: &str) -> Vec<String> {
+    let re_pattern = ".assets/";
+    let mut filenames = Vec::new();
+    for line in content.lines() {
+        let mut search = line;
+        while let Some(idx) = search.find(re_pattern) {
+            let after = &search[idx + re_pattern.len()..];
+            // Filename ends at ), ", ', whitespace, or end of string
+            let end = after
+                .find(|c: char| c == ')' || c == '"' || c == '\'' || c.is_whitespace())
+                .unwrap_or(after.len());
+            let name = &after[..end];
+            if !name.is_empty() {
+                filenames.push(name.to_string());
+            }
+            search = &after[end..];
+        }
+    }
+    filenames
+}
+
+/// Move referenced `.assets/` files from source folder to target folder.
+fn move_note_assets(content: &str, source_folder: &std::path::Path, target_folder: &std::path::Path) {
+    let filenames = extract_asset_filenames(content);
+    if filenames.is_empty() {
+        return;
+    }
+
+    let source_assets = source_folder.join(".assets");
+    let target_assets = target_folder.join(".assets");
+
+    if !source_assets.exists() {
+        return;
+    }
+
+    for name in filenames {
+        let src = source_assets.join(&name);
+        if !src.exists() {
+            continue;
+        }
+        if fs::create_dir_all(&target_assets).is_err() {
+            continue;
+        }
+        let dst = target_assets.join(&name);
+        // Copy + remove instead of rename (works across volumes)
+        if fs::copy(&src, &dst).is_ok() {
+            let _ = fs::remove_file(&src);
+        }
+    }
+}
+
+/// Delete `.assets/` files referenced by a note.
+fn delete_note_assets(content: &str, folder_path: &std::path::Path) {
+    let filenames = extract_asset_filenames(content);
+    let assets_dir = folder_path.join(".assets");
+    for name in filenames {
+        let path = assets_dir.join(&name);
+        let _ = fs::remove_file(&path);
+    }
 }
 
 fn is_supported_image_ext(ext: &str) -> bool {

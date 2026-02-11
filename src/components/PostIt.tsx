@@ -686,11 +686,19 @@ export default function PostIt({
     (selectedFolder: string) => {
       onFolderChange(selectedFolder);
       setShowPicker(false);
-      setContent("");
-      editorRef.current?.clear();
+
+      // Only clear content if it was a slash-command query (e.g. "/Work"),
+      // not real note content the user typed before clicking the folder badge
+      const isSlashQuery =
+        content.startsWith("/") && !content.includes(" ") && content.length < 15;
+      if (isSlashQuery) {
+        setContent("");
+        editorRef.current?.clear();
+      }
+
       editorRef.current?.focus();
     },
-    [onFolderChange]
+    [onFolderChange, content]
   );
 
   const startDrag = useCallback(async (e: React.MouseEvent) => {
