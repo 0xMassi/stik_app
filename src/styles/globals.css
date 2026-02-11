@@ -106,7 +106,7 @@ body,
 .stik-editor {
   height: 100%;
   padding: 12px 16px;
-  font-size: 14px;
+  font-size: var(--editor-font-size, 14px);
   line-height: 1.5;
   color: rgb(var(--color-ink));
   outline: none;
@@ -128,19 +128,19 @@ body,
 
 /* Headings */
 .stik-editor h1 {
-  font-size: 20px;
+  font-size: calc(var(--editor-font-size, 14px) * 1.43);
   font-weight: 700;
   margin: 0.4em 0 0.2em;
 }
 
 .stik-editor h2 {
-  font-size: 17px;
+  font-size: calc(var(--editor-font-size, 14px) * 1.21);
   font-weight: 600;
   margin: 0.4em 0 0.2em;
 }
 
 .stik-editor h3 {
-  font-size: 15px;
+  font-size: calc(var(--editor-font-size, 14px) * 1.07);
   font-weight: 600;
   margin: 0.4em 0 0.2em;
 }
@@ -169,7 +169,7 @@ body,
   padding: 1px 4px;
   border-radius: 3px;
   font-family: Monaco, Consolas, monospace;
-  font-size: 12px;
+  font-size: calc(var(--editor-font-size, 14px) * 0.86);
   color: var(--editor-link);
 }
 
@@ -256,7 +256,7 @@ body,
   background: none;
   padding: 0;
   color: var(--editor-code-block-text);
-  font-size: 12px;
+  font-size: calc(var(--editor-font-size, 14px) * 0.86);
 }
 
 /* Inline images */

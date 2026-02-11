@@ -39,6 +39,10 @@ fn default_true() -> bool {
     true
 }
 
+fn default_font_size() -> u32 {
+    14
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StikSettings {
     pub shortcut_mappings: Vec<ShortcutMapping>,
@@ -63,6 +67,8 @@ pub struct StikSettings {
     pub analytics_enabled: bool,
     #[serde(default)]
     pub analytics_notice_dismissed: bool,
+    #[serde(default = "default_font_size")]
+    pub font_size: u32,
 }
 
 impl Default for StikSettings {
@@ -101,6 +107,7 @@ impl Default for StikSettings {
             system_shortcuts: default_system_shortcuts(),
             analytics_enabled: true,
             analytics_notice_dismissed: false,
+            font_size: 14,
         }
     }
 }

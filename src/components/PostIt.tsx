@@ -101,6 +101,7 @@ export default function PostIt({
   // Track the actual sticked note ID (can change when pinning a viewing note)
   const [currentStickedId, setCurrentStickedId] = useState(stickedId);
   const [vimEnabled, setVimEnabled] = useState<boolean | null>(null); // null = loading
+  const [fontSize, setFontSize] = useState(14);
   const [folderColors, setFolderColors] = useState<Record<string, string>>({});
   const [systemShortcuts, setSystemShortcuts] = useState<Record<string, string>>({});
   const [vimMode, setVimMode] = useState<VimMode>("normal");
@@ -157,6 +158,7 @@ export default function PostIt({
     invoke<StikSettings>("get_settings")
       .then((s) => {
         setVimEnabled(s.vim_mode_enabled);
+        setFontSize(s.font_size ?? 14);
         setFolderColors(s.folder_colors ?? {});
         setSystemShortcuts(s.system_shortcuts ?? {});
       })
@@ -164,6 +166,7 @@ export default function PostIt({
 
     const unlisten = listen<StikSettings>("settings-changed", (event) => {
       setVimEnabled(event.payload.vim_mode_enabled);
+      setFontSize(event.payload.font_size ?? 14);
       setFolderColors(event.payload.folder_colors ?? {});
       setSystemShortcuts(event.payload.system_shortcuts ?? {});
     });
@@ -289,6 +292,37 @@ export default function PostIt({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showPicker, isSaving, isPinning, isSticked, isPinned, isCopyMenuOpen, vimEnabled, handleSaveAndClose]);
+
+  // CMD+/CMD-/CMD+0 to adjust editor font size
+  useEffect(() => {
+    const handleZoom = (e: KeyboardEvent) => {
+      if (!e.metaKey || e.shiftKey || e.altKey || e.ctrlKey) return;
+
+      let newSize: number | null = null;
+      if (e.key === "=" || e.key === "+") {
+        newSize = Math.min(fontSize + 1, 48);
+      } else if (e.key === "-") {
+        newSize = Math.max(fontSize - 1, 12);
+      } else if (e.key === "0") {
+        newSize = 14;
+      }
+
+      if (newSize !== null && newSize !== fontSize) {
+        e.preventDefault();
+        setFontSize(newSize);
+        invoke<StikSettings>("get_settings")
+          .then((s) => invoke("save_settings", { settings: { ...s, font_size: newSize } }))
+          .then(() => invoke<StikSettings>("get_settings"))
+          .then((s) => getCurrentWindow().emit("settings-changed", s))
+          .catch(() => {});
+      } else if (newSize !== null) {
+        e.preventDefault(); // still prevent browser zoom at boundaries
+      }
+    };
+
+    window.addEventListener("keydown", handleZoom);
+    return () => window.removeEventListener("keydown", handleZoom);
+  }, [fontSize]);
 
   useEffect(() => {
     if (!isCopyMenuOpen) return;
@@ -1067,7 +1101,10 @@ export default function PostIt({
       </div>
 
       {/* Editor */}
-      <div className="flex-1 relative overflow-hidden min-h-0">
+      <div
+        className="flex-1 relative overflow-hidden min-h-0"
+        style={{ '--editor-font-size': `${fontSize}px` } as React.CSSProperties}
+      >
         {vimEnabled === null ? (
           <div className="h-full" /> // placeholder while settings load
         ) : shouldWaitForNotesDir ? (

@@ -602,6 +602,41 @@ export default function SettingsContent({
               </div>
             </div>
 
+            <div className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
+              <div>
+                <p className="text-[13px] text-ink font-medium">Font size</p>
+                <p className="mt-1 text-[12px] text-stone leading-relaxed">
+                  Editor text size. Use <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">Cmd+</kbd> / <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">Cmd-</kbd> to
+                  adjust, <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">Cmd+0</kbd> to reset.
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onSettingsChange({ ...settings, font_size: Math.max((settings.font_size ?? 14) - 1, 12) })
+                  }
+                  disabled={(settings.font_size ?? 14) <= 12}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-line text-[14px] text-ink hover:bg-line/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  -
+                </button>
+                <span className="w-8 text-center text-[13px] font-mono text-ink tabular-nums">
+                  {settings.font_size ?? 14}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onSettingsChange({ ...settings, font_size: Math.min((settings.font_size ?? 14) + 1, 48) })
+                  }
+                  disabled={(settings.font_size ?? 14) >= 48}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-line text-[14px] text-ink hover:bg-line/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
             <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
               <div>
                 <p className="text-[13px] text-ink font-medium">Vim mode</p>
