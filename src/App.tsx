@@ -242,9 +242,6 @@ export default function App() {
       if (isMarkdownEffectivelyEmpty(content)) return;
 
       const resolvedFolder = await resolveFolder(preferredFolder ?? currentFolder);
-      if (!resolvedFolder) {
-        throw new Error("No folder available");
-      }
 
       if (resolvedFolder !== currentFolder) {
         setCurrentFolder(resolvedFolder);

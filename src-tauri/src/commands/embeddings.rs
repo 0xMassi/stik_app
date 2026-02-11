@@ -134,6 +134,12 @@ impl EmbeddingIndex {
         entries.remove(path);
     }
 
+    /// Remove all embeddings whose path starts with `prefix`.
+    pub fn remove_by_path_prefix(&self, prefix: &str) {
+        let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        entries.retain(|k, _| !k.starts_with(prefix));
+    }
+
     /// Move embedding when a note is moved to another folder.
     pub fn move_entry(&self, old_path: &str, new_path: &str) {
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());

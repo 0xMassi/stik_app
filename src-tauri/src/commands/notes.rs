@@ -85,7 +85,9 @@ pub fn is_effectively_empty_markdown(content: &str) -> bool {
 
 /// Core save logic, callable from other Rust modules without Tauri State
 pub fn save_note_inner(folder: String, content: String) -> Result<NoteSaved, String> {
-    super::folders::validate_name(&folder)?;
+    if !folder.is_empty() {
+        super::folders::validate_name(&folder)?;
+    }
 
     // Don't save empty notes
     if is_effectively_empty_markdown(&content) {

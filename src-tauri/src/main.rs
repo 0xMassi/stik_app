@@ -132,6 +132,8 @@ fn main() {
             windows::pin_capture_note,
             windows::open_note_for_viewing,
             windows::get_viewing_note_content,
+            windows::open_search,
+            windows::open_manager,
             windows::open_settings,
             windows::transfer_to_capture,
             windows::reopen_last_note,

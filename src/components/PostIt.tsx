@@ -233,11 +233,6 @@ export default function PostIt({
     if (!isMarkdownEffectivelyEmpty(content)) {
       try {
         const targetFolder = await resolveFolderForAction();
-        if (!targetFolder) {
-          setToast("Create a folder first");
-          setShowPicker(true);
-          return;
-        }
 
         setIsSaving(true);
         await onSave(content, targetFolder);
@@ -484,11 +479,6 @@ export default function PostIt({
 
     try {
       const targetFolder = await resolveFolderForAction();
-      if (!targetFolder) {
-        setToast("Create a folder first");
-        setShowPicker(true);
-        return;
-      }
 
       setIsPinning(true);
       await invoke("pin_capture_note", {
@@ -994,7 +984,7 @@ export default function PostIt({
             }`}
           >
             <span className="text-[8px]" style={{ color: getFolderColor(folder, folderColors).dot }}>●</span>
-            <span>{folder || "No folder"}</span>
+            <span>{folder || "Stik"}</span>
             <span className="text-[8px] opacity-50">▼</span>
           </button>
 
@@ -1182,7 +1172,7 @@ export default function PostIt({
         >
           <span className="font-mono text-stone">
             <span className="text-coral">~</span>/Stik/
-            <span className="text-coral">{folder || "No folder"}</span>/
+            {folder && <><span className="text-coral">{folder}</span>/</>}
           </span>
           <div className="flex items-center gap-2">
             {vimEnabled ? (
@@ -1206,7 +1196,26 @@ export default function PostIt({
                 <span className="text-coral">✦</span> markdown supported
               </span>
             )}
-            {(onOpenSettings || isSticked) && (
+            {(onOpenSettings || isSticked) && (<>
+              <button
+                onClick={() => invoke("open_search")}
+                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
+                title={`Search (${formatShortcutDisplay(systemShortcuts.search || "Cmd+Shift+P")})`}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => invoke("open_manager")}
+                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
+                title={`Manage Notes (${formatShortcutDisplay(systemShortcuts.manager || "Cmd+Shift+M")})`}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                </svg>
+              </button>
               <button
                 onClick={() => isSticked ? invoke("open_settings") : onOpenSettings?.()}
                 className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
@@ -1217,7 +1226,7 @@ export default function PostIt({
                   <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                 </svg>
               </button>
-            )}
+            </>)}
           </div>
         </div>
       )}

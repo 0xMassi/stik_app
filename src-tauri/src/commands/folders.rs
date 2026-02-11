@@ -162,7 +162,11 @@ pub fn create_folder(name: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub fn delete_folder(name: String) -> Result<bool, String> {
+pub fn delete_folder(
+    name: String,
+    index: tauri::State<'_, super::index::NoteIndex>,
+    emb_index: tauri::State<'_, super::embeddings::EmbeddingIndex>,
+) -> Result<bool, String> {
     validate_name(&name)?;
 
     let stik_folder = get_stik_folder()?;
@@ -175,6 +179,13 @@ pub fn delete_folder(name: String) -> Result<bool, String> {
 
     // Delete folder and all contents
     fs::remove_dir_all(&folder_path).map_err(|e| format!("Failed to delete folder: {}", e))?;
+
+    // Purge deleted notes from in-memory indices
+    index.remove_by_folder(&name);
+    let prefix = folder_path.to_string_lossy();
+    emb_index.remove_by_path_prefix(&prefix);
+    let _ = emb_index.save();
+
     let fallback = list_visible_folder_names(&stik_folder)?
         .into_iter()
         .next();

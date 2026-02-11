@@ -137,6 +137,9 @@ export default function ManagerModal() {
       if (item.type === "folder") {
         await invoke("delete_folder", { name: item.name });
         setSelectedItem(null);
+        // Notify capture window so it re-resolves its folder
+        const settings = await invoke<StikSettings>("get_settings");
+        await emit("settings-changed", settings);
       } else {
         await invoke("delete_note", { path: item.note.path });
         setSelectedItem({ type: "folder", name: item.folder });

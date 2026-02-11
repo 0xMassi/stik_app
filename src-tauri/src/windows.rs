@@ -470,6 +470,18 @@ pub fn transfer_to_capture(app: AppHandle, content: String, folder: String) -> R
 }
 
 #[tauri::command]
+pub fn open_search(app: AppHandle) -> Result<bool, String> {
+    show_search(&app);
+    Ok(true)
+}
+
+#[tauri::command]
+pub fn open_manager(app: AppHandle) -> Result<bool, String> {
+    show_manager(&app);
+    Ok(true)
+}
+
+#[tauri::command]
 pub fn open_settings(app: AppHandle) -> Result<bool, String> {
     show_settings(&app);
     Ok(true)

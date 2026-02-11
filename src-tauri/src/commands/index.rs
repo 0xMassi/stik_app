@@ -66,6 +66,16 @@ impl NoteIndex {
             }
         }
 
+        // Index root-level .md files (no folder)
+        for entry in fs::read_dir(&stik_folder).map_err(|e| e.to_string())?.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
+                if let Some(note_entry) = read_note_entry(&path, "") {
+                    new_entries.insert(note_entry.path.clone(), note_entry);
+                }
+            }
+        }
+
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         *entries = new_entries;
 
@@ -101,6 +111,11 @@ impl NoteIndex {
     pub fn remove(&self, path: &str) {
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         entries.remove(path);
+    }
+
+    pub fn remove_by_folder(&self, folder: &str) {
+        let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        entries.retain(|_, e| e.folder != folder);
     }
 
     pub fn move_entry(&self, old_path: &str, new_path: &str, new_folder: &str) {
