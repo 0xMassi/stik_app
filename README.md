@@ -12,6 +12,7 @@
 
 <p align="center">
   <a href="https://www.stik.ink">Website</a> &middot;
+  <a href="https://www.stik.ink/ideas">Ideas Board</a> &middot;
   <a href="https://x.com/stik_app">X</a> &middot;
   <a href="https://discord.gg/ptPc6Zmc">Discord</a> &middot;
   <a href="https://github.com/0xMassi/stik_app/releases">Download</a> &middot;
@@ -150,6 +151,10 @@ cd src-tauri && cargo fmt
 # Type check frontend
 npm run build
 ```
+
+## Ideas Board
+
+Got a feature idea or want to vote on what gets built next? Visit the **[Stik Ideas Board](https://www.stik.ink/ideas)** -- sign in with GitHub, submit ideas, upvote your favorites, and discuss with the community. The roadmap is shaped by you.
 
 ## Support
 
