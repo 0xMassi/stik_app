@@ -18,6 +18,7 @@ import { MarkdownLinkRule, normalizeUrl } from "@/extensions/markdown-link-rule"
 import { TaskListInputFix } from "@/extensions/task-list-fix";
 import { installParagraphMarkdownSerializer } from "@/extensions/preserve-empty-paragraphs";
 import LinkPopover from "@/components/LinkPopover";
+import FormattingToolbar from "@/components/FormattingToolbar";
 import { invoke } from "@tauri-apps/api/core";
 import type { SearchResult } from "@/types";
 import { isImageUrl } from "@/utils/isImageUrl";
@@ -29,6 +30,7 @@ interface EditorProps {
   placeholder?: string;
   initialContent?: string;
   vimEnabled?: boolean;
+  showFormatToolbar?: boolean;
   onVimModeChange?: (mode: VimModeType) => void;
   onImagePaste?: (file: File) => Promise<string | null>;
   onImageDropPath?: (path: string) => Promise<string | null>;
@@ -53,6 +55,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       placeholder,
       initialContent,
       vimEnabled,
+      showFormatToolbar,
       onVimModeChange,
       onImagePaste,
       onImageDropPath,
@@ -364,10 +367,13 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       },
     }));
 
+    const toolbarVisible = showFormatToolbar && !vimEnabled;
+
     return (
-      <div ref={wrapperRef} className="h-full relative">
+      <div ref={wrapperRef} className={`h-full relative${toolbarVisible ? " has-formatting-toolbar" : ""}`}>
         <EditorContent editor={editor} className="h-full" />
         <LinkPopover editor={editor} />
+        {toolbarVisible && <FormattingToolbar editor={editor} />}
       </div>
     );
   }

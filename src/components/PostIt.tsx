@@ -107,6 +107,9 @@ export default function PostIt({
   const [vimMode, setVimMode] = useState<VimMode>("normal");
   const [vimCommand, setVimCommand] = useState("");
   const [vimCommandError, setVimCommandError] = useState("");
+  const [formatToolbar, setFormatToolbar] = useState(() => {
+    try { return localStorage.getItem("stik:format-toolbar") !== "0"; } catch { return true; }
+  });
   const commandInputRef = useRef<HTMLInputElement | null>(null);
   const editorRef = useRef<EditorRef | null>(null);
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
@@ -439,6 +442,8 @@ export default function PostIt({
           editorRef.current?.blur();
         }
 
+        // Hide chrome (header, footer, toolbar) so the screenshot is content-only
+        document.documentElement.classList.add("capturing-image");
         try {
           await new Promise<void>((resolve) => {
             requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
@@ -446,6 +451,7 @@ export default function PostIt({
           await invoke("copy_visible_note_image_to_clipboard");
           showToast("Copied as image");
         } finally {
+          document.documentElement.classList.remove("capturing-image");
           if (shouldRestoreEditorFocus) {
             editorRef.current?.focus();
           }
@@ -925,6 +931,7 @@ export default function PostIt({
           {!isSticked ? (
             // Capture mode: pin to create sticked note
             <button
+              data-capture-hide
               onClick={handlePin}
               disabled={!hasMeaningfulContent || isPinning}
               className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
@@ -951,6 +958,7 @@ export default function PostIt({
           ) : (
             // Sticked mode: toggle pin state
             <button
+              data-capture-hide
               onClick={handleTogglePin}
               className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
                 isPinned
@@ -990,6 +998,7 @@ export default function PostIt({
 
           {suggestedFolder && (
             <button
+              data-capture-hide
               onClick={() => {
                 onFolderChange(suggestedFolder);
                 setSuggestedFolder(null);
@@ -1002,7 +1011,7 @@ export default function PostIt({
           )}
         </div>
 
-        <div className="flex items-center gap-3 text-[10px] text-stone">
+        <div data-capture-hide className="flex items-center gap-3 text-[10px] text-stone">
           <div className="relative" ref={copyMenuRef}>
             {!(isCopying && copyMode === "image") && (
             <button
@@ -1107,6 +1116,7 @@ export default function PostIt({
             placeholder={isSticked ? "Sticked note..." : "Type a thought..."}
             initialContent={resolvedInitialContent || initialContent}
             vimEnabled={vimEnabled}
+            showFormatToolbar={formatToolbar}
             onVimModeChange={setVimMode}
             onImagePaste={handleImagePaste}
             onImageDropPath={handleImageDropPath}
@@ -1130,7 +1140,8 @@ export default function PostIt({
 
       {/* Footer - draggable (or command bar when vim command mode) */}
       {vimEnabled && vimMode === "command" ? (
-        <div className="flex flex-col border-t border-line">
+        <div data-capture-hide className="flex flex-col border-t border-line">
+          {/* entire vim command bar hidden during capture */}
           {vimCommandError && (
             <div className="px-4 py-1 text-[11px] text-coral bg-coral-light/30">
               {vimCommandError}
@@ -1196,7 +1207,28 @@ export default function PostIt({
                 <span className="text-coral">✦</span> markdown supported
               </span>
             )}
-            {(onOpenSettings || isSticked) && (<>
+            {(onOpenSettings || isSticked) && (<span data-capture-hide className="contents">
+              {!vimEnabled && (
+              <button
+                onClick={() => {
+                  const next = !formatToolbar;
+                  setFormatToolbar(next);
+                  try { localStorage.setItem("stik:format-toolbar", next ? "1" : "0"); } catch {}
+                }}
+                className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
+                  formatToolbar
+                    ? "text-coral hover:bg-coral-light"
+                    : "text-stone hover:bg-line hover:text-ink"
+                }`}
+                title={formatToolbar ? "Hide format buttons" : "Show format buttons"}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 7V4h16v3" />
+                  <path d="M9 20h6" />
+                  <path d="M12 4v16" />
+                </svg>
+              </button>
+              )}
               <button
                 onClick={() => invoke("open_search")}
                 className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
@@ -1226,7 +1258,7 @@ export default function PostIt({
                   <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                 </svg>
               </button>
-            </>)}
+            </span>)}
           </div>
         </div>
       )}
