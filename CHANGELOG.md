@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-11
+Editor toolbar, font zoom, and quality-of-life fixes
+
+### Added
+- **Formatting toolbar** — bottom bar with quick-access buttons for heading (H1/H2/H3 dropdown), bold, italic, strikethrough, inline code, link, blockquote, bullet list, ordered list, task list, and highlight. Active state follows cursor position in real-time
+- **Link button integration** — toolbar link button dispatches `Cmd+K` to open the existing LinkPopover editor, no separate prompt
+- **Toolbar toggle** — show/hide formatting bar via footer button (T icon), persisted in localStorage. Auto-hidden in vim mode
+- **Configurable font size** — `Cmd+`/`Cmd-` to zoom editor text (range 12-48px), `Cmd+0` to reset. Stepper in Settings > Editor. Headings and code scale proportionally
+- **Root-level notes** — save notes directly to `~/Documents/Stik/` without requiring a folder. Shows "Stik" badge when no folder is set
+- **Footer quick-access buttons** — search, manager, and settings buttons in the PostIt footer for all window types
+- **Community standards** — added CONTRIBUTING.md, SECURITY.md, issue templates, and PR template
+
+### Fixed
+- **Image assets cleaned up on delete/move** — deleting a note removes its `.assets/` images; moving a note relocates them to the target folder
+- **Editor content preserved on folder switch** — folder picker no longer clears typed content when switching folders
+- **Stale index after folder delete** — NoteIndex and EmbeddingIndex entries are purged when a folder is deleted, preventing ghost notes in search
+- **Highlight 1-char bug** — highlight button now requires a text selection (mark's `inclusive:false` caused stored marks to last only 1 character)
+- **Image export hides chrome** — "Copy as image" now hides buttons, toolbar, and action bar, showing only the styled note content
+- **Image export rounded corners** — screenshot clips to the PostIt's 14px border-radius instead of rectangular webview bounds
+- **Toolbar horizontal scroll** — formatting bar scrolls horizontally on narrow windows with hidden scrollbar
+
+### Changed
+- **Settings-changed event on folder delete** — capture window re-resolves default folder after deletion
+
 ## [0.4.4] - 2026-02-10
 Features, privacy, and search improvements
 
@@ -204,6 +228,7 @@ First release
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.5.0 | 2026-02-11 | Formatting toolbar, font zoom, root-level notes, image export cleanup, community standards |
 | 0.4.4 | 2026-02-10 | Dock icon hiding, folder colors, custom shortcuts, anonymous analytics, folder-scoped search |
 | 0.4.3 | 2026-02-09 | Escape handling in link popover fixed; opening Settings no longer recreates deleted folders |
 | 0.4.2 | 2026-02-09 | Help/X/Discord links in settings footer, updated support/contact links |
@@ -215,7 +240,8 @@ First release
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/0xMassi/stik_app/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/0xMassi/stik_app/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/0xMassi/stik_app/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/0xMassi/stik_app/compare/v0.4.1...v0.4.2
