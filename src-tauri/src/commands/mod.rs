@@ -1,5 +1,6 @@
 pub mod analytics;
 pub mod apple_notes;
+pub mod apple_notes_sync;
 pub mod darwinkit;
 pub mod embeddings;
 pub mod folders;

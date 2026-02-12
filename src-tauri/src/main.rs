@@ -7,11 +7,12 @@ mod state;
 mod tray;
 mod windows;
 
+use commands::apple_notes_sync::AppleNotesSyncState;
 use commands::embeddings::EmbeddingIndex;
 use commands::index::NoteIndex;
 use commands::{
-    analytics, apple_notes, darwinkit, embeddings, folders, git_share, index, notes, on_this_day,
-    settings, share, stats, sticked_notes,
+    analytics, apple_notes, apple_notes_sync, darwinkit, embeddings, folders, git_share, index,
+    notes, on_this_day, settings, share, stats, sticked_notes,
 };
 use shortcuts::shortcut_to_string;
 use state::AppState;
@@ -24,6 +25,7 @@ fn main() {
         .manage(AppState::new())
         .manage(NoteIndex::new())
         .manage(EmbeddingIndex::new())
+        .manage(AppleNotesSyncState::new())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -127,6 +129,7 @@ fn main() {
             sticked_notes::close_sticked_note,
             sticked_notes::get_sticked_note,
             windows::hide_window,
+            windows::hide_postit,
             windows::create_sticked_window,
             windows::close_sticked_window,
             windows::pin_capture_note,
@@ -148,9 +151,14 @@ fn main() {
             analytics::get_analytics_device_id,
             apple_notes::list_apple_notes,
             apple_notes::import_apple_note,
+            apple_notes::import_and_link_apple_note,
             apple_notes::export_to_apple_notes,
             apple_notes::check_apple_notes_access,
             apple_notes::open_full_disk_access_settings,
+            apple_notes_sync::apple_notes_sync_status,
+            apple_notes_sync::apple_notes_force_sync,
+            apple_notes_sync::apple_notes_list_linked,
+            apple_notes_sync::apple_notes_unlink,
             windows::show_apple_notes_picker_cmd,
         ])
         .setup(|app| {
@@ -177,6 +185,10 @@ fn main() {
             tray::setup_tray(app)?;
             git_share::start_background_worker(app.handle().clone());
 
+            // Always start Apple Notes sync worker — it checks `enabled` each cycle
+            // so it activates dynamically when the user toggles sync on in settings
+            apple_notes_sync::start_sync_worker(app.handle().clone());
+
             // Start DarwinKit sidecar bridge + background embedding build (if AI enabled)
             if settings::get_settings().map(|s| s.ai_features_enabled).unwrap_or(true) {
                 darwinkit::start_bridge(app.handle().clone());
@@ -197,6 +209,10 @@ fn main() {
             window.on_window_event(move |event| {
                 if let tauri::WindowEvent::Focused(focused) = event {
                     if !focused {
+                        // Don't hide when Apple Notes picker took focus
+                        if w.app_handle().get_webview_window("apple-notes-picker").is_some() {
+                            return;
+                        }
                         let _ = w.emit("postit-blur", ());
                     }
                 }

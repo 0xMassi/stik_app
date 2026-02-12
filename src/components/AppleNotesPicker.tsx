@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { AppleNoteEntry } from "@/types";
+import type { AppleNoteEntry, ImportedNoteResult, StikSettings } from "@/types";
 import { formatRelativeDate } from "@/utils/formatRelativeDate";
 
 export default function AppleNotesPicker() {
@@ -13,16 +13,21 @@ export default function AppleNotesPicker() {
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsPermission, setNeedsPermission] = useState(false);
+  const [targetFolder, setTargetFolder] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  // Load notes on mount
+  // Load notes + resolve target folder on mount
   useEffect(() => {
     const loadNotes = async () => {
       try {
-        const result = await invoke<AppleNoteEntry[]>("list_apple_notes");
+        const [result, settings] = await Promise.all([
+          invoke<AppleNoteEntry[]>("list_apple_notes"),
+          invoke<StikSettings>("get_settings"),
+        ]);
         setNotes(result);
         setFilteredNotes(result);
+        setTargetFolder(settings.default_folder || "");
       } catch (err) {
         const msg = String(err);
         if (msg.startsWith("FULL_DISK_ACCESS_REQUIRED")) {
@@ -58,32 +63,44 @@ export default function AppleNotesPicker() {
     setSelectedIndex(0);
   }, [query, notes]);
 
-  // Import selected note
+  // Import and link selected note (saves + registers link in one step)
   const handleImport = useCallback(
     async (note: AppleNoteEntry) => {
       if (isImporting) return;
 
       setIsImporting(true);
       try {
-        const markdown = await invoke<string>("import_apple_note", {
-          noteId: note.note_id,
-        });
+        const result = await invoke<ImportedNoteResult>(
+          "import_and_link_apple_note",
+          { noteId: note.note_id, folder: targetFolder }
+        );
 
-        // Emit event so PostIt can pick up the imported content
-        const { emit } = await import("@tauri-apps/api/event");
-        await emit("apple-note-imported", {
-          markdown,
-          title: note.title,
-          folder_name: note.folder_name,
+        // Hide the PostIt capture window before opening the viewing window,
+        // because open_note_for_viewing steals focus and the picker's
+        // blur handler will kill our JS context before we can emit events.
+        await invoke("hide_postit");
+
+        // Open the saved note for viewing
+        await invoke("open_note_for_viewing", {
+          content: result.markdown,
+          folder: result.folder,
+          path: result.path,
         });
 
         await getCurrentWindow().close();
       } catch (err) {
-        setError(String(err));
+        const msg = String(err);
+        if (msg.startsWith("ALREADY_LINKED:")) {
+          // Format: "ALREADY_LINKED:folder:path"
+          const parts = msg.split(":");
+          setError(`This note is already linked in ${parts[1]}`);
+        } else {
+          setError(msg);
+        }
         setIsImporting(false);
       }
     },
-    [isImporting]
+    [isImporting, targetFolder]
   );
 
   // Keyboard navigation
@@ -293,7 +310,7 @@ export default function AppleNotesPicker() {
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">
               ↵
             </kbd>{" "}
-            import
+            import &amp; link
           </span>
         </div>
         <span>

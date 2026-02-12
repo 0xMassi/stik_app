@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import ShortcutRecorder from "./ShortcutRecorder";
-import type { GitSyncStatus, ShortcutMapping, StikSettings } from "@/types";
+import type { AppleNotesSyncStatus, GitSyncStatus, LinkedNoteInfo, ShortcutMapping, StikSettings } from "@/types";
 import {
   SYSTEM_SHORTCUT_ACTIONS,
   SYSTEM_SHORTCUT_DEFAULTS,
@@ -93,7 +93,7 @@ export function Dropdown({ value, options, onChange, placeholder }: DropdownProp
   );
 }
 
-export type SettingsTab = "shortcuts" | "folders" | "editor" | "git" | "ai" | "insights" | "privacy";
+export type SettingsTab = "shortcuts" | "folders" | "editor" | "git" | "ai" | "apple-notes" | "insights" | "privacy";
 
 interface SettingsContentProps {
   activeTab: SettingsTab;
@@ -144,6 +144,200 @@ function SettingsToast({ message, onDone }: { message: string; onDone: () => voi
     >
       {message}
     </div>
+  );
+}
+
+function AppleNotesSyncSection({
+  settings,
+  onSettingsChange,
+}: {
+  settings: StikSettings;
+  onSettingsChange: (settings: StikSettings) => void;
+}) {
+  const [syncStatus, setSyncStatus] = useState<AppleNotesSyncStatus | null>(null);
+  const [linkedNotes, setLinkedNotes] = useState<LinkedNoteInfo[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const loadStatus = useCallback(async () => {
+    try {
+      const [status, linked] = await Promise.all([
+        invoke<AppleNotesSyncStatus>("apple_notes_sync_status"),
+        invoke<LinkedNoteInfo[]>("apple_notes_list_linked"),
+      ]);
+      setSyncStatus(status);
+      setLinkedNotes(linked);
+    } catch {
+      // sync module may not be initialized yet
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStatus();
+  }, [loadStatus]);
+
+  const handleForceSync = async () => {
+    setIsSyncing(true);
+    try {
+      await invoke("apple_notes_force_sync");
+      // Wait a moment for the sync to complete, then refresh
+      setTimeout(() => {
+        loadStatus();
+        setIsSyncing(false);
+      }, 2000);
+    } catch {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleUnlink = async (noteId: number) => {
+    try {
+      await invoke("apple_notes_unlink", { appleNoteId: noteId });
+      setLinkedNotes((prev) => prev.filter((n) => n.apple_note_id !== noteId));
+      setToast("Note unlinked");
+    } catch (err) {
+      setToast(String(err));
+    }
+  };
+
+  const updateSyncSettings = (updates: Partial<StikSettings["apple_notes_sync"]>) => {
+    onSettingsChange({
+      ...settings,
+      apple_notes_sync: {
+        ...settings.apple_notes_sync,
+        ...updates,
+      },
+    });
+  };
+
+  return (
+    <>
+      <div className="space-y-4">
+        <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
+          <div>
+            <p className="text-[13px] text-ink font-medium">Keep imported notes in sync</p>
+            <p className="mt-1 text-[12px] text-stone leading-relaxed">
+              Periodically check Apple Notes for changes and update Stik copies.
+              Apple Notes is always the source of truth.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => updateSyncSettings({ enabled: !settings.apple_notes_sync.enabled })}
+            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+              settings.apple_notes_sync.enabled ? "bg-coral" : "bg-line"
+            }`}
+            title="Toggle Apple Notes sync"
+          >
+            <span
+              className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform pointer-events-none ${
+                settings.apple_notes_sync.enabled ? "translate-x-5" : "translate-x-0"
+              }`}
+            />
+          </button>
+        </label>
+
+        <div className="grid grid-cols-[1fr_140px] gap-3 items-end">
+          <div>
+            <p className="text-[12px] text-stone mb-1.5">Check every</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={Math.round(settings.apple_notes_sync.sync_interval_seconds / 60)}
+                onChange={(e) => {
+                  const minutes = Number.parseInt(e.target.value || "5", 10);
+                  const secs = Number.isFinite(minutes) ? Math.max(minutes, 1) * 60 : 300;
+                  updateSyncSettings({ sync_interval_seconds: secs });
+                }}
+                className="w-20 px-3 py-2.5 bg-bg border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:border-coral/50"
+              />
+              <span className="text-[12px] text-stone">minutes</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleForceSync}
+              disabled={isSyncing}
+              className="px-3 py-2.5 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors disabled:opacity-50"
+            >
+              {isSyncing ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="animate-spin">&#x21bb;</span>
+                  <span>Syncing...</span>
+                </span>
+              ) : (
+                "Sync now"
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Status */}
+        <div className="text-[12px] text-stone leading-relaxed space-y-0.5">
+          <p>
+            Linked notes:{" "}
+            <span className="text-ink font-medium">{syncStatus?.linked_count ?? linkedNotes.length}</span>
+          </p>
+          {syncStatus?.last_sync_at && (
+            <p>Last checked: {new Date(syncStatus.last_sync_at).toLocaleString()}</p>
+          )}
+          {syncStatus?.last_error && (
+            <p className="text-coral">Error: {syncStatus.last_error}</p>
+          )}
+        </div>
+
+        {/* Linked notes list */}
+        {linkedNotes.length > 0 && (
+          <div>
+            <p className="text-[12px] text-stone mb-2">Linked notes</p>
+            <div className="space-y-1 max-h-[200px] overflow-y-auto">
+              {linkedNotes.map((note) => {
+                const filename = note.stik_path.split("/").pop() || note.stik_path;
+                return (
+                  <div
+                    key={note.apple_note_id}
+                    className="flex items-center gap-2 px-3 py-2 bg-line/30 rounded-lg border border-line/50"
+                  >
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-coral-light text-coral font-medium">
+                      {note.stik_folder}
+                    </span>
+                    <span className="flex-1 text-[12px] text-ink truncate font-mono">
+                      {filename}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleUnlink(note.apple_note_id)}
+                      className="text-[11px] text-stone hover:text-coral transition-colors"
+                    >
+                      Unlink
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl space-y-1">
+          <p className="text-[12px] font-semibold text-ink">How it works</p>
+          <p className="text-[12px] text-stone leading-relaxed">
+            Use "Import from Apple Notes" in the capture menu to import and link a note.
+            Linked notes auto-update when the Apple Note changes. Stik requires Full Disk
+            Access to read the Apple Notes database.
+          </p>
+        </div>
+
+        {!settings.apple_notes_sync.enabled && linkedNotes.length > 0 && (
+          <p className="text-[12px] text-stone text-center">
+            Enable sync above to keep {linkedNotes.length} linked {linkedNotes.length === 1 ? "note" : "notes"} up to date.
+          </p>
+        )}
+      </div>
+      {toast && <SettingsToast message={toast} onDone={() => setToast(null)} />}
+    </>
   );
 }
 
@@ -950,6 +1144,13 @@ export default function SettingsContent({
               </p>
             )}
           </div>
+        )}
+
+        {activeTab === "apple-notes" && (
+          <AppleNotesSyncSection
+            settings={settings}
+            onSettingsChange={onSettingsChange}
+          />
         )}
 
         {activeTab === "insights" && (

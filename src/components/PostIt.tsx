@@ -237,7 +237,11 @@ export default function PostIt({
   useEffect(() => {
     if (isSticked) return;
 
-    const unlisten = listen<{ markdown: string; title: string; folder_name: string }>(
+    const unlisten = listen<{
+      markdown: string;
+      title?: string;
+      folder_name?: string;
+    }>(
       "apple-note-imported",
       (event) => {
         const md = normalizeMarkdownForState(event.payload.markdown);
@@ -255,6 +259,32 @@ export default function PostIt({
       unlisten.then((fn) => fn());
     };
   }, [isSticked, onContentChange]);
+
+  // Listen for background Apple Notes sync events (viewing mode: refresh if this note changed)
+  useEffect(() => {
+    const unlisten = listen<{ updated: number }>("apple-notes-synced", async (event) => {
+      if (event.payload.updated > 0) {
+        // If viewing a note, refresh its content (it may have been updated)
+        if (isViewing && originalPath) {
+          try {
+            const fresh = await invoke<string>("get_note_content", { path: originalPath });
+            const md = normalizeMarkdownForState(fresh);
+            setContent(md);
+            editorRef.current?.setContent(
+              notesDir ? resolveImagePaths(md, `${notesDir}/${folder}`, convertFileSrc) : md
+            );
+          } catch {
+            // note may have been deleted
+          }
+        }
+        showToast(`Updated ${event.payload.updated} note${event.payload.updated > 1 ? "s" : ""} from Apple Notes`);
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [isViewing, originalPath, notesDir, folder]);
 
   const handleSaveAndClose = useCallback(async () => {
     if (!isMarkdownEffectivelyEmpty(content)) {
@@ -359,11 +389,7 @@ export default function PostIt({
     return () => window.removeEventListener("mousedown", handlePointerDown);
   }, [isCopyMenuOpen]);
 
-  useEffect(() => {
-    if (isMarkdownEffectivelyEmpty(content)) {
-      setIsCopyMenuOpen(false);
-    }
-  }, [content]);
+
 
   const copyViaExecCommand = useCallback((plainText: string, htmlText: string): boolean => {
     const listener = (event: ClipboardEvent) => {
@@ -412,7 +438,12 @@ export default function PostIt({
   }, [copyPlainTextViaTextarea]);
 
   const handleCopy = useCallback(async (mode: CopyMode) => {
-    if (isMarkdownEffectivelyEmpty(content) || isCopying) return;
+    if (isCopying) return;
+    if (isMarkdownEffectivelyEmpty(content)) {
+      setIsCopyMenuOpen(false);
+      showToast("Nothing to copy");
+      return;
+    }
 
     flushSync(() => {
       setIsCopying(true);
@@ -494,12 +525,6 @@ export default function PostIt({
     }
   }, [content, folder, isCopying, copyViaExecCommand, copyPlainText, showToast]);
 
-  const copyButtonLabel =
-    isCopying && copyMode === "markdown"
-      ? "Copying markdown..."
-      : isCopying && copyMode === "rich"
-      ? "Copying rich text..."
-      : "Copy";
   const hasMeaningfulContent = !isMarkdownEffectivelyEmpty(content);
   const hasValidFolder = folder.trim().length > 0;
 
@@ -1040,20 +1065,18 @@ export default function PostIt({
             {!(isCopying && copyMode === "image") && (
             <button
               onClick={() => setIsCopyMenuOpen((open) => !open)}
-              disabled={!hasMeaningfulContent || isCopying}
-              className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${
-                hasMeaningfulContent
-                  ? "hover:bg-coral-light text-coral"
-                  : "text-stone/50 cursor-not-allowed"
+              className={`p-1 rounded-md transition-colors ${
+                isCopyMenuOpen
+                  ? "text-coral bg-coral-light"
+                  : "text-stone hover:bg-line hover:text-ink"
               }`}
-              title="Copy options"
+              title="Actions"
             >
-              {copyButtonLabel}
-              {!isCopying && (
-                <span className={`text-[8px] transition-transform ${isCopyMenuOpen ? "rotate-180" : ""}`}>
-                  ▼
-                </span>
-              )}
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="7" cy="3" r="1.2" fill="currentColor" />
+                <circle cx="7" cy="7" r="1.2" fill="currentColor" />
+                <circle cx="7" cy="11" r="1.2" fill="currentColor" />
+              </svg>
             </button>
             )}
 
@@ -1081,6 +1104,10 @@ export default function PostIt({
                 <button
                   onClick={async () => {
                     setIsCopyMenuOpen(false);
+                    if (!hasMeaningfulContent) {
+                      showToast("Nothing to export");
+                      return;
+                    }
                     try {
                       const html = editorRef.current?.getHTML() || "";
                       const normalized = normalizeHtmlForAppleNotes(html);

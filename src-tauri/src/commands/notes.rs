@@ -288,6 +288,7 @@ pub fn delete_note(
     path: String,
     index: State<'_, NoteIndex>,
     emb_index: State<'_, EmbeddingIndex>,
+    sync_state: State<'_, super::apple_notes_sync::AppleNotesSyncState>,
 ) -> Result<bool, String> {
     let stik_folder = get_stik_folder()?;
     let note_path = PathBuf::from(&path);
@@ -322,6 +323,10 @@ pub fn delete_note(
     let _ = emb_index.save();
     git_share::notify_note_changed(&folder);
 
+    // Remove Apple Notes sync link if this was a linked note
+    sync_state.remove_link_by_path(&path);
+    let _ = sync_state.save();
+
     // Notify any viewing windows so they can close themselves
     let _ = app.emit("note-deleted", &path);
 
@@ -334,6 +339,7 @@ pub fn move_note(
     target_folder: String,
     index: State<'_, NoteIndex>,
     emb_index: State<'_, EmbeddingIndex>,
+    sync_state: State<'_, super::apple_notes_sync::AppleNotesSyncState>,
 ) -> Result<NoteInfo, String> {
     let stik_folder = get_stik_folder()?;
     let source_path = PathBuf::from(&path);
@@ -385,6 +391,10 @@ pub fn move_note(
     let _ = emb_index.save();
     git_share::notify_note_changed(&source_folder);
     git_share::notify_note_changed(&target_folder);
+
+    // Update Apple Notes sync link if this was a linked note
+    sync_state.update_link_path(&path, &new_path_str, &target_folder);
+    let _ = sync_state.save();
 
     // Extract created date from filename
     let created = filename.split('-').take(2).collect::<Vec<_>>().join("-");

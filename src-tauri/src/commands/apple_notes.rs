@@ -1,9 +1,16 @@
+use chrono::Local;
 use flate2::read::GzDecoder;
 use prost::Message;
 use rusqlite::{Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::process::Command;
+use tauri::State;
+
+use super::apple_notes_sync::{AppleNotesSyncState, SyncEntry};
+use super::embeddings::{self, EmbeddingIndex};
+use super::index::NoteIndex;
+use super::notes;
 
 // Generated protobuf types from apple_notes.proto
 mod proto {
@@ -63,6 +70,11 @@ fn open_readonly_connection() -> Result<Connection, String> {
     Ok(conn)
 }
 
+/// Public wrapper for other modules (e.g. apple_notes_sync) that need read-only DB access.
+pub fn open_readonly_connection_pub() -> Result<Connection, String> {
+    open_readonly_connection()
+}
+
 fn cf_timestamp_to_iso(cf_ts: f64) -> String {
     let unix_ts = cf_ts as i64 + CF_EPOCH_OFFSET;
     chrono::DateTime::from_timestamp(unix_ts, 0)
@@ -70,27 +82,55 @@ fn cf_timestamp_to_iso(cf_ts: f64) -> String {
         .unwrap_or_default()
 }
 
+// ── Schema detection ──
+
+/// Detect which ZACCOUNT* column links notes to accounts.
+/// Apple increments this column name across macOS releases:
+///   10.13–10.14 → ZACCOUNT2, 10.15–11 → ZACCOUNT3,
+///   12 → ZACCOUNT4, 13+ → ZACCOUNT7
+fn detect_account_column(conn: &Connection) -> &'static str {
+    let columns: Vec<String> = conn
+        .prepare("PRAGMA table_info(ZICCLOUDSYNCINGOBJECT)")
+        .and_then(|mut stmt| {
+            stmt.query_map([], |row| row.get::<_, String>(1))
+                .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        })
+        .unwrap_or_default();
+
+    // Check newest first so we pick the right one on modern macOS
+    for candidate in &["ZACCOUNT7", "ZACCOUNT4", "ZACCOUNT3", "ZACCOUNT2"] {
+        if columns.iter().any(|c| c == candidate) {
+            return candidate;
+        }
+    }
+    "ZACCOUNT2" // fallback
+}
+
 // ── List notes ──
 
 fn list_apple_notes_inner() -> Result<Vec<AppleNoteEntry>, String> {
     let conn = open_readonly_connection()?;
+    let account_col = detect_account_column(&conn);
+
+    let query = format!(
+        "SELECT
+            n.Z_PK,
+            n.ZTITLE1,
+            COALESCE(f.ZTITLE2, 'Notes') as folder_name,
+            n.ZSNIPPET,
+            n.ZMODIFICATIONDATE1,
+            COALESCE(a.ZNAME, 'Local') as account_name
+        FROM ZICCLOUDSYNCINGOBJECT n
+        LEFT JOIN ZICCLOUDSYNCINGOBJECT f ON n.ZFOLDER = f.Z_PK
+        LEFT JOIN ZICCLOUDSYNCINGOBJECT a ON n.{} = a.Z_PK
+        WHERE n.ZTITLE1 IS NOT NULL
+          AND (n.ZMARKEDFORDELETION IS NULL OR n.ZMARKEDFORDELETION != 1)
+        ORDER BY n.ZMODIFICATIONDATE1 DESC",
+        account_col
+    );
 
     let mut stmt = conn
-        .prepare(
-            "SELECT
-                n.Z_PK,
-                n.ZTITLE1,
-                COALESCE(f.ZTITLE2, 'Notes') as folder_name,
-                n.ZSNIPPET,
-                n.ZMODIFICATIONDATE1,
-                COALESCE(a.ZNAME, 'Local') as account_name
-            FROM ZICCLOUDSYNCINGOBJECT n
-            LEFT JOIN ZICCLOUDSYNCINGOBJECT f ON n.ZFOLDER = f.Z_PK
-            LEFT JOIN ZICCLOUDSYNCINGOBJECT a ON n.ZACCOUNT2 = a.Z_PK
-            WHERE n.ZTITLE1 IS NOT NULL
-              AND (n.ZMARKEDFORDELETION IS NULL OR n.ZMARKEDFORDELETION != 1)
-            ORDER BY n.ZMODIFICATIONDATE1 DESC",
-        )
+        .prepare(&query)
         .map_err(|e| format!("Failed to prepare notes query: {}", e))?;
 
     let rows = stmt
@@ -126,14 +166,14 @@ fn list_apple_notes_inner() -> Result<Vec<AppleNoteEntry>, String> {
 
 // ── Import note: gzip + protobuf pipeline ──
 
-fn import_apple_note_inner(note_id: i64) -> Result<String, String> {
+pub fn import_apple_note_inner(note_id: i64) -> Result<String, String> {
     let conn = open_readonly_connection()?;
 
     let compressed: Vec<u8> = conn
         .query_row(
             "SELECT nd.ZDATA
              FROM ZICCLOUDSYNCINGOBJECT n
-             JOIN ZICCLOUDSYNCINGOBJECT nd ON n.ZNOTEDATA = nd.Z_PK
+             JOIN ZICNOTEDATA nd ON n.ZNOTEDATA = nd.Z_PK
              WHERE n.Z_PK = ?1",
             [note_id],
             |row| row.get(0),
@@ -388,6 +428,26 @@ fn run_apple_notes_export(_note_body: &str) -> Result<String, String> {
     Err("Apple Notes integration is only available on macOS".to_string())
 }
 
+// ── Linked import helpers ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportedNoteResult {
+    pub path: String,
+    pub folder: String,
+    pub filename: String,
+    pub markdown: String,
+}
+
+pub fn get_apple_note_mod_date(conn: &Connection, note_id: i64) -> Result<f64, String> {
+    conn.query_row(
+        "SELECT ZMODIFICATIONDATE1 FROM ZICCLOUDSYNCINGOBJECT WHERE Z_PK = ?1",
+        [note_id],
+        |row| row.get::<_, Option<f64>>(0),
+    )
+    .map(|opt| opt.unwrap_or(0.0))
+    .map_err(|e| format!("Failed to read modification date: {}", e))
+}
+
 // ── Tauri commands ──
 
 #[tauri::command]
@@ -398,6 +458,70 @@ pub fn list_apple_notes() -> Result<Vec<AppleNoteEntry>, String> {
 #[tauri::command]
 pub fn import_apple_note(note_id: i64) -> Result<String, String> {
     import_apple_note_inner(note_id)
+}
+
+#[tauri::command]
+pub fn import_and_link_apple_note(
+    note_id: i64,
+    folder: String,
+    sync_state: State<'_, AppleNotesSyncState>,
+    index: State<'_, NoteIndex>,
+    emb_index: State<'_, EmbeddingIndex>,
+) -> Result<ImportedNoteResult, String> {
+    sync_state.ensure_loaded();
+
+    // Check if already linked — but only if the target file still exists
+    if let Some(existing) = sync_state.get_link_by_id(note_id) {
+        if std::path::Path::new(&existing.stik_path).exists() {
+            return Err(format!(
+                "ALREADY_LINKED:{}:{}",
+                existing.stik_folder, existing.stik_path
+            ));
+        }
+        // Stale link (file deleted) — remove and re-import
+        sync_state.remove_link(note_id);
+    }
+
+    let conn = open_readonly_connection()?;
+    let markdown = import_apple_note_inner(note_id)?;
+    let mod_date = get_apple_note_mod_date(&conn, note_id)?;
+
+    // Save to disk
+    let saved = notes::save_note_inner(folder.clone(), markdown.clone())?;
+    if saved.path.is_empty() {
+        return Err("Note content was empty after import".to_string());
+    }
+
+    // Register link
+    sync_state.add_link(SyncEntry {
+        apple_note_id: note_id,
+        stik_path: saved.path.clone(),
+        stik_folder: saved.folder.clone(),
+        last_synced_mod_date: mod_date,
+        imported_at: Local::now().to_rfc3339(),
+    });
+    sync_state.save()?;
+
+    // Update search index
+    index.add(&saved.path, &saved.folder);
+
+    // Build embedding if AI enabled
+    if super::settings::load_settings_from_file()
+        .map(|s| s.ai_features_enabled)
+        .unwrap_or(false)
+    {
+        if let Some(emb) = embeddings::embed_content(&markdown) {
+            emb_index.add_entry(&saved.path, emb);
+            let _ = emb_index.save();
+        }
+    }
+
+    Ok(ImportedNoteResult {
+        path: saved.path,
+        folder: saved.folder,
+        filename: saved.filename,
+        markdown,
+    })
 }
 
 #[tauri::command]

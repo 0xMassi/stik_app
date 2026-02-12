@@ -166,6 +166,7 @@ pub fn delete_folder(
     name: String,
     index: tauri::State<'_, super::index::NoteIndex>,
     emb_index: tauri::State<'_, super::embeddings::EmbeddingIndex>,
+    sync_state: tauri::State<'_, super::apple_notes_sync::AppleNotesSyncState>,
 ) -> Result<bool, String> {
     validate_name(&name)?;
 
@@ -185,6 +186,10 @@ pub fn delete_folder(
     let prefix = folder_path.to_string_lossy();
     emb_index.remove_by_path_prefix(&prefix);
     let _ = emb_index.save();
+
+    // Remove Apple Notes sync links for all notes in deleted folder
+    sync_state.remove_links_by_path_prefix(&prefix);
+    let _ = sync_state.save();
 
     let fallback = list_visible_folder_names(&stik_folder)?
         .into_iter()
@@ -257,7 +262,7 @@ mod tests {
         is_visible_folder_name, reconcile_settings_after_folder_delete,
         reconcile_settings_after_folder_rename, validate_name,
     };
-    use crate::commands::settings::{GitSharingSettings, ShortcutMapping, StikSettings};
+    use crate::commands::settings::{AppleNotesSyncSettings, GitSharingSettings, ShortcutMapping, StikSettings};
     use std::collections::HashMap;
 
     fn sample_settings() -> StikSettings {
@@ -292,6 +297,8 @@ mod tests {
             system_shortcuts: HashMap::new(),
             analytics_enabled: true,
             analytics_notice_dismissed: false,
+            font_size: 14,
+            apple_notes_sync: AppleNotesSyncSettings::default(),
         }
     }
 

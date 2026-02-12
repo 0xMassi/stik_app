@@ -38,6 +38,7 @@ export interface StikSettings {
   analytics_enabled: boolean;
   analytics_notice_dismissed: boolean;
   font_size: number;
+  apple_notes_sync: AppleNotesSyncSettings;
 }
 
 export interface NoteInfo {
@@ -97,6 +98,33 @@ export interface AppleNoteEntry {
   snippet: string;
   modified_date: string;
   account_name: string;
+}
+
+export interface AppleNotesSyncSettings {
+  enabled: boolean;
+  sync_interval_seconds: number;
+}
+
+export interface AppleNotesSyncStatus {
+  enabled: boolean;
+  linked_count: number;
+  last_sync_at: string | null;
+  last_error: string | null;
+  syncing: boolean;
+}
+
+export interface LinkedNoteInfo {
+  apple_note_id: number;
+  stik_path: string;
+  stik_folder: string;
+  last_synced: string;
+}
+
+export interface ImportedNoteResult {
+  path: string;
+  folder: string;
+  filename: string;
+  markdown: string;
 }
 
 export interface GitSyncStatus {

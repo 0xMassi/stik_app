@@ -146,8 +146,8 @@ pub fn show_settings(app: &AppHandle) {
         WebviewUrl::App("index.html?window=settings".into()),
     )
     .title("Settings")
-    .inner_size(620.0, 700.0)
-    .min_inner_size(520.0, 500.0)
+    .inner_size(740.0, 700.0)
+    .min_inner_size(580.0, 500.0)
     .resizable(true)
     .decorations(false)
     .transparent(true)
@@ -269,6 +269,13 @@ pub fn show_manager(app: &AppHandle) {
 #[tauri::command]
 pub fn hide_window(window: tauri::Window) {
     let _ = window.hide();
+}
+
+#[tauri::command]
+pub fn hide_postit(app: AppHandle) {
+    if let Some(window) = app.get_webview_window("postit") {
+        let _ = window.hide();
+    }
 }
 
 #[tauri::command]

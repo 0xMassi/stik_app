@@ -35,6 +35,22 @@ impl Default for GitSharingSettings {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppleNotesSyncSettings {
+    pub enabled: bool,
+    pub sync_interval_seconds: u64,
+}
+
+impl Default for AppleNotesSyncSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            sync_interval_seconds: 300,
+        }
+    }
+}
+
 fn default_true() -> bool {
     true
 }
@@ -69,6 +85,8 @@ pub struct StikSettings {
     pub analytics_notice_dismissed: bool,
     #[serde(default = "default_font_size")]
     pub font_size: u32,
+    #[serde(default)]
+    pub apple_notes_sync: AppleNotesSyncSettings,
 }
 
 impl Default for StikSettings {
@@ -108,6 +126,7 @@ impl Default for StikSettings {
             analytics_enabled: true,
             analytics_notice_dismissed: false,
             font_size: 14,
+            apple_notes_sync: AppleNotesSyncSettings::default(),
         }
     }
 }

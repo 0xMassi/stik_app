@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { FolderStats, NoteInfo, StikSettings } from "@/types";
+import type { FolderStats, LinkedNoteInfo, NoteInfo, StikSettings } from "@/types";
 import { formatRelativeDate } from "@/utils/formatRelativeDate";
 import { FOLDER_COLORS, FOLDER_COLOR_KEYS, getFolderColor } from "@/utils/folderColors";
 
@@ -53,6 +53,7 @@ export default function ManagerModal() {
   const [newFolderColor, setNewFolderColor] = useState("coral");
   const [folderColors, setFolderColors] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<string | null>(null);
+  const [linkedPaths, setLinkedPaths] = useState<Set<string>>(new Set());
 
   const loadFolderStats = useCallback(async () => {
     try {
@@ -72,6 +73,9 @@ export default function ManagerModal() {
     loadFolderStats();
     invoke<StikSettings>("get_settings")
       .then((s) => setFolderColors(s.folder_colors ?? {}))
+      .catch(() => {});
+    invoke<LinkedNoteInfo[]>("apple_notes_list_linked")
+      .then((links) => setLinkedPaths(new Set(links.map((l) => l.stik_path))))
       .catch(() => {});
   }, []);
 
@@ -679,6 +683,24 @@ export default function ManagerModal() {
                           <span className="flex-1 text-[12px] truncate">
                             {getNotePreview(note)}
                           </span>
+                          {linkedPaths.has(note.path) && (
+                            <span title="Linked to Apple Notes">
+                              <svg
+                                className={`w-3 h-3 shrink-0 ${
+                                  isNoteSelected ? "text-white/60" : "text-coral/50"
+                                }`}
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                              </svg>
+                            </span>
+                          )}
                           <span
                             className={`text-[9px] font-mono ${
                               isNoteSelected ? "text-white/60" : "text-stone/60"
