@@ -23,7 +23,24 @@ interface SlashTemplate {
 export const SLASH_COMMAND_NAMES: readonly string[] = [
   "h1", "h2", "h3", "list", "numbered", "todo",
   "divider", "code", "quote", "table", "link", "image",
+  "meeting", "standup", "journal", "brainstorm", "retro", "proscons", "weekly",
 ];
+
+/** Resolve dynamic placeholders in template text at insertion time. */
+function resolvePlaceholders(text: string): string {
+  const now = new Date();
+  const date = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const time = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const day = now.toLocaleDateString("en-US", { weekday: "long" });
+  const isodate = now.toISOString().slice(0, 10);
+
+  return text
+    .replace(/\{\{datetime\}\}/g, `${date} ${time}`)
+    .replace(/\{\{isodate\}\}/g, isodate)
+    .replace(/\{\{date\}\}/g, date)
+    .replace(/\{\{time\}\}/g, time)
+    .replace(/\{\{day\}\}/g, day);
+}
 
 const SLASH_TEMPLATES: SlashTemplate[] = [
   {
@@ -89,6 +106,80 @@ const SLASH_TEMPLATES: SlashTemplate[] = [
     badge: "Image",
     insert: () => ({ text: "![alt](url)", cursor: [2, 5] }),
   },
+
+  // ── Note templates ──────────────────────────────────────────────
+  {
+    command: "meeting",
+    badge: "Template",
+    insert: () => {
+      const text = resolvePlaceholders(
+        "# Meeting — {{date}}\n\nAttendees: \n\n## Agenda\n\n- \n\n## Notes\n\n- \n\n## Action Items\n\n- [ ] "
+      );
+      const anchor = "Attendees: ";
+      return { text, cursor: text.indexOf(anchor) + anchor.length };
+    },
+  },
+  {
+    command: "standup",
+    badge: "Template",
+    insert: () => {
+      const text = resolvePlaceholders(
+        "# Standup — {{day}}, {{date}}\n\n## Yesterday\n\n- \n\n## Today\n\n- \n\n## Blockers\n\n- "
+      );
+      const anchor = "## Yesterday\n\n- ";
+      return { text, cursor: text.indexOf(anchor) + anchor.length };
+    },
+  },
+  {
+    command: "journal",
+    badge: "Template",
+    insert: () => {
+      const text = resolvePlaceholders(
+        "# {{day}}, {{date}}\n\n## Grateful for\n\n- \n\n## On my mind\n\n- \n\n## Today's wins\n\n- \n\n"
+      );
+      return { text, cursor: text.length };
+    },
+  },
+  {
+    command: "brainstorm",
+    badge: "Template",
+    insert: () => {
+      const text = "# Brainstorm: \n\n## Ideas\n\n- \n\n## Favorites\n\n- \n\n## Next Steps\n\n- ";
+      const anchor = "# Brainstorm: ";
+      return { text, cursor: text.indexOf(anchor) + anchor.length };
+    },
+  },
+  {
+    command: "retro",
+    badge: "Template",
+    insert: () => {
+      const text = resolvePlaceholders(
+        "# Retro — {{date}}\n\n## Went well\n\n- \n\n## Could improve\n\n- \n\n## Action items\n\n- [ ] "
+      );
+      const anchor = "## Went well\n\n- ";
+      return { text, cursor: text.indexOf(anchor) + anchor.length };
+    },
+  },
+  {
+    command: "proscons",
+    badge: "Template",
+    insert: () => {
+      const text = "# Decision: \n\n## Pros\n\n- \n\n## Cons\n\n- \n\n## Verdict\n\n";
+      const anchor = "# Decision: ";
+      return { text, cursor: text.indexOf(anchor) + anchor.length };
+    },
+  },
+  {
+    command: "weekly",
+    badge: "Template",
+    insert: () => {
+      const text = resolvePlaceholders(
+        "# Week of {{date}}\n\n## Goals\n\n- [ ] \n- [ ] \n- [ ] \n\n## Progress\n\n- \n\n## Reflections\n\n"
+      );
+      const anchor = "## Goals\n\n- [ ] ";
+      return { text, cursor: text.indexOf(anchor) + anchor.length };
+    },
+  },
 ];
 
 /**
@@ -117,6 +208,7 @@ export function slashCommandCompletionSource(
   const options: Completion[] = filtered.map((t) => ({
     label: `/${t.command}`,
     detail: t.badge,
+    boost: t.badge === "Template" ? -1 : 0,
     apply: (view: EditorView, _completion: Completion, from: number, to: number) => {
       const { text, cursor } = t.insert();
       const changes = { from, to, insert: text };

@@ -488,6 +488,12 @@ fn suggest_folder_inner(
         return Ok(None);
     }
 
+    // Early exit: need at least 2 actual on-disk folders to have anything to suggest
+    let disk_folders = super::folders::list_folders()?;
+    if disk_folders.len() < 2 {
+        return Ok(None);
+    }
+
     embeddings.ensure_loaded();
 
     // Detect language first — needed for language-filtered centroids
