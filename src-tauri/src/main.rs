@@ -10,8 +10,8 @@ mod windows;
 use commands::embeddings::EmbeddingIndex;
 use commands::index::NoteIndex;
 use commands::{
-    ai_assistant, analytics, darwinkit, embeddings, folders, git_share, index, notes, on_this_day,
-    settings, share, stats, sticked_notes,
+    ai_assistant, analytics, apple_notes, darwinkit, embeddings, folders,
+    git_share, index, notes, on_this_day, settings, share, stats, sticked_notes,
 };
 use shortcuts::shortcut_to_string;
 use state::AppState;
@@ -128,6 +128,7 @@ fn main() {
             sticked_notes::close_sticked_note,
             sticked_notes::get_sticked_note,
             windows::hide_window,
+            windows::hide_postit,
             windows::create_sticked_window,
             windows::close_sticked_window,
             windows::pin_capture_note,
@@ -153,6 +154,11 @@ fn main() {
             ai_assistant::ai_summarize,
             ai_assistant::ai_organize,
             ai_assistant::ai_generate,
+            apple_notes::list_apple_notes,
+            apple_notes::import_apple_note,
+            apple_notes::check_apple_notes_access,
+            apple_notes::open_full_disk_access_settings,
+            windows::show_apple_notes_picker_cmd,
         ])
         .setup(|app| {
             // Build in-memory note index for fast search/list
@@ -198,6 +204,10 @@ fn main() {
             window.on_window_event(move |event| {
                 if let tauri::WindowEvent::Focused(focused) = event {
                     if !focused {
+                        // Don't hide when Apple Notes picker took focus
+                        if w.app_handle().get_webview_window("apple-notes-picker").is_some() {
+                            return;
+                        }
                         let _ = w.emit("postit-blur", ());
                     }
                 }

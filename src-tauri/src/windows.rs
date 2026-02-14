@@ -146,8 +146,8 @@ pub fn show_settings(app: &AppHandle) {
         WebviewUrl::App("index.html?window=settings".into()),
     )
     .title("Settings")
-    .inner_size(620.0, 700.0)
-    .min_inner_size(520.0, 500.0)
+    .inner_size(740.0, 700.0)
+    .min_inner_size(580.0, 500.0)
     .resizable(true)
     .decorations(false)
     .transparent(true)
@@ -269,6 +269,13 @@ pub fn show_manager(app: &AppHandle) {
 #[tauri::command]
 pub fn hide_window(window: tauri::Window) {
     let _ = window.hide();
+}
+
+#[tauri::command]
+pub fn hide_postit(app: AppHandle) {
+    if let Some(window) = app.get_webview_window("postit") {
+        let _ = window.hide();
+    }
 }
 
 #[tauri::command]
@@ -505,6 +512,48 @@ pub async fn reopen_last_note(app: AppHandle) -> Result<bool, String> {
 
     let content = notes::get_note_content_inner(&path)?;
     open_note_for_viewing(app, content, folder, path).await
+}
+
+pub fn show_apple_notes_picker(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("apple-notes-picker") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+
+    let window = WebviewWindowBuilder::new(
+        app,
+        "apple-notes-picker",
+        WebviewUrl::App("index.html?window=apple-notes-picker".into()),
+    )
+    .title("Import from Apple Notes")
+    .inner_size(550.0, 500.0)
+    .resizable(false)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .center()
+    .build();
+
+    if let Ok(win) = window {
+        let app_handle = app.clone();
+        win.on_window_event(move |event| {
+            if let tauri::WindowEvent::Focused(focused) = event {
+                if !focused {
+                    if let Some(w) = app_handle.get_webview_window("apple-notes-picker") {
+                        let _ = w.close();
+                    }
+                }
+            }
+        });
+    }
+}
+
+#[tauri::command]
+pub fn show_apple_notes_picker_cmd(app: AppHandle) -> Result<bool, String> {
+    show_apple_notes_picker(&app);
+    Ok(true)
 }
 
 pub fn restore_sticked_notes(app: &AppHandle) {

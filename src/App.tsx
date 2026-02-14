@@ -7,12 +7,13 @@ import SettingsModal from "./components/SettingsModal";
 import SearchModal from "./components/SearchModal";
 import ManagerModal from "./components/ManagerModal";
 import AnalyticsNotice from "./components/AnalyticsNotice";
+import AppleNotesPicker from "./components/AppleNotesPicker";
 import { useTheme } from "./hooks/useTheme";
 import type { StickedNote, StikSettings } from "@/types";
 import { isMarkdownEffectivelyEmpty } from "@/utils/normalizeMarkdownForCopy";
 import { resolveCaptureFolder } from "@/utils/folderSelection";
 
-type WindowType = "postit" | "sticked" | "settings" | "search" | "manager";
+type WindowType = "postit" | "sticked" | "settings" | "search" | "manager" | "apple-notes-picker";
 
 function getWindowInfo(): { type: WindowType; id?: string; viewing?: boolean } {
   const params = new URLSearchParams(window.location.search);
@@ -36,6 +37,10 @@ function getWindowInfo(): { type: WindowType; id?: string; viewing?: boolean } {
 
   if (windowType === "manager") {
     return { type: "manager" };
+  }
+
+  if (windowType === "apple-notes-picker") {
+    return { type: "apple-notes-picker" };
   }
 
   return { type: "postit" };
@@ -284,6 +289,11 @@ export default function App() {
   // Render manager if this is that window type
   if (windowInfo.type === "manager") {
     return <ManagerModal />;
+  }
+
+  // Render Apple Notes picker if this is that window type
+  if (windowInfo.type === "apple-notes-picker") {
+    return <AppleNotesPicker />;
   }
 
   // Render sticked note if this is a sticked window

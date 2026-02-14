@@ -310,25 +310,27 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   );
 
   const tabBar = (
-    <div className="flex items-center gap-0.5 px-4 pb-3">
-      {TABS.map((tab) => {
-        const isActive = activeTab === tab.id;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium rounded-lg transition-colors ${
-              isActive
-                ? "text-coral bg-coral/10"
-                : "text-stone hover:text-ink hover:bg-line/50"
-            }`}
-          >
-            {tab.icon}
-            <span>{tab.label}</span>
-          </button>
-        );
-      })}
+    <div className="overflow-x-auto scrollbar-hide px-4 pb-3">
+      <div className="flex items-center gap-0.5 w-max">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium rounded-lg transition-colors whitespace-nowrap ${
+                isActive
+                  ? "text-coral bg-coral/10"
+                  : "text-stone hover:text-ink hover:bg-line/50"
+              }`}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 
@@ -390,7 +392,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
-      <div className="bg-bg rounded-[14px] w-[min(96vw,620px)] max-h-[85vh] flex flex-col shadow-stik overflow-hidden border border-line/50">
+      <div className="bg-bg rounded-[14px] w-[min(96vw,740px)] max-h-[85vh] flex flex-col shadow-stik overflow-hidden border border-line/50">
         <div className="border-b border-line bg-line/20">
           <div className="flex items-center px-5 pt-4 pb-3">
             <div className="flex items-center gap-2.5">

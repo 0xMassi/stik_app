@@ -21,6 +21,7 @@ import { resolveCaptureFolder } from "@/utils/folderSelection";
 import { getFolderColor } from "@/utils/folderColors";
 import { formatShortcutDisplay } from "./ShortcutRecorder";
 
+
 interface PostItProps {
   folder: string;
   onSave: (content: string, preferredFolder?: string) => Promise<void>;
@@ -230,6 +231,33 @@ export default function PostIt({
     };
   }, [isSticked, notesDir, onFolderChange]);
 
+  // Listen for Apple Notes import events (capture mode only)
+  useEffect(() => {
+    if (isSticked) return;
+
+    const unlisten = listen<{
+      markdown: string;
+      title?: string;
+      folder_name?: string;
+    }>(
+      "apple-note-imported",
+      (event) => {
+        const md = event.payload.markdown;
+        setContent(md);
+        onContentChange?.(md);
+        setTimeout(() => {
+          editorRef.current?.setContent(md);
+          editorRef.current?.focus();
+          editorRef.current?.moveToEnd?.();
+        }, 100);
+      }
+    );
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [isSticked, onContentChange]);
+
   const handleSaveAndClose = useCallback(async () => {
     if (!isMarkdownEffectivelyEmpty(content)) {
       try {
@@ -333,12 +361,6 @@ export default function PostIt({
     return () => window.removeEventListener("mousedown", handlePointerDown);
   }, [isCopyMenuOpen]);
 
-  useEffect(() => {
-    if (isMarkdownEffectivelyEmpty(content)) {
-      setIsCopyMenuOpen(false);
-    }
-  }, [content]);
-
   const copyPlainTextViaTextarea = useCallback((plainText: string): boolean => {
     const textarea = document.createElement("textarea");
     textarea.value = plainText;
@@ -367,7 +389,12 @@ export default function PostIt({
   }, [copyPlainTextViaTextarea]);
 
   const handleCopy = useCallback(async (mode: CopyMode) => {
-    if (isMarkdownEffectivelyEmpty(content) || isCopying) return;
+    if (isCopying) return;
+    if (isMarkdownEffectivelyEmpty(content)) {
+      setIsCopyMenuOpen(false);
+      showToast("Nothing to copy");
+      return;
+    }
 
     flushSync(() => {
       setIsCopying(true);
@@ -434,12 +461,6 @@ export default function PostIt({
     }
   }, [content, folder, isCopying, copyPlainText, showToast]);
 
-  const copyButtonLabel =
-    isCopying && copyMode === "markdown"
-      ? "Copying markdown..."
-      : isCopying && copyMode === "rich"
-      ? "Copying rich text..."
-      : "Copy";
   const hasMeaningfulContent = !isMarkdownEffectivelyEmpty(content);
   const hasValidFolder = folder.trim().length > 0;
 
@@ -1000,20 +1021,18 @@ export default function PostIt({
             {!(isCopying && copyMode === "image") && (
             <button
               onClick={() => setIsCopyMenuOpen((open) => !open)}
-              disabled={!hasMeaningfulContent || isCopying}
-              className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${
-                hasMeaningfulContent
-                  ? "hover:bg-coral-light text-coral"
-                  : "text-stone/50 cursor-not-allowed"
+              className={`p-1 rounded-md transition-colors ${
+                isCopyMenuOpen
+                  ? "text-coral bg-coral-light"
+                  : "text-stone hover:bg-line hover:text-ink"
               }`}
-              title="Copy options"
+              title="Actions"
             >
-              {copyButtonLabel}
-              {!isCopying && (
-                <span className={`text-[8px] transition-transform ${isCopyMenuOpen ? "rotate-180" : ""}`}>
-                  ▼
-                </span>
-              )}
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="7" cy="3" r="1.2" fill="currentColor" />
+                <circle cx="7" cy="7" r="1.2" fill="currentColor" />
+                <circle cx="7" cy="11" r="1.2" fill="currentColor" />
+              </svg>
             </button>
             )}
 
@@ -1036,6 +1055,20 @@ export default function PostIt({
                   className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors"
                 >
                   Copy as image
+                </button>
+                <div className="border-t border-line" />
+                <button
+                  onClick={async () => {
+                    setIsCopyMenuOpen(false);
+                    try {
+                      await invoke("show_apple_notes_picker_cmd");
+                    } catch (err) {
+                      console.error("Failed to open Apple Notes picker:", err);
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors"
+                >
+                  Import from Apple Notes
                 </button>
               </div>
             )}

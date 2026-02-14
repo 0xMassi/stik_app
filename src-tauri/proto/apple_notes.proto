@@ -1,0 +1,58 @@
+syntax = "proto2";
+package apple.notes;
+
+message NoteStoreProto {
+  optional Document document = 2;
+}
+
+message Document {
+  optional Note note = 3;
+}
+
+message Note {
+  optional string note_text = 2;
+  repeated AttributeRun attribute_run = 5;
+}
+
+message AttributeRun {
+  optional int32 length = 1;
+  optional ParagraphStyle paragraph_style = 2;
+  optional Font font = 3;
+  optional int32 font_weight = 5;
+  optional int32 underlined = 6;
+  optional int32 strikethrough = 7;
+  optional int32 superscript = 8;
+  optional string link = 9;
+  optional Color color = 10;
+  optional AttachmentInfo attachment_info = 12;
+}
+
+message ParagraphStyle {
+  optional int32 style_type = 1;
+  optional int32 alignment = 2;
+  optional int32 indent_amount = 4;
+  optional Checklist checklist = 5;
+}
+
+message Checklist {
+  optional bytes uuid = 1;
+  optional int32 done = 2;
+}
+
+message Font {
+  optional string font_name = 1;
+  optional float point_size = 2;
+  optional int32 font_hints = 3;
+}
+
+message Color {
+  optional float red = 1;
+  optional float green = 2;
+  optional float blue = 3;
+  optional float alpha = 4;
+}
+
+message AttachmentInfo {
+  optional string attachment_identifier = 1;
+  optional string type_uti = 2;
+}
