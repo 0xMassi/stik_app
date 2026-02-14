@@ -9,8 +9,8 @@ export const SYSTEM_SHORTCUT_DEFAULTS: Record<SystemAction, string> = {
 };
 
 export const SYSTEM_SHORTCUT_LABELS: Record<SystemAction, string> = {
-  search: "Search",
-  manager: "Manager",
+  search: "Command Palette",
+  manager: "Command Palette (alt)",
   settings: "Settings",
   last_note: "Last note",
 };

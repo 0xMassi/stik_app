@@ -1272,22 +1272,13 @@ export default function PostIt({
               </button>
               )}
               <button
-                onClick={() => invoke("open_search")}
+                onClick={() => invoke("open_command_palette")}
                 className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
-                title={`Search (${formatShortcutDisplay(systemShortcuts.search || "Cmd+Shift+P")})`}
+                title={`Command Palette (${formatShortcutDisplay(systemShortcuts.search || "Cmd+Shift+P")})`}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8"/>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-              </button>
-              <button
-                onClick={() => invoke("open_manager")}
-                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
-                title={`Manage Notes (${formatShortcutDisplay(systemShortcuts.manager || "Cmd+Shift+M")})`}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
                 </svg>
               </button>
               <button

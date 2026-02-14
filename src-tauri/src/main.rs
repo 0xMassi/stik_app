@@ -17,7 +17,7 @@ use shortcuts::shortcut_to_string;
 use state::AppState;
 use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{Code, Modifiers, ShortcutState};
-use windows::{show_manager, show_postit_with_folder, show_search, show_settings};
+use windows::{show_command_palette, show_postit_with_folder, show_settings};
 
 fn main() {
     tauri::Builder::default()
@@ -45,11 +45,11 @@ fn main() {
                         if let Some(action) = action {
                             match action.as_str() {
                                 "search" => {
-                                    show_search(app);
+                                    show_command_palette(app);
                                     return;
                                 }
                                 "manager" => {
-                                    show_manager(app);
+                                    show_command_palette(app);
                                     return;
                                 }
                                 "settings" => {
@@ -134,6 +134,7 @@ fn main() {
             windows::pin_capture_note,
             windows::open_note_for_viewing,
             windows::get_viewing_note_content,
+            windows::open_command_palette,
             windows::open_search,
             windows::open_manager,
             windows::open_settings,
