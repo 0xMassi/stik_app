@@ -34,6 +34,8 @@ import {
   wikiLinkClickHandler,
   wikiLinkCompletionSource,
 } from "@/extensions/cm-wiki-link";
+import { slashCommandCompletionSource } from "@/extensions/cm-slash-commands";
+import { blockWidgetPlugin } from "@/extensions/cm-block-widgets";
 import {
   createVimExtension,
   setupVimModeListener,
@@ -338,8 +340,8 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         },
       });
 
-      // Wiki-link autocomplete
-      const wikiLinkAutocomplete = autocompletion({
+      // Autocomplete: wiki-links ([[) + slash commands (/)
+      const combinedAutocomplete = autocompletion({
         override: [
           wikiLinkCompletionSource(async (query: string) => {
             try {
@@ -353,6 +355,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
               return [];
             }
           }),
+          slashCommandCompletionSource,
         ],
         activateOnTyping: true,
       });
@@ -419,10 +422,11 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         linkClickHandler,
         wikiLinkDecorations(),
         wikiClickHandler,
-        wikiLinkAutocomplete,
+        combinedAutocomplete,
         taskCheckboxPlugin,
         taskCheckboxHandler,
         hideMarkersPlugin,
+        blockWidgetPlugin,
         autoCloseMarkup,
         formatStateListener,
         docChangeListener,

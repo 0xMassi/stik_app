@@ -8,6 +8,7 @@ import FolderPicker from "./FolderPicker";
 import AiMenu from "./AiMenu";
 import type { StickedNote, StikSettings } from "@/types";
 import type { VimMode } from "@/extensions/cm-vim";
+import { SLASH_COMMAND_NAMES } from "@/extensions/cm-slash-commands";
 import {
   isMarkdownEffectivelyEmpty,
   normalizeMarkdownForCopy,
@@ -620,16 +621,20 @@ export default function PostIt({
     setContent(stored);
     onContentChange?.(stored);
 
-    // Check for folder picker trigger (only in capture mode)
+    // Check for folder picker trigger (only in capture mode).
+    // Slash commands (handled by editor autocomplete) take priority —
+    // only show folder picker when the typed prefix doesn't match any command.
     if (!isSticked) {
-      if (newContent === "/") {
-        setShowPicker(true);
-      } else if (
+      if (
         newContent.startsWith("/") &&
         !newContent.includes(" ") &&
         newContent.length < 15
       ) {
-        setShowPicker(true);
+        const query = newContent.slice(1).toLowerCase();
+        const matchesSlashCmd =
+          query === "" ||
+          SLASH_COMMAND_NAMES.some((cmd) => cmd.startsWith(query));
+        setShowPicker(!matchesSlashCmd);
       } else {
         setShowPicker(false);
       }

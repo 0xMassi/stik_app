@@ -113,6 +113,93 @@ export const stikEditorTheme = EditorView.theme({
   ".cm-searchMatch.cm-searchMatch-selected": {
     backgroundColor: "rgba(232, 112, 95, 0.35)",
   },
+  // Horizontal rule widget
+  ".cm-hr-widget": {
+    border: "none",
+    borderTop: "1px solid rgb(var(--color-line))",
+    margin: "8px 0",
+  },
+  // Table widget
+  ".cm-table-widget": {
+    position: "relative",
+    border: "1px solid rgb(var(--color-line))",
+    borderRadius: "6px",
+    overflow: "hidden",
+    margin: "4px 0",
+  },
+  ".cm-table-widget table": {
+    borderCollapse: "collapse",
+    width: "100%",
+    fontSize: "inherit",
+  },
+  ".cm-table-widget th": {
+    backgroundColor: "rgba(var(--color-ink), 0.05)",
+    fontWeight: "600",
+    textAlign: "left",
+    padding: "6px 12px",
+    borderBottom: "1px solid rgb(var(--color-line))",
+  },
+  ".cm-table-widget td": {
+    padding: "6px 12px",
+    borderBottom: "1px solid rgb(var(--color-line))",
+  },
+  ".cm-table-widget tr:last-child td": {
+    borderBottom: "none",
+  },
+  ".cm-table-widget th + th, .cm-table-widget td + td": {
+    borderLeft: "1px solid rgb(var(--color-line))",
+  },
+  // Editable cell focus
+  ".cm-table-cell:focus": {
+    outline: "none",
+    boxShadow: "inset 0 0 0 2px rgb(var(--color-coral))",
+  },
+  // Add row button — inside widget, full-width bar at bottom
+  ".cm-table-add-row": {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    height: "28px",
+    border: "none",
+    borderTop: "1px solid rgb(var(--color-line))",
+    backgroundColor: "transparent",
+    color: "rgb(var(--color-stone))",
+    fontSize: "14px",
+    cursor: "pointer",
+    opacity: "0",
+    transition: "opacity 0.15s, background-color 0.15s",
+  },
+  ".cm-table-widget:hover .cm-table-add-row": {
+    opacity: "1",
+  },
+  ".cm-table-add-row:hover": {
+    backgroundColor: "rgba(232, 112, 95, 0.1)",
+    color: "rgb(var(--color-coral))",
+  },
+  // Add column button — vertical bar on right edge
+  ".cm-table-add-col": {
+    position: "absolute",
+    right: "0",
+    top: "0",
+    bottom: "0",
+    width: "28px",
+    border: "none",
+    borderLeft: "1px solid rgb(var(--color-line))",
+    backgroundColor: "transparent",
+    color: "rgb(var(--color-stone))",
+    fontSize: "14px",
+    cursor: "pointer",
+    opacity: "0",
+    transition: "opacity 0.15s, background-color 0.15s",
+  },
+  ".cm-table-widget:hover .cm-table-add-col": {
+    opacity: "1",
+  },
+  ".cm-table-add-col:hover": {
+    backgroundColor: "rgba(232, 112, 95, 0.1)",
+    color: "rgb(var(--color-coral))",
+  },
 });
 
 /** Syntax highlighting for markdown source mode.
