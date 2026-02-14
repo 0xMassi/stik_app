@@ -1,4 +1,4 @@
-use crate::commands::{notes, sticked_notes};
+use crate::commands::{notes, settings, sticked_notes};
 use crate::state::{AppState, LastSavedNote};
 use sticked_notes::StickedNote;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -417,9 +417,14 @@ pub async fn open_note_for_viewing(
 
     let url = format!("index.html?window=sticked&id={}&viewing=true", id);
 
+    let (width, height) = settings::load_settings_from_file()
+        .ok()
+        .and_then(|s| s.viewing_window_size)
+        .unwrap_or((450.0, 320.0));
+
     let window = WebviewWindowBuilder::new(&app, &window_label, WebviewUrl::App(url.into()))
         .title("View Note")
-        .inner_size(450.0, 320.0)
+        .inner_size(width, height)
         .min_inner_size(320.0, 200.0)
         .max_inner_size(800.0, 600.0)
         .resizable(true)

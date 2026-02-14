@@ -1,3 +1,4 @@
+pub mod ai_assistant;
 pub mod analytics;
 pub mod darwinkit;
 pub mod embeddings;

@@ -10,8 +10,8 @@ mod windows;
 use commands::embeddings::EmbeddingIndex;
 use commands::index::NoteIndex;
 use commands::{
-    analytics, darwinkit, embeddings, folders, git_share, index, notes, on_this_day, settings,
-    share, stats, sticked_notes,
+    ai_assistant, analytics, darwinkit, embeddings, folders, git_share, index, notes, on_this_day,
+    settings, share, stats, sticked_notes,
 };
 use shortcuts::shortcut_to_string;
 use state::AppState;
@@ -118,6 +118,7 @@ fn main() {
             git_share::git_open_remote_url,
             on_this_day::check_on_this_day_now,
             share::build_clipboard_payload,
+            share::copy_rich_text_to_clipboard,
             share::copy_note_image_to_clipboard,
             share::copy_visible_note_image_to_clipboard,
             stats::get_capture_streak,
@@ -141,11 +142,17 @@ fn main() {
             shortcuts::pause_shortcuts,
             shortcuts::resume_shortcuts,
             settings::set_dock_icon_visibility,
+            settings::save_viewing_window_size,
             darwinkit::darwinkit_status,
             darwinkit::darwinkit_call,
             darwinkit::semantic_search,
             darwinkit::suggest_folder,
             analytics::get_analytics_device_id,
+            ai_assistant::ai_available,
+            ai_assistant::ai_rephrase,
+            ai_assistant::ai_summarize,
+            ai_assistant::ai_organize,
+            ai_assistant::ai_generate,
         ])
         .setup(|app| {
             // Build in-memory note index for fast search/list

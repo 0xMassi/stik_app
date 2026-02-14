@@ -5,18 +5,18 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import Editor, { type EditorRef } from "./Editor";
 import FolderPicker from "./FolderPicker";
+import AiMenu from "./AiMenu";
 import type { StickedNote, StikSettings } from "@/types";
-import type { VimMode } from "@/extensions/vim-mode";
+import type { VimMode } from "@/extensions/cm-vim";
 import {
   isMarkdownEffectivelyEmpty,
   normalizeMarkdownForCopy,
-  normalizeMarkdownForState,
 } from "@/utils/normalizeMarkdownForCopy";
+import { markdownToPlainText } from "@/utils/markdownToHtml";
 import {
   resolveImagePaths,
   unresolveImagePaths,
 } from "@/utils/imageMarkdownPaths";
-import { normalizeImageLinksForMarkdown } from "@/utils/isImageUrl";
 import { resolveCaptureFolder } from "@/utils/folderSelection";
 import { getFolderColor } from "@/utils/folderColors";
 import { formatShortcutDisplay } from "./ShortcutRecorder";
@@ -87,7 +87,7 @@ export default function PostIt({
   isViewing = false,
   originalPath,
 }: PostItProps) {
-  const [content, setContent] = useState(() => normalizeMarkdownForState(initialContent));
+  const [content, setContent] = useState(initialContent || "");
   const [showPicker, setShowPicker] = useState(false);
   const [suggestedFolder, setSuggestedFolder] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -137,9 +137,7 @@ export default function PostIt({
   }, [folder, onFolderChange]);
 
   // Resolve image paths for display when loading content with existing images
-  const baseInitialContent = normalizeMarkdownForState(
-    normalizeImageLinksForMarkdown(initialContent)
-  );
+  const baseInitialContent = initialContent || "";
   const resolvedInitialContent = notesDir && baseInitialContent
     ? resolveImagePaths(baseInitialContent, `${notesDir}/${folder}`, convertFileSrc)
     : baseInitialContent;
@@ -213,12 +211,12 @@ export default function PostIt({
     if (isSticked) return; // Only main capture window listens
 
     const unlisten = listen<{ content: string; folder: string }>("transfer-content", (event) => {
-      const normalizedContent = normalizeMarkdownForState(event.payload.content);
-      setContent(normalizedContent);
+      const transferredContent = event.payload.content || "";
+      setContent(transferredContent);
       onFolderChange(event.payload.folder);
       const resolvedContent = notesDir
-        ? resolveImagePaths(normalizedContent, `${notesDir}/${event.payload.folder}`, convertFileSrc)
-        : normalizedContent;
+        ? resolveImagePaths(transferredContent, `${notesDir}/${event.payload.folder}`, convertFileSrc)
+        : transferredContent;
       // Focus editor and move cursor to end
       setTimeout(() => {
         editorRef.current?.setContent(resolvedContent);
@@ -341,25 +339,6 @@ export default function PostIt({
     }
   }, [content]);
 
-  const copyViaExecCommand = useCallback((plainText: string, htmlText: string): boolean => {
-    const listener = (event: ClipboardEvent) => {
-      if (!event.clipboardData) {
-        return;
-      }
-
-      event.preventDefault();
-      event.clipboardData.setData("text/plain", plainText);
-      event.clipboardData.setData("text/html", htmlText);
-    };
-
-    document.addEventListener("copy", listener);
-    try {
-      return document.execCommand("copy");
-    } finally {
-      document.removeEventListener("copy", listener);
-    }
-  }, []);
-
   const copyPlainTextViaTextarea = useCallback((plainText: string): boolean => {
     const textarea = document.createElement("textarea");
     textarea.value = plainText;
@@ -399,32 +378,17 @@ export default function PostIt({
     try {
       if (mode === "rich") {
         const htmlText = editorRef.current?.getHTML()?.trim() || fallbackHtmlFromPlainText(content);
-        const plainText =
-          editorRef.current?.getText()?.trim() || normalizeMarkdownForCopy(content);
+        const plainText = markdownToPlainText(
+          editorRef.current?.getText()?.trim() || content,
+        );
 
-        // Keep the first attempt synchronous to preserve user gesture permissions.
-        let copied = copyViaExecCommand(plainText, htmlText);
-
-        if (!copied && navigator.clipboard && typeof navigator.clipboard.write === "function" && typeof ClipboardItem !== "undefined") {
-          try {
-            const item = new ClipboardItem({
-              "text/plain": new Blob([plainText], { type: "text/plain" }),
-              "text/html": new Blob([htmlText], { type: "text/html" }),
-            });
-            await navigator.clipboard.write([item]);
-            copied = true;
-          } catch (error) {
-            console.warn("Clipboard.write failed, falling back to plain text copy:", error);
-          }
-        }
-
-        if (!copied) {
-          copied = await copyPlainText(plainText);
-        }
-
-        if (!copied) {
-          throw new Error("Clipboard copy failed in all available methods");
-        }
+        // Write directly to native macOS clipboard via Rust/arboard.
+        // Browser clipboard APIs (ClipboardItem, execCommand) are unreliable
+        // in Tauri's WKWebView — HTML MIME type often doesn't land.
+        await invoke("copy_rich_text_to_clipboard", {
+          html: htmlText,
+          plainText,
+        });
 
         showToast("Copied as rich text");
       } else if (mode === "markdown") {
@@ -468,7 +432,7 @@ export default function PostIt({
       setIsCopying(false);
       setCopyMode(null);
     }
-  }, [content, folder, isCopying, copyViaExecCommand, copyPlainText, showToast]);
+  }, [content, folder, isCopying, copyPlainText, showToast]);
 
   const copyButtonLabel =
     isCopying && copyMode === "markdown"
@@ -631,8 +595,7 @@ export default function PostIt({
   }, [stickedId, currentStickedId, isPinned]);
 
   const handleContentChange = useCallback((newContent: string) => {
-    const withImageLinksPromoted = normalizeImageLinksForMarkdown(newContent);
-    const stored = normalizeMarkdownForState(unresolveImagePaths(withImageLinksPromoted));
+    const stored = unresolveImagePaths(newContent);
     setContent(stored);
     onContentChange?.(stored);
 
@@ -740,39 +703,60 @@ export default function PostIt({
     }
   }, []);
 
-  // Save position when dragging ends (for sticked notes that are pinned)
+  // Save position/size when dragging or resizing (pinned sticked notes + viewing windows)
   useEffect(() => {
-    if (!isSticked || !currentStickedId || !isPinned) return;
+    const isPinnedSticked = isSticked && currentStickedId && isPinned;
+    if (!isPinnedSticked && !isViewing) return;
 
-    const savePosition = async () => {
+    const savePositionAndSize = async () => {
       try {
-        const window = getCurrentWindow();
-        const position = await window.outerPosition();
-        const size = await window.outerSize();
-        await invoke("update_sticked_note", {
-          id: currentStickedId,
-          content: null,
-          folder: null,
-          position: [position.x, position.y],
-          size: [size.width, size.height],
-        });
+        const win = getCurrentWindow();
+        const scaleFactor = await win.scaleFactor();
+        const position = await win.outerPosition();
+        const size = await win.innerSize();
+        const logicalWidth = size.width / scaleFactor;
+        const logicalHeight = size.height / scaleFactor;
+
+        if (isPinnedSticked) {
+          await invoke("update_sticked_note", {
+            id: currentStickedId,
+            content: null,
+            folder: null,
+            position: [position.x, position.y],
+            size: [logicalWidth, logicalHeight],
+          });
+        } else if (isViewing) {
+          await invoke("save_viewing_window_size", {
+            width: logicalWidth,
+            height: logicalHeight,
+          });
+        }
       } catch (error) {
-        console.error("Failed to save position:", error);
+        console.error("Failed to save position/size:", error);
       }
     };
 
     let timeout: ReturnType<typeof setTimeout>;
-    const handleMove = () => {
+    const debounced = () => {
       clearTimeout(timeout);
-      timeout = setTimeout(savePosition, 500);
+      timeout = setTimeout(savePositionAndSize, 500);
     };
 
-    window.addEventListener("mouseup", handleMove);
+    // mouseup catches drag-move events
+    window.addEventListener("mouseup", debounced);
+
+    // onResized catches native OS resize handle events
+    let unlistenResize: (() => void) | undefined;
+    getCurrentWindow().onResized(() => {
+      debounced();
+    }).then((fn) => { unlistenResize = fn; });
+
     return () => {
-      window.removeEventListener("mouseup", handleMove);
+      window.removeEventListener("mouseup", debounced);
+      unlistenResize?.();
       clearTimeout(timeout);
     };
-  }, [isSticked, currentStickedId, isPinned]);
+  }, [isSticked, currentStickedId, isPinned, isViewing]);
 
   // Autosave content for pinned sticked notes (prevents content loss on quit)
   useEffect(() => {
@@ -1056,6 +1040,17 @@ export default function PostIt({
               </div>
             )}
           </div>
+
+          <AiMenu
+            content={content}
+            folder={folder}
+            onApplyText={(text) => {
+              editorRef.current?.setContent(text);
+              setContent(text);
+            }}
+            onShowToast={(msg) => setToast(msg)}
+            disabled={!hasMeaningfulContent}
+          />
 
           {isSticked && isPinned ? (
             <div className="flex items-center gap-1.5">

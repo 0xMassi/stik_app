@@ -29,6 +29,15 @@ pub fn build_clipboard_payload(markdown: String) -> Result<ClipboardPayload, Str
 }
 
 #[tauri::command]
+pub fn copy_rich_text_to_clipboard(html: String, plain_text: String) -> Result<(), String> {
+    let mut clipboard =
+        arboard::Clipboard::new().map_err(|e| format!("Clipboard unavailable: {e}"))?;
+    clipboard
+        .set_html(&html, Some(&plain_text))
+        .map_err(|e| format!("Failed to write rich text to clipboard: {e}"))
+}
+
+#[tauri::command]
 pub fn copy_note_image_to_clipboard(png_base64: String) -> Result<(), String> {
     let decoded_bytes = base64::engine::general_purpose::STANDARD
         .decode(&png_base64)
