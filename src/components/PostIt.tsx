@@ -8,7 +8,7 @@ import FolderPicker from "./FolderPicker";
 import AiMenu from "./AiMenu";
 import type { StickedNote, StikSettings } from "@/types";
 import type { VimMode } from "@/extensions/cm-vim";
-import { SLASH_COMMAND_NAMES } from "@/extensions/cm-slash-commands";
+import { getSlashCommandNames, setCustomTemplates } from "@/extensions/cm-slash-commands";
 import {
   isMarkdownEffectivelyEmpty,
   normalizeMarkdownForCopy,
@@ -165,6 +165,7 @@ export default function PostIt({
         setFontSize(s.font_size ?? 14);
         setFolderColors(s.folder_colors ?? {});
         setSystemShortcuts(s.system_shortcuts ?? {});
+        setCustomTemplates(s.custom_templates ?? []);
       })
       .catch(() => {});
     invoke<string[]>("list_folders")
@@ -176,6 +177,7 @@ export default function PostIt({
       setFontSize(event.payload.font_size ?? 14);
       setFolderColors(event.payload.folder_colors ?? {});
       setSystemShortcuts(event.payload.system_shortcuts ?? {});
+      setCustomTemplates(event.payload.custom_templates ?? []);
     });
     return () => { unlisten.then((fn) => fn()); };
   }, []);
@@ -637,7 +639,7 @@ export default function PostIt({
         const query = newContent.slice(1).toLowerCase();
         const matchesSlashCmd =
           query === "" ||
-          SLASH_COMMAND_NAMES.some((cmd) => cmd.startsWith(query));
+          getSlashCommandNames().some((cmd) => cmd.startsWith(query));
         const matchesFolder =
           query.length > 0 &&
           foldersRef.current.some((f) => f.toLowerCase().includes(query));

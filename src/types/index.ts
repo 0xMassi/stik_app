@@ -24,6 +24,11 @@ export interface GitSharingSettings {
   sync_interval_seconds: number;
 }
 
+export interface CustomTemplate {
+  name: string;
+  body: string;
+}
+
 export interface StikSettings {
   shortcut_mappings: ShortcutMapping[];
   default_folder: string;
@@ -38,6 +43,7 @@ export interface StikSettings {
   analytics_enabled: boolean;
   analytics_notice_dismissed: boolean;
   font_size: number;
+  custom_templates: CustomTemplate[];
 }
 
 export interface NoteInfo {

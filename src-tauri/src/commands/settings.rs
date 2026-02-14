@@ -11,6 +11,12 @@ pub struct ShortcutMapping {
     pub enabled: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CustomTemplate {
+    pub name: String,
+    pub body: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GitSharingSettings {
@@ -71,6 +77,8 @@ pub struct StikSettings {
     pub font_size: u32,
     #[serde(default)]
     pub viewing_window_size: Option<(f64, f64)>,
+    #[serde(default)]
+    pub custom_templates: Vec<CustomTemplate>,
 }
 
 impl Default for StikSettings {
@@ -111,6 +119,7 @@ impl Default for StikSettings {
             analytics_notice_dismissed: false,
             font_size: 14,
             viewing_window_size: None,
+            custom_templates: vec![],
         }
     }
 }
