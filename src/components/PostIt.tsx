@@ -115,6 +115,7 @@ export default function PostIt({
   const commandInputRef = useRef<HTMLInputElement | null>(null);
   const editorRef = useRef<EditorRef | null>(null);
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
+  const foldersRef = useRef<string[]>([]);
 
   // Resolve the notes directory path for image path resolution
   const [notesDir, setNotesDir] = useState<string | null>(null);
@@ -156,7 +157,7 @@ export default function PostIt({
     }
   }, [baseInitialContent]);
 
-  // Fetch vim mode + folder colors on mount + listen for changes
+  // Fetch vim mode + folder colors + folder list on mount + listen for changes
   useEffect(() => {
     invoke<StikSettings>("get_settings")
       .then((s) => {
@@ -165,6 +166,9 @@ export default function PostIt({
         setFolderColors(s.folder_colors ?? {});
         setSystemShortcuts(s.system_shortcuts ?? {});
       })
+      .catch(() => {});
+    invoke<string[]>("list_folders")
+      .then((f) => { foldersRef.current = f; })
       .catch(() => {});
 
     const unlisten = listen<StikSettings>("settings-changed", (event) => {
@@ -622,8 +626,8 @@ export default function PostIt({
     onContentChange?.(stored);
 
     // Check for folder picker trigger (only in capture mode).
-    // Slash commands (handled by editor autocomplete) take priority —
-    // only show folder picker when the typed prefix doesn't match any command.
+    // Slash commands take priority. Only show folder picker when the typed
+    // prefix doesn't match any command AND matches at least one folder name.
     if (!isSticked) {
       if (
         newContent.startsWith("/") &&
@@ -634,7 +638,10 @@ export default function PostIt({
         const matchesSlashCmd =
           query === "" ||
           SLASH_COMMAND_NAMES.some((cmd) => cmd.startsWith(query));
-        setShowPicker(!matchesSlashCmd);
+        const matchesFolder =
+          query.length > 0 &&
+          foldersRef.current.some((f) => f.toLowerCase().includes(query));
+        setShowPicker(!matchesSlashCmd && matchesFolder);
       } else {
         setShowPicker(false);
       }
