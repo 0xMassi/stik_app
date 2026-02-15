@@ -17,7 +17,7 @@ import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/vi
 import { defaultKeymap, history, historyKeymap, indentWithTab, insertNewline } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
-import { autocompletion } from "@codemirror/autocomplete";
+import { autocompletion, closeCompletion, completionStatus } from "@codemirror/autocomplete";
 import { search, searchKeymap } from "@codemirror/search";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
@@ -131,6 +131,17 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       if (!containerRef.current) return;
 
       const formatKeybindings = keymap.of([
+        {
+          key: "Escape",
+          run: (view) => {
+            const status = completionStatus(view.state);
+            if (status === "active" || status === "pending") {
+              closeCompletion(view);
+              return true;
+            }
+            return false;
+          },
+        },
         // Smart Enter: if cursor is right before closing markers (** ~~ ==),
         // close the formatting first, then newline. Markdown inline syntax
         // can't span lines, so this prevents broken formatting.

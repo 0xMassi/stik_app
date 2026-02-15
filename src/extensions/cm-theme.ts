@@ -32,9 +32,13 @@ export const stikEditorTheme = EditorView.theme({
   "&.cm-focused": {
     outline: "none",
   },
-  ".cm-cursor, .cm-dropCursor": {
+  ".cm-cursor": {
     borderLeftColor: "rgb(var(--color-coral))",
     borderLeftWidth: "2px",
+  },
+  ".cm-dropCursor": {
+    borderLeftColor: "rgba(var(--color-coral), 0.35)",
+    borderLeftWidth: "1px",
   },
   ".cm-selectionBackground": {
     backgroundColor: "rgba(232, 112, 95, 0.15) !important",

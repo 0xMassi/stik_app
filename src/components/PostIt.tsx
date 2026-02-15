@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { flushSync } from "react-dom";
+import { completionStatus, startCompletion, closeCompletion } from "@codemirror/autocomplete";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
@@ -13,6 +14,8 @@ import {
   isMarkdownEffectivelyEmpty,
   normalizeMarkdownForCopy,
 } from "@/utils/normalizeMarkdownForCopy";
+import { shouldSaveOnGlobalEscape } from "@/utils/captureEscape";
+import { isCaptureSlashQuery } from "@/utils/slashQuery";
 import { markdownToPlainText } from "@/utils/markdownToHtml";
 import {
   resolveImagePaths,
@@ -116,6 +119,11 @@ export default function PostIt({
   const editorRef = useRef<EditorRef | null>(null);
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
   const foldersRef = useRef<string[]>([]);
+  const contentRef = useRef(content);
+
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
 
   // Resolve the notes directory path for image path resolution
   const [notesDir, setNotesDir] = useState<string | null>(null);
@@ -204,15 +212,56 @@ export default function PostIt({
     setTimeout(() => editorRef.current?.focus(), 100);
   }, [folder, vimEnabled]);
 
-  // Re-focus editor when window regains focus (e.g. after hide/show cycle)
+  const clearTransientSlashQuery = useCallback(() => {
+    if (isSticked) return;
+    const current = contentRef.current;
+    if (!isCaptureSlashQuery(current)) return;
+    // Close any open autocomplete first — resets CM6's "explicitly closed"
+    // state so activateOnTyping works correctly on the next session.
+    const view = editorRef.current?.getView();
+    if (view) closeCompletion(view);
+    flushSync(() => {
+      setShowPicker(false);
+      setContent("");
+      onContentChange?.("");
+    });
+    editorRef.current?.clear();
+    contentRef.current = "";
+  }, [isSticked, onContentChange]);
+
+  // New shortcut-triggered capture session: reset transient slash/folder-picker state.
+  useEffect(() => {
+    if (isSticked) return;
+
+    const unlisten = listen("shortcut-triggered", () => {
+      flushSync(() => {
+        setShowPicker(false);
+      });
+      clearTransientSlashQuery();
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [isSticked, clearTransientSlashQuery]);
+
+  // Re-focus editor when window regains focus (e.g. after hide/show cycle).
+  // NOTE: Do NOT call clearTransientSlashQuery here — the OS focus event
+  // delivery is nondeterministic and can arrive AFTER the user has already
+  // typed into the new session, clearing their input. Stale slash queries
+  // are cleaned up by the shortcut-triggered handler (new session) and by
+  // the blur-auto-hide logic in App.tsx (empty/slash content → hide window).
   useEffect(() => {
     const handleWindowFocus = () => {
-      if (showPicker || isSaving || vimMode === "command") return;
+      if (isSaving || vimMode === "command") return;
+      // Capture mode: reset folder picker on focus to clear stale state
+      // from sessions hidden by blur-auto-hide (which skips handleSaveAndClose).
+      if (!isSticked) setShowPicker(false);
       setTimeout(() => editorRef.current?.focus(), 50);
     };
     window.addEventListener("focus", handleWindowFocus);
     return () => window.removeEventListener("focus", handleWindowFocus);
-  }, [showPicker, isSaving, vimMode]);
+  }, [isSaving, vimMode, isSticked]);
 
   // Listen for content transfer from unpinned sticked notes (only in capture mode)
   useEffect(() => {
@@ -237,6 +286,11 @@ export default function PostIt({
       unlisten.then((fn) => fn());
     };
   }, [isSticked, notesDir, onFolderChange]);
+
+  // Slash-query state is cleared on new sessions via shortcut-triggered
+  // and on save via handleSaveAndClose. No separate postit-blur listener
+  // needed — it caused a race where a delayed blur during reopen would
+  // clear content the user just typed.
 
   // Listen for Apple Notes import events (capture mode only)
   useEffect(() => {
@@ -266,28 +320,40 @@ export default function PostIt({
   }, [isSticked, onContentChange]);
 
   const handleSaveAndClose = useCallback(async () => {
-    if (!isMarkdownEffectivelyEmpty(content)) {
-      try {
-        const targetFolder = await resolveFolderForAction();
-
-        setIsSaving(true);
-        await onSave(content, targetFolder);
-        setTimeout(async () => {
-          setIsSaving(false);
-          setContent("");
-          onContentChange?.("");
-          editorRef.current?.clear();
-          await onClose();
-        }, 600);
-      } catch (error) {
-        console.error("Failed to save note:", error);
-        setIsSaving(false);
-        setToast("Failed to save note");
-      }
-    } else {
+    // Read from ref — React state in the closure can be one render behind
+    // if the user typed and pressed Escape before React flushed.
+    const currentContent = contentRef.current;
+    const isTransientSlashQuery = !isSticked && isCaptureSlashQuery(currentContent);
+    if (isTransientSlashQuery || isMarkdownEffectivelyEmpty(currentContent)) {
+      flushSync(() => {
+        setContent("");
+        onContentChange?.("");
+        setShowPicker(false);
+      });
+      editorRef.current?.clear();
+      contentRef.current = "";
       await onClose();
+      return;
     }
-  }, [content, onSave, onClose, onContentChange, resolveFolderForAction]);
+
+    try {
+      const targetFolder = await resolveFolderForAction();
+
+      setIsSaving(true);
+      await onSave(currentContent, targetFolder);
+      setTimeout(async () => {
+        setIsSaving(false);
+        setContent("");
+        onContentChange?.("");
+        editorRef.current?.clear();
+        await onClose();
+      }, 600);
+    } catch (error) {
+      console.error("Failed to save note:", error);
+      setIsSaving(false);
+      setToast("Failed to save note");
+    }
+  }, [isSticked, onSave, onClose, onContentChange, resolveFolderForAction]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -303,7 +369,13 @@ export default function PostIt({
       if (e.key !== "Escape") return;
 
       const target = e.target as Element | null;
-      if (target?.closest(".link-popover")) return;
+      const inLinkPopover = Boolean(target?.closest(".link-popover"));
+      if (inLinkPopover) return;
+
+      const view = editorRef.current?.getView();
+      const autocompleteStatus = view ? completionStatus(view.state) : null;
+      const isAutocompleteOpen =
+        autocompleteStatus === "active" || autocompleteStatus === "pending";
 
       if (isCopyMenuOpen) {
         e.preventDefault();
@@ -311,7 +383,25 @@ export default function PostIt({
         return;
       }
 
-      if (!showPicker && !isSaving && !isPinning) {
+      // Dismiss folder picker on Escape — next Escape will save/close.
+      // Guard: only when CM6 hasn't already handled this Escape (autocomplete close).
+      if (showPicker && !e.defaultPrevented && !isAutocompleteOpen) {
+        setShowPicker(false);
+        editorRef.current?.focus();
+        return;
+      }
+
+      if (
+        shouldSaveOnGlobalEscape({
+          defaultPrevented: e.defaultPrevented,
+          inLinkPopover,
+          isCopyMenuOpen,
+          isAutocompleteOpen,
+          showPicker,
+          isSaving,
+          isPinning,
+        })
+      ) {
         if (isSticked && !isPinned) {
           handleSaveAndCloseSticked();
         } else {
@@ -625,17 +715,14 @@ export default function PostIt({
   const handleContentChange = useCallback((newContent: string) => {
     const stored = unresolveImagePaths(newContent);
     setContent(stored);
+    contentRef.current = stored;
     onContentChange?.(stored);
 
     // Check for folder picker trigger (only in capture mode).
     // Slash commands take priority. Only show folder picker when the typed
     // prefix doesn't match any command AND matches at least one folder name.
     if (!isSticked) {
-      if (
-        newContent.startsWith("/") &&
-        !newContent.includes(" ") &&
-        newContent.length < 15
-      ) {
+      if (isCaptureSlashQuery(newContent)) {
         const query = newContent.slice(1).toLowerCase();
         const matchesSlashCmd =
           query === "" ||
@@ -644,6 +731,24 @@ export default function PostIt({
           query.length > 0 &&
           foldersRef.current.some((f) => f.toLowerCase().includes(query));
         setShowPicker(!matchesSlashCmd && matchesFolder);
+
+        // Ensure CM6 autocomplete activates for slash commands.
+        // After a close+clear+reopen cycle, CM6's "explicitly closed" state
+        // can prevent activateOnTyping from reopening the panel. Explicitly
+        // triggering startCompletion is deterministic and harmless if the
+        // panel is already open.
+        if (matchesSlashCmd) {
+          setTimeout(() => {
+            const view = editorRef.current?.getView();
+            if (!view || completionStatus(view.state)) return;
+            // Guard: verify editor still has slash content (another handler
+            // could have cleared it between scheduling and execution).
+            const doc = view.state.doc.toString();
+            if (doc.startsWith("/")) {
+              startCompletion(view);
+            }
+          }, 0);
+        }
       } else {
         setShowPicker(false);
       }
@@ -717,16 +822,16 @@ export default function PostIt({
 
       // Only clear content if it was a slash-command query (e.g. "/Work"),
       // not real note content the user typed before clicking the folder badge
-      const isSlashQuery =
-        content.startsWith("/") && !content.includes(" ") && content.length < 15;
+      const isSlashQuery = isCaptureSlashQuery(content);
       if (isSlashQuery) {
         setContent("");
+        onContentChange?.("");
         editorRef.current?.clear();
       }
 
       editorRef.current?.focus();
     },
-    [onFolderChange, content]
+    [onFolderChange, content, onContentChange]
   );
 
   const startDrag = useCallback(async (e: React.MouseEvent) => {

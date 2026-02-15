@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { check } from "@tauri-apps/plugin-updater";
 import PostIt from "./components/PostIt";
 import SettingsModal from "./components/SettingsModal";
@@ -10,6 +11,7 @@ import AppleNotesPicker from "./components/AppleNotesPicker";
 import { useTheme } from "./hooks/useTheme";
 import type { StickedNote, StikSettings } from "@/types";
 import { isMarkdownEffectivelyEmpty } from "@/utils/normalizeMarkdownForCopy";
+import { shouldHideCaptureOnBlur } from "@/utils/blurAutoHide";
 import { resolveCaptureFolder } from "@/utils/folderSelection";
 
 type WindowType = "postit" | "sticked" | "settings" | "command-palette" | "apple-notes-picker";
@@ -47,6 +49,9 @@ export default function App() {
   const [stickedNote, setStickedNote] = useState<StickedNote | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const contentRef = useRef("");
+  const blurIgnoreUntilRef = useRef(0);
+  const pendingBlurHideRef = useRef<number | null>(null);
+  const skipNextBlurHideRef = useRef(false);
   const [showAnalyticsNotice, setShowAnalyticsNotice] = useState(false);
   const windowInfo = getWindowInfo();
 
@@ -138,13 +143,54 @@ export default function App() {
   useEffect(() => {
     if (windowInfo.type !== "postit") return;
 
-    const unlisten = listen("postit-blur", async () => {
-      if (!contentRef.current.trim()) {
-        await invoke("hide_window");
+    const handleFocus = () => {
+      // Use Math.max so a focus event arriving after shortcut-triggered
+      // never shortens the 500ms grace period down to 300ms.
+      blurIgnoreUntilRef.current = Math.max(
+        blurIgnoreUntilRef.current,
+        Date.now() + 300,
+      );
+      if (pendingBlurHideRef.current !== null) {
+        window.clearTimeout(pendingBlurHideRef.current);
+        pendingBlurHideRef.current = null;
       }
+    };
+    window.addEventListener("focus", handleFocus);
+
+    const unlisten = listen("postit-blur", async () => {
+      if (skipNextBlurHideRef.current) {
+        skipNextBlurHideRef.current = false;
+        return;
+      }
+      if (pendingBlurHideRef.current !== null) {
+        window.clearTimeout(pendingBlurHideRef.current);
+      }
+      pendingBlurHideRef.current = window.setTimeout(async () => {
+        pendingBlurHideRef.current = null;
+
+        const nowMs = Date.now();
+        if (nowMs < blurIgnoreUntilRef.current) return;
+
+        const isFocused = await getCurrentWindow().isFocused().catch(() => false);
+        if (isFocused) return;
+
+        const shouldHide = shouldHideCaptureOnBlur({
+          content: contentRef.current,
+          nowMs,
+          ignoreUntilMs: blurIgnoreUntilRef.current,
+        });
+        if (shouldHide) {
+          await invoke("hide_window");
+        }
+      }, 140);
     });
 
     return () => {
+      window.removeEventListener("focus", handleFocus);
+      if (pendingBlurHideRef.current !== null) {
+        window.clearTimeout(pendingBlurHideRef.current);
+        pendingBlurHideRef.current = null;
+      }
       unlisten.then((fn) => fn());
     };
   }, [windowInfo.type]);
@@ -154,6 +200,8 @@ export default function App() {
     if (windowInfo.type !== "postit") return;
 
     const unlisten = listen<string>("shortcut-triggered", (event) => {
+      skipNextBlurHideRef.current = true;
+      blurIgnoreUntilRef.current = Date.now() + 500;
       void resolveFolder(event.payload)
         .then(setCurrentFolder)
         .catch(() => {});
@@ -198,9 +246,12 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [windowInfo.type]);
 
-  // Silent auto-update on startup (postit window only)
+  // Silent auto-update on startup (postit window only, production builds)
   useEffect(() => {
     if (windowInfo.type !== "postit") return;
+    // Skip in dev: downloadAndInstall() extracts to a temp dir and spawns
+    // a second Stik process (the released build), causing version conflicts.
+    if (window.location.port) return;
 
     check()
       .then(async (update) => {
