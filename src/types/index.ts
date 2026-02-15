@@ -44,6 +44,7 @@ export interface StikSettings {
   analytics_notice_dismissed: boolean;
   font_size: number;
   custom_templates: CustomTemplate[];
+  sidebar_position: string;
 }
 
 export interface NoteInfo {

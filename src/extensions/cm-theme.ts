@@ -200,6 +200,43 @@ export const stikEditorTheme = EditorView.theme({
     backgroundColor: "rgba(232, 112, 95, 0.1)",
     color: "rgb(var(--color-coral))",
   },
+  // Table context menu (right-click)
+  ".cm-table-context-menu": {
+    position: "absolute",
+    zIndex: "1000",
+    backgroundColor: "rgb(var(--color-bg))",
+    border: "1px solid rgb(var(--color-line))",
+    borderRadius: "8px",
+    padding: "4px 0",
+    boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)",
+    minWidth: "160px",
+  },
+  ".cm-table-menu-item": {
+    display: "block",
+    width: "100%",
+    padding: "6px 12px",
+    border: "none",
+    backgroundColor: "transparent",
+    color: "rgb(var(--color-ink))",
+    fontSize: "12px",
+    textAlign: "left",
+    cursor: "pointer",
+    lineHeight: "1.4",
+  },
+  ".cm-table-menu-item:hover": {
+    backgroundColor: "rgba(232, 112, 95, 0.1)",
+    color: "rgb(var(--color-coral))",
+  },
+  ".cm-table-menu-disabled": {
+    opacity: "0.35",
+    cursor: "default",
+    pointerEvents: "none",
+  },
+  ".cm-table-menu-sep": {
+    height: "1px",
+    backgroundColor: "rgb(var(--color-line))",
+    margin: "4px 0",
+  },
 });
 
 /** Syntax highlighting for markdown source mode.

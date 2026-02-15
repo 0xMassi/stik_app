@@ -79,6 +79,8 @@ pub struct StikSettings {
     pub viewing_window_size: Option<(f64, f64)>,
     #[serde(default)]
     pub custom_templates: Vec<CustomTemplate>,
+    #[serde(default)]
+    pub sidebar_position: String,
 }
 
 impl Default for StikSettings {
@@ -120,6 +122,7 @@ impl Default for StikSettings {
             font_size: 14,
             viewing_window_size: None,
             custom_templates: vec![],
+            sidebar_position: String::new(),
         }
     }
 }

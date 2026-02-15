@@ -21,6 +21,7 @@ interface FolderSidebarProps {
   onSetRenameValue: (value: string) => void;
   onRenameFolder: () => void;
   onCancelRename: () => void;
+  position?: "left" | "right";
 }
 
 export default function FolderSidebar({
@@ -43,9 +44,12 @@ export default function FolderSidebar({
   onSetRenameValue,
   onRenameFolder,
   onCancelRename,
+  position = "left",
 }: FolderSidebarProps) {
+  const borderClass = position === "left" ? "border-r" : "border-l";
+
   return (
-    <div className="w-[200px] shrink-0 border-r border-line flex flex-col overflow-hidden">
+    <div className={`w-[200px] shrink-0 ${borderClass} border-line flex flex-col overflow-hidden`}>
       <div className="flex-1 overflow-y-auto py-1">
         {/* All Folders */}
         <button

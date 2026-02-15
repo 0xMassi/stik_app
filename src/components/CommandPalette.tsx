@@ -83,6 +83,10 @@ export default function CommandPalette() {
   const [showMoveModal, setShowMoveModal] = useState<SearchResult | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  // Sidebar position (persisted in settings)
+  const [sidebarPosition, setSidebarPosition] = useState<"left" | "right">("left");
+  const settingsRef = useRef<StikSettings | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -121,11 +125,14 @@ export default function CommandPalette() {
   useEffect(() => {
     loadFolderStats();
     invoke<string[]>("list_folders").then(setFolders);
-    invoke<StikSettings>("get_settings").then((s) =>
-      setFolderColors(s.folder_colors ?? {})
-    );
+    invoke<StikSettings>("get_settings").then((s) => {
+      settingsRef.current = s;
+      setFolderColors(s.folder_colors ?? {});
+      if (s.sidebar_position === "right") setSidebarPosition("right");
+    });
 
     const unlisten = listen<StikSettings>("settings-changed", (event) => {
+      settingsRef.current = event.payload;
       setFolderColors(event.payload.folder_colors ?? {});
     });
     return () => {
@@ -300,9 +307,10 @@ export default function CommandPalette() {
         if (selectedFolder === folderName) {
           setSelectedFolder(null);
         }
-        // Notify capture window
-        const settings = await invoke<StikSettings>("get_settings");
-        await emit("settings-changed", settings);
+        // Re-fetch settings (folder deletion may affect them) and notify other windows
+        const fresh = await invoke<StikSettings>("get_settings");
+        settingsRef.current = fresh;
+        await emit("settings-changed", fresh);
         await refreshAfterChange();
       } catch (error) {
         console.error("Failed to delete folder:", error);
@@ -331,6 +339,15 @@ export default function CommandPalette() {
     [refreshAfterChange]
   );
 
+  // Save settings helper — keeps settingsRef in sync and notifies other windows
+  const saveAndEmitSettings = useCallback(async (patch: Partial<StikSettings>) => {
+    const current = settingsRef.current ?? await invoke<StikSettings>("get_settings");
+    const updated = { ...current, ...patch };
+    settingsRef.current = updated;
+    await invoke("save_settings", { settings: updated });
+    await emit("settings-changed", updated);
+  }, []);
+
   // Create folder
   const handleCreateFolder = useCallback(async () => {
     if (!newFolderName.trim()) {
@@ -341,12 +358,9 @@ export default function CommandPalette() {
     try {
       await invoke("create_folder", { name: newFolderName.trim() });
       if (newFolderColor !== "coral") {
-        const updated = { ...folderColors, [newFolderName.trim()]: newFolderColor };
-        setFolderColors(updated);
-        const settings = await invoke<StikSettings>("get_settings");
-        settings.folder_colors = updated;
-        await invoke("save_settings", { settings });
-        await emit("settings-changed", settings);
+        const updatedColors = { ...folderColors, [newFolderName.trim()]: newFolderColor };
+        setFolderColors(updatedColors);
+        await saveAndEmitSettings({ folder_colors: updatedColors });
       }
       setIsCreatingFolder(false);
       setNewFolderName("");
@@ -357,7 +371,7 @@ export default function CommandPalette() {
       console.error("Failed to create folder:", error);
       setToast(String(error));
     }
-  }, [newFolderName, newFolderColor, folderColors, refreshAfterChange]);
+  }, [newFolderName, newFolderColor, folderColors, refreshAfterChange, saveAndEmitSettings]);
 
   // Rename folder
   const handleRenameFolder = useCallback(async () => {
@@ -394,18 +408,15 @@ export default function CommandPalette() {
   const handleSetFolderColor = useCallback(
     async (colorKey: string) => {
       if (!renamingFolderName) return;
-      const updated = { ...folderColors, [renamingFolderName]: colorKey };
-      setFolderColors(updated);
+      const updatedColors = { ...folderColors, [renamingFolderName]: colorKey };
+      setFolderColors(updatedColors);
       try {
-        const settings = await invoke<StikSettings>("get_settings");
-        settings.folder_colors = updated;
-        await invoke("save_settings", { settings });
-        await emit("settings-changed", settings);
+        await saveAndEmitSettings({ folder_colors: updatedColors });
       } catch (error) {
         console.error("Failed to save folder color:", error);
       }
     },
-    [renamingFolderName, folderColors]
+    [renamingFolderName, folderColors, saveAndEmitSettings]
   );
 
   // Create new note in selected folder
@@ -613,6 +624,16 @@ export default function CommandPalette() {
     closePalette,
   ]);
 
+  const toggleSidebarPosition = useCallback(async () => {
+    const next = sidebarPosition === "left" ? "right" : "left";
+    setSidebarPosition(next);
+    try {
+      await saveAndEmitSettings({ sidebar_position: next });
+    } catch (err) {
+      console.error("Failed to save sidebar position:", err);
+    }
+  }, [sidebarPosition, saveAndEmitSettings]);
+
   const startDrag = useCallback(async (e: React.MouseEvent) => {
     if (
       (e.target as HTMLElement).closest("input") ||
@@ -670,7 +691,7 @@ export default function CommandPalette() {
       </div>
 
       {/* Two-pane layout */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
+      <div className={`flex-1 flex overflow-hidden min-h-0 ${sidebarPosition === "right" ? "flex-row-reverse" : ""}`}>
         <FolderSidebar
           folderStats={folderStats}
           totalNoteCount={totalNoteCount}
@@ -708,6 +729,7 @@ export default function CommandPalette() {
             setRenameValue("");
             setRenamingFolderName(null);
           }}
+          position={sidebarPosition}
         />
 
         <NoteList
@@ -773,10 +795,25 @@ export default function CommandPalette() {
             new
           </span>
         </div>
-        <span>
-          <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">esc</kbd>{" "}
-          close
-        </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={toggleSidebarPosition}
+            className="flex items-center gap-1 hover:text-coral transition-colors"
+            title={`Move sidebar to ${sidebarPosition === "left" ? "right" : "left"}`}
+          >
+            <svg
+              className={`w-3 h-3 ${sidebarPosition === "right" ? "scale-x-[-1]" : ""}`}
+              viewBox="0 0 16 16"
+              fill="currentColor"
+            >
+              <path d="M0 2a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H2a2 2 0 01-2-2V2zm5.5 0H2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h3.5V2zM7 2v12h7a.5.5 0 00.5-.5v-11A.5.5 0 0014 2H7z" />
+            </svg>
+          </button>
+          <span>
+            <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">esc</kbd>{" "}
+            close
+          </span>
+        </div>
       </div>
 
       {/* Overlays */}

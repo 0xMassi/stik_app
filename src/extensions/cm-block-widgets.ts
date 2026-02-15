@@ -69,6 +69,169 @@ function getEditorView(el: HTMLElement): EditorView | null {
   return EditorView.findFromDOM(editor) ?? null;
 }
 
+// ── Table context menu ──────────────────────────────────────────────
+
+function dismissTableMenu() {
+  document.querySelector(".cm-table-context-menu")?.remove();
+}
+
+interface MenuAction {
+  label: string;
+  disabled?: boolean;
+  separator?: boolean;
+  action: () => void;
+}
+
+function showTableContextMenu(
+  x: number,
+  y: number,
+  wrapper: HTMLElement,
+  cell: HTMLElement,
+  view: EditorView,
+) {
+  dismissTableMenu();
+
+  const range = getTableRange(wrapper);
+  if (!range) return;
+
+  const table = wrapper.querySelector("table")!;
+  const isHeader = cell.closest("thead") !== null;
+  const tr = cell.closest("tr")!;
+
+  // Column index
+  const cellsInRow = Array.from(tr.querySelectorAll("th, td"));
+  const colIdx = cellsInRow.indexOf(cell);
+
+  // Row index (body only)
+  const bodyRows = Array.from(table.querySelectorAll("tbody tr"));
+  const rowIdx = bodyRows.indexOf(tr);
+
+  const { headers, rows } = readTableFromDOM(wrapper);
+
+  const rebuild = (h: string[], r: string[][]) => {
+    const md = buildTableMarkdown(h, r);
+    view.dispatch({ changes: { from: range.from, to: range.to, insert: md } });
+  };
+
+  const actions: MenuAction[] = [
+    {
+      label: "Insert row above",
+      disabled: isHeader,
+      action: () => {
+        rows.splice(Math.max(rowIdx, 0), 0, headers.map(() => ""));
+        rebuild(headers, rows);
+      },
+    },
+    {
+      label: "Insert row below",
+      action: () => {
+        const insertAt = isHeader ? 0 : rowIdx + 1;
+        rows.splice(insertAt, 0, headers.map(() => ""));
+        rebuild(headers, rows);
+      },
+    },
+    { label: "", separator: true, action: () => {} },
+    {
+      label: "Insert column left",
+      action: () => {
+        headers.splice(colIdx, 0, "");
+        rows.forEach((row) => row.splice(colIdx, 0, ""));
+        rebuild(headers, rows);
+      },
+    },
+    {
+      label: "Insert column right",
+      action: () => {
+        headers.splice(colIdx + 1, 0, "");
+        rows.forEach((row) => row.splice(colIdx + 1, 0, ""));
+        rebuild(headers, rows);
+      },
+    },
+    { label: "", separator: true, action: () => {} },
+    {
+      label: "Delete row",
+      disabled: isHeader || rows.length <= 1,
+      action: () => {
+        rows.splice(rowIdx, 1);
+        rebuild(headers, rows);
+      },
+    },
+    {
+      label: "Delete column",
+      disabled: headers.length <= 1,
+      action: () => {
+        headers.splice(colIdx, 1);
+        rows.forEach((row) => row.splice(colIdx, 1));
+        rebuild(headers, rows);
+      },
+    },
+  ];
+
+  // Build menu DOM
+  const menu = document.createElement("div");
+  menu.className = "cm-table-context-menu";
+
+  for (const item of actions) {
+    if (item.separator) {
+      const sep = document.createElement("div");
+      sep.className = "cm-table-menu-sep";
+      menu.appendChild(sep);
+      continue;
+    }
+    const btn = document.createElement("button");
+    btn.className = "cm-table-menu-item";
+    btn.textContent = item.label;
+    if (item.disabled) {
+      btn.classList.add("cm-table-menu-disabled");
+    } else {
+      btn.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dismissTableMenu();
+        item.action();
+      });
+    }
+    menu.appendChild(btn);
+  }
+
+  // Position relative to the editor
+  const editorRect = view.dom.getBoundingClientRect();
+  menu.style.left = `${x - editorRect.left}px`;
+  menu.style.top = `${y - editorRect.top}px`;
+  view.dom.appendChild(menu);
+
+  // Clamp to viewport
+  requestAnimationFrame(() => {
+    const menuRect = menu.getBoundingClientRect();
+    if (menuRect.right > window.innerWidth - 8) {
+      menu.style.left = `${parseInt(menu.style.left) - (menuRect.right - window.innerWidth + 8)}px`;
+    }
+    if (menuRect.bottom > window.innerHeight - 8) {
+      menu.style.top = `${parseInt(menu.style.top) - (menuRect.bottom - window.innerHeight + 8)}px`;
+    }
+  });
+
+  // Dismiss on click outside or Escape
+  const dismiss = (e: Event) => {
+    if (!menu.contains(e.target as Node)) {
+      dismissTableMenu();
+      cleanup();
+    }
+  };
+  const dismissKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      dismissTableMenu();
+      cleanup();
+    }
+  };
+  const cleanup = () => {
+    document.removeEventListener("mousedown", dismiss, true);
+    document.removeEventListener("keydown", dismissKey, true);
+  };
+  document.addEventListener("mousedown", dismiss, true);
+  document.addEventListener("keydown", dismissKey, true);
+}
+
 // ── Interactive Table Widget ────────────────────────────────────────
 
 /** Effect to skip widget recreation when a cell edit syncs to the doc */
@@ -145,6 +308,21 @@ class TableWidget extends WidgetType {
     }
     table.appendChild(tbody);
     wrapper.appendChild(table);
+
+    // ── Right-click context menu (direct listener — before browser menu) ──
+    wrapper.addEventListener("contextmenu", (e) => {
+      const target = e.target as HTMLElement;
+      const cell = target.closest(".cm-table-cell") as HTMLElement | null;
+      if (!cell) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const view = getEditorView(wrapper);
+      if (!view) return;
+
+      showTableContextMenu(e.clientX, e.clientY, wrapper, cell, view);
+    });
 
     // ── Add row button (direct listener — fires before CM6) ────────
     const addRowBtn = document.createElement("button");
@@ -347,7 +525,7 @@ const blockDecorationField = StateField.define<DecorationSet>({
   },
 });
 
-// ── Event handlers (cell editing + keyboard nav) ────────────────────
+// ── Event handlers (cell editing + keyboard nav + context menu) ──────
 
 const blockWidgetEvents = EditorView.domEventHandlers({
   // Cell editing: sync contenteditable changes to document
@@ -373,14 +551,26 @@ const blockWidgetEvents = EditorView.domEventHandlers({
     return true;
   },
 
-  // Keyboard: Tab, Enter, Escape inside table cells
-  keydown(event: KeyboardEvent, _view: EditorView) {
+  // Keyboard: Tab, Enter, Escape, Backspace, Arrow inside table cells
+  keydown(event: KeyboardEvent, view: EditorView) {
     const target = event.target as HTMLElement;
-    if (!target.closest(".cm-table-widget")) return false;
+    const wrapper = target.closest(".cm-table-widget") as HTMLElement | null;
+    if (!wrapper) return false;
 
     const table = target.closest("table");
     const cell = target.closest(".cm-table-cell");
     if (!table || !cell) return true;
+
+    // Exit table: blur cell, place CM6 cursor after the table
+    const exitTable = () => {
+      (cell as HTMLElement).blur();
+      const range = getTableRange(wrapper);
+      if (!range) { view.focus(); return; }
+      // Place cursor on the line after the table
+      const afterPos = Math.min(range.to + 1, view.state.doc.length);
+      view.dispatch({ selection: { anchor: afterPos } });
+      view.focus();
+    };
 
     if (event.key === "Tab") {
       event.preventDefault();
@@ -396,15 +586,48 @@ const blockWidgetEvents = EditorView.domEventHandlers({
     if (event.key === "Enter") {
       event.preventDefault();
       const below = getAdjacentCell(table, cell, "down");
-      if (below) focusCell(below);
+      if (below) {
+        focusCell(below);
+      } else {
+        // Last row — exit table
+        exitTable();
+      }
+      return true;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      const below = getAdjacentCell(table, cell, "down");
+      if (below) {
+        focusCell(below);
+      } else {
+        exitTable();
+      }
+      return true;
+    }
+
+    if (event.key === "ArrowUp") {
+      const above = getAdjacentCell(table, cell, "up");
+      if (!above) {
+        // First row — exit table, place cursor before
+        event.preventDefault();
+        (cell as HTMLElement).blur();
+        const range = getTableRange(wrapper);
+        if (range) {
+          const beforePos = Math.max(range.from - 1, 0);
+          view.dispatch({ selection: { anchor: beforePos } });
+        }
+        view.focus();
+        return true;
+      }
+      event.preventDefault();
+      focusCell(above);
       return true;
     }
 
     if (event.key === "Escape") {
       event.preventDefault();
-      (cell as HTMLElement).blur();
-      const view = getEditorView(target);
-      if (view) view.focus();
+      exitTable();
       return true;
     }
 
@@ -412,6 +635,36 @@ const blockWidgetEvents = EditorView.domEventHandlers({
   },
 });
 
+// ── Ensure editable line after trailing table ───────────────────────
+// Block replace decorations consume entire lines including newlines.
+// If a Table node reaches the end of the document, there's no CM6 line
+// left for the cursor. This listener appends a newline when needed.
+
+const ensureTrailingLine = EditorView.updateListener.of((update) => {
+  const { state } = update;
+  const docLen = state.doc.length;
+  if (docLen === 0) return;
+
+  let endsInTable = false;
+  syntaxTree(state).iterate({
+    enter(node) {
+      if (node.name === "Table" && node.to >= docLen - 1) {
+        endsInTable = true;
+      }
+    },
+  });
+
+  if (endsInTable) {
+    update.view.dispatch({
+      changes: { from: docLen, insert: "\n" },
+    });
+  }
+});
+
 // ── Export ───────────────────────────────────────────────────────────
 
-export const blockWidgetPlugin = [blockDecorationField, blockWidgetEvents];
+export const blockWidgetPlugin = [
+  blockDecorationField,
+  blockWidgetEvents,
+  ensureTrailingLine,
+];

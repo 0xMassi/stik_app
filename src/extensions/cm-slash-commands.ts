@@ -135,7 +135,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
     badge: "Table",
     boost: 0,
     insert: () => ({
-      text: "| Column 1 | Column 2 |\n| --- | --- |\n|  |  |",
+      text: "| Column 1 | Column 2 |\n| --- | --- |\n|  |  |\n\n",
       cursor: 38, // inside first data cell (after "| ")
     }),
   },
