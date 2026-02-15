@@ -1,29 +1,63 @@
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Placeholder from "@tiptap/extension-placeholder";
-import TaskList from "@tiptap/extension-task-list";
-import TaskItem from "@tiptap/extension-task-item";
-import Link from "@tiptap/extension-link";
-import Image from "@tiptap/extension-image";
-import { Markdown } from "tiptap-markdown";
-import { open } from "@tauri-apps/plugin-shell";
+/**
+ * CodeMirror 6 editor for Stik — raw markdown editing with syntax highlighting.
+ *
+ * Same EditorRef/EditorProps interface as the old TipTap editor so PostIt.tsx
+ * can swap in with minimal changes.
+ */
+
+import {
+  forwardRef,
+  useImperativeHandle,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
+import { EditorState } from "@codemirror/state";
+import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
+import { defaultKeymap, history, historyKeymap, indentWithTab, insertNewline } from "@codemirror/commands";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { languages } from "@codemirror/language-data";
+import { autocompletion } from "@codemirror/autocomplete";
+import { search, searchKeymap } from "@codemirror/search";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { forwardRef, useImperativeHandle, useEffect, useRef, useCallback } from "react";
-import { VimMode, type VimMode as VimModeType } from "@/extensions/vim-mode";
-import { StikHighlight } from "@/extensions/highlight";
-import { CollapsibleHeadings } from "@/extensions/collapsible-headings";
-import { WikiLink, filenameToSlug, type WikiLinkItem } from "@/extensions/wiki-link";
-import { renderWikiLinkSuggestion } from "@/extensions/wiki-link-suggestion";
-import { MarkdownLinkRule, normalizeUrl } from "@/extensions/markdown-link-rule";
-import { TaskListInputFix } from "@/extensions/task-list-fix";
-import { installParagraphMarkdownSerializer } from "@/extensions/preserve-empty-paragraphs";
-import LinkPopover from "@/components/LinkPopover";
-import FormattingToolbar from "@/components/FormattingToolbar";
 import { invoke } from "@tauri-apps/api/core";
-import type { SearchResult } from "@/types";
+import { open } from "@tauri-apps/plugin-shell";
+import { stikEditorTheme, stikHighlightStyle } from "@/extensions/cm-theme";
+import {
+  toggleInlineFormat,
+  insertLink,
+  detectFormatState,
+  type FormatState,
+} from "@/extensions/cm-formatting";
+import {
+  wikiLinkDecorations,
+  wikiLinkClickHandler,
+  wikiLinkCompletionSource,
+} from "@/extensions/cm-wiki-link";
+import { slashCommandCompletionSource } from "@/extensions/cm-slash-commands";
+import { blockWidgetPlugin } from "@/extensions/cm-block-widgets";
+import {
+  createVimExtension,
+  setupVimModeListener,
+  registerVimCommands,
+  setVimModeOnView,
+  vimCompartment,
+  type VimMode,
+} from "@/extensions/cm-vim";
+import { highlightExtension } from "@/extensions/cm-highlight";
+import { taskCheckboxPlugin, taskCheckboxHandler } from "@/extensions/cm-task-toggle";
+import { hideMarkersPlugin, autoCloseMarkup } from "@/extensions/cm-hide-markers";
+import { filenameToSlug } from "@/utils/wikiLink";
+import { normalizeUrl } from "@/utils/normalizeUrl";
 import { isImageUrl } from "@/utils/isImageUrl";
 import { isImageFile } from "@/utils/isImageFile";
 import { extractDroppedImagePath } from "@/utils/droppedImagePath";
+import { markdownToHtml, markdownToPlainText } from "@/utils/markdownToHtml";
+import FormattingToolbar from "@/components/FormattingToolbar";
+import LinkPopover from "@/components/LinkPopover";
+import type { SearchResult } from "@/types";
+
+export { type VimMode } from "@/extensions/cm-vim";
 
 interface EditorProps {
   onChange: (content: string) => void;
@@ -31,7 +65,7 @@ interface EditorProps {
   initialContent?: string;
   vimEnabled?: boolean;
   showFormatToolbar?: boolean;
-  onVimModeChange?: (mode: VimModeType) => void;
+  onVimModeChange?: (mode: VimMode) => void;
   onImagePaste?: (file: File) => Promise<string | null>;
   onImageDropPath?: (path: string) => Promise<string | null>;
   onWikiLinkClick?: (slug: string, path: string) => void;
@@ -45,7 +79,9 @@ export interface EditorRef {
   moveToEnd: () => void;
   getHTML: () => string;
   getText: () => string;
-  setVimMode: (mode: VimModeType) => void;
+  setVimMode: (mode: VimMode) => void;
+  getView: () => EditorView | null;
+  getFormatState: () => FormatState;
 }
 
 const Editor = forwardRef<EditorRef, EditorProps>(
@@ -63,56 +99,17 @@ const Editor = forwardRef<EditorRef, EditorProps>(
     },
     ref
   ) => {
-    const wrapperRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const viewRef = useRef<EditorView | null>(null);
+    const formatStateRef = useRef<FormatState>({
+      bold: false, italic: false, strike: false, code: false,
+      highlight: false, heading: 0, blockquote: false, bulletList: false,
+      orderedList: false, taskList: false, link: false, hasSelection: false,
+    });
 
-    const handleMetaKey = useCallback((e: KeyboardEvent) => {
-      if (e.key === "Meta") {
-        wrapperRef.current?.classList.toggle("cmd-held", e.type === "keydown");
-      }
-    }, []);
-
-    // Link click handling — prevent native navigation.
-    // Plain click keeps editor behavior; Cmd+Click opens externally.
-    useEffect(() => {
-      const handleLinkClick = (e: MouseEvent) => {
-        const target = e.target as HTMLElement | null;
-        const wrapper = wrapperRef.current;
-        if (!target || !wrapper || !wrapper.contains(target)) return;
-
-        const anchor = target.closest("a");
-        if (!anchor || !wrapper.contains(anchor)) return;
-
-        // Always prevent native navigation (ProseMirror handles cursor via mousedown)
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-
-        // Use raw attribute — .href returns browser-resolved URL (relative to page)
-        const rawHref = anchor.getAttribute("href");
-        if (!rawHref) return;
-
-        if (e.metaKey) {
-          open(normalizeUrl(rawHref));
-        }
-      };
-
-      const handleWindowBlur = () => wrapperRef.current?.classList.remove("cmd-held");
-
-      window.addEventListener("click", handleLinkClick, { capture: true });
-      window.addEventListener("auxclick", handleLinkClick, { capture: true });
-      window.addEventListener("keydown", handleMetaKey);
-      window.addEventListener("keyup", handleMetaKey);
-      window.addEventListener("blur", handleWindowBlur);
-      return () => {
-        window.removeEventListener("click", handleLinkClick, { capture: true });
-        window.removeEventListener("auxclick", handleLinkClick, { capture: true });
-        window.removeEventListener("keydown", handleMetaKey);
-        window.removeEventListener("keyup", handleMetaKey);
-        window.removeEventListener("blur", handleWindowBlur);
-      };
-    }, [handleMetaKey]);
-
-    // Stable callback refs to avoid re-creating the editor when parent re-renders
+    // Stable refs for callbacks to avoid recreating extensions
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
     const onVimModeChangeRef = useRef(onVimModeChange);
     onVimModeChangeRef.current = onVimModeChange;
     const onImagePasteRef = useRef(onImagePaste);
@@ -122,117 +119,109 @@ const Editor = forwardRef<EditorRef, EditorProps>(
     const onWikiLinkClickRef = useRef(onWikiLinkClick);
     onWikiLinkClickRef.current = onWikiLinkClick;
     const lastDomDropAtRef = useRef(0);
+    const formatStateCallbackRef = useRef<((state: FormatState) => void) | null>(null);
 
-    // Extensions built once per mount. Parent uses key={vimEnabled} to force remount when toggled.
-    const extensionsRef = useRef<any[] | null>(null);
-    if (!extensionsRef.current) {
-      const base = [
-        StarterKit.configure({
-          heading: { levels: [1, 2, 3] },
-        }),
-        Placeholder.configure({
-          placeholder: placeholder || "Start typing...",
-        }),
-        TaskList,
-        TaskItem.extend({ addInputRules() { return []; } }).configure({ nested: true }),
-        TaskListInputFix,
-        Link.configure({ openOnClick: false, autolink: true }),
-        MarkdownLinkRule,
-        Image.configure({ inline: true, allowBase64: false }),
-        StikHighlight,
-        CollapsibleHeadings,
-        WikiLink.configure({
-          onLinkClick: (slug: string, path: string) =>
-            onWikiLinkClickRef.current?.(slug, path),
-          suggestion: {
-            items: async ({ query }): Promise<WikiLinkItem[]> => {
-              if (!query) return [];
-              try {
-                const results = await invoke<SearchResult[]>("search_notes", {
-                  query,
+    // Notify toolbar of format state changes
+    const setFormatStateCallback = useCallback((cb: (state: FormatState) => void) => {
+      formatStateCallbackRef.current = cb;
+    }, []);
+
+    // Initialize CodeMirror
+    useEffect(() => {
+      if (!containerRef.current) return;
+
+      const formatKeybindings = keymap.of([
+        // Smart Enter: if cursor is right before closing markers (** ~~ ==),
+        // close the formatting first, then newline. Markdown inline syntax
+        // can't span lines, so this prevents broken formatting.
+        {
+          key: "Enter",
+          run: (view) => {
+            const { head, empty } = view.state.selection.main;
+            if (empty) {
+              const doc = view.state.doc;
+              const after = doc.sliceString(head, Math.min(head + 2, doc.length));
+              if (after === "**" || after === "~~" || after === "==") {
+                view.dispatch({
+                  changes: { from: head + 2, insert: "\n" },
+                  selection: { anchor: head + 2 + 1 },
                 });
-                return results.slice(0, 8).map((r) => ({
-                  slug: filenameToSlug(r.filename),
-                  path: r.path,
-                  folder: r.folder,
-                  snippet: r.snippet,
-                }));
-              } catch {
-                return [];
+                return true;
               }
-            },
-            render: renderWikiLinkSuggestion,
+            }
+            return insertNewline(view);
           },
-        }),
-        Markdown.configure({
-          html: true,
-          transformPastedText: true,
-          transformCopiedText: true,
-        }),
-      ];
-
-      if (vimEnabled) {
-        base.push(
-          VimMode.configure({
-            enabled: true,
-            onModeChange: (mode: VimModeType) => onVimModeChangeRef.current?.(mode),
-          })
-        );
-      }
-
-      extensionsRef.current = base;
-    }
-    const extensions = extensionsRef.current;
-
-    const editor = useEditor({
-      extensions,
-      content: initialContent || "",
-      onUpdate: ({ editor }) => {
-        onChange(editor.storage.markdown.getMarkdown());
-      },
-      editorProps: {
-        attributes: {
-          class: "stik-editor",
         },
-        handleDOMEvents: {
-          dragover: (_view, event) => {
-            if (event.dataTransfer?.types.includes("Files")) {
-              event.preventDefault();
+        // Smart Backspace: when cursor is between empty auto-closed pair
+        // (****  ~~~~  ====), delete the entire pair in one stroke.
+        // Without this, hidden markers create a confusing experience —
+        // the user sees nothing but Backspace would only delete one marker char.
+        {
+          key: "Backspace",
+          run: (view) => {
+            const { head, empty } = view.state.selection.main;
+            if (!empty || head < 2) return false;
+            const doc = view.state.doc;
+            if (head + 2 > doc.length) return false;
+            const around = doc.sliceString(head - 2, head + 2);
+            if (around === "****" || around === "~~~~" || around === "====") {
+              view.dispatch({
+                changes: { from: head - 2, to: head + 2, insert: "" },
+                selection: { anchor: head - 2 },
+              });
+              return true;
             }
             return false;
           },
         },
-        handlePaste: (view, event) => {
+        {
+          key: "Mod-b",
+          run: (view) => { toggleInlineFormat(view, "**"); return true; },
+        },
+        {
+          key: "Mod-i",
+          run: (view) => { toggleInlineFormat(view, "*"); return true; },
+        },
+        {
+          key: "Mod-k",
+          run: (view) => { insertLink(view); return true; },
+        },
+      ]);
+
+      // Image paste/drop handlers
+      const imageHandlers = EditorView.domEventHandlers({
+        paste(event: ClipboardEvent, view: EditorView) {
           const files = event.clipboardData?.files;
           if (files?.length) {
             const imageFile = Array.from(files).find(isImageFile);
-            if (!imageFile || !onImagePasteRef.current) return false;
-
-            event.preventDefault();
-            onImagePasteRef.current(imageFile).then((url) => {
-              if (url) {
-                view.dispatch(
-                  view.state.tr.replaceSelectionWith(
-                    view.state.schema.nodes.image.create({ src: url })
-                  )
-                );
-              }
-            });
-            return true;
+            if (imageFile && onImagePasteRef.current) {
+              event.preventDefault();
+              onImagePasteRef.current(imageFile).then((url) => {
+                if (url) {
+                  const insert = `![](${url})`;
+                  view.dispatch({
+                    changes: { from: view.state.selection.main.from, to: view.state.selection.main.to, insert },
+                    selection: { anchor: view.state.selection.main.from + insert.length },
+                  });
+                }
+              });
+              return true;
+            }
           }
 
           const pastedText = event.clipboardData?.getData("text/plain")?.trim() ?? "";
-          if (!isImageUrl(pastedText)) return false;
-
-          event.preventDefault();
-          view.dispatch(
-            view.state.tr.replaceSelectionWith(
-              view.state.schema.nodes.image.create({ src: pastedText })
-            )
-          );
-          return true;
+          if (isImageUrl(pastedText)) {
+            event.preventDefault();
+            const insert = `![](${pastedText})`;
+            view.dispatch({
+              changes: { from: view.state.selection.main.from, to: view.state.selection.main.to, insert },
+              selection: { anchor: view.state.selection.main.from + insert.length },
+            });
+            return true;
+          }
+          return false;
         },
-        handleDrop: (view, event) => {
+        drop(event: DragEvent, view: EditorView) {
           const files = event.dataTransfer?.files;
           if (files?.length) {
             const imageFile = Array.from(files).find(isImageFile);
@@ -241,11 +230,11 @@ const Editor = forwardRef<EditorRef, EditorProps>(
               lastDomDropAtRef.current = Date.now();
               onImagePasteRef.current(imageFile).then((url) => {
                 if (url) {
-                  view.dispatch(
-                    view.state.tr.replaceSelectionWith(
-                      view.state.schema.nodes.image.create({ src: url })
-                    )
-                  );
+                  const insert = `![](${url})`;
+                  const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.from;
+                  view.dispatch({
+                    changes: { from: pos, to: pos, insert },
+                  });
                 }
               });
               return true;
@@ -259,45 +248,241 @@ const Editor = forwardRef<EditorRef, EditorProps>(
             .find((line) => line && !line.startsWith("#"));
           const droppedPlainText = event.dataTransfer?.getData("text/plain")?.trim() ?? "";
           const droppedValue = droppedUri || droppedPlainText;
-          const droppedImagePath = extractDroppedImagePath(droppedValue);
-          if (droppedImagePath && onImageDropPathRef.current) {
+          const droppedPath = extractDroppedImagePath(droppedValue);
+
+          if (droppedPath && onImageDropPathRef.current) {
             event.preventDefault();
             lastDomDropAtRef.current = Date.now();
-            onImageDropPathRef.current(droppedImagePath).then((url) => {
-              if (!url) return;
-              view.dispatch(
-                view.state.tr.replaceSelectionWith(
-                  view.state.schema.nodes.image.create({ src: url })
-                )
-              );
+            onImageDropPathRef.current(droppedPath).then((url) => {
+              if (url) {
+                const insert = `![](${url})`;
+                const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.from;
+                view.dispatch({ changes: { from: pos, to: pos, insert } });
+              }
             });
             return true;
           }
 
-          if (!isImageUrl(droppedValue)) return false;
+          if (isImageUrl(droppedValue)) {
+            event.preventDefault();
+            lastDomDropAtRef.current = Date.now();
+            const insert = `![](${droppedValue})`;
+            const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.from;
+            view.dispatch({ changes: { from: pos, to: pos, insert } });
+            return true;
+          }
 
-          event.preventDefault();
-          lastDomDropAtRef.current = Date.now();
-          view.dispatch(
-            view.state.tr.replaceSelectionWith(
-              view.state.schema.nodes.image.create({ src: droppedValue })
-            )
-          );
-          return true;
+          return false;
         },
-      },
-    });
+      });
 
-    // Preserve visual empty rows when markdown is saved and reopened.
-    useEffect(() => {
-      if (!editor) return;
-      installParagraphMarkdownSerializer(editor);
-    }, [editor]);
+      // Link click handler: Cmd+Click opens in browser
+      const linkClickHandler = EditorView.domEventHandlers({
+        click(event: MouseEvent, view: EditorView) {
+          if (!event.metaKey) return false;
 
-    // Fallback for desktop file drops where WebKit dataTransfer is empty:
-    // use Tauri native drag-drop paths and import image files directly.
+          const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+          if (pos === null) return false;
+
+          const line = view.state.doc.lineAt(pos);
+          const offset = pos - line.from;
+          const text = line.text;
+
+          // Check for markdown links: [text](url)
+          const linkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
+          let match;
+          while ((match = linkRegex.exec(text)) !== null) {
+            const start = match.index;
+            const end = start + match[0].length;
+            if (offset >= start && offset < end) {
+              event.preventDefault();
+              open(normalizeUrl(match[2]));
+              return true;
+            }
+          }
+
+          // Check for bare URLs
+          const urlRegex = /https?:\/\/[^\s)]+/g;
+          while ((match = urlRegex.exec(text)) !== null) {
+            const start = match.index;
+            const end = start + match[0].length;
+            if (offset >= start && offset < end) {
+              event.preventDefault();
+              open(match[0]);
+              return true;
+            }
+          }
+
+          return false;
+        },
+      });
+
+      // Rich text copy: put both text/html and clean text/plain on clipboard
+      // Runs before CM6's built-in copy handler, so returning true prevents
+      // the default which only sets text/plain with raw markdown.
+      const richCopyHandler = EditorView.domEventHandlers({
+        copy(event: ClipboardEvent, view: EditorView) {
+          const { from, to } = view.state.selection.main;
+          if (from === to) return false; // no selection — let CM handle line-wise copy
+
+          const md = view.state.sliceDoc(from, to);
+          const html = markdownToHtml(md);
+          const plain = markdownToPlainText(md);
+
+          if (event.clipboardData) {
+            event.clipboardData.clearData();
+            event.clipboardData.setData("text/plain", plain);
+            event.clipboardData.setData("text/html", html);
+            event.preventDefault();
+            return true;
+          }
+          return false;
+        },
+      });
+
+      // Autocomplete: wiki-links ([[) + slash commands (/)
+      const combinedAutocomplete = autocompletion({
+        override: [
+          wikiLinkCompletionSource(async (query: string) => {
+            try {
+              const results = await invoke<SearchResult[]>("search_notes", { query });
+              return results.slice(0, 8).map((r) => ({
+                slug: filenameToSlug(r.filename),
+                path: r.path,
+                folder: r.folder,
+              }));
+            } catch {
+              return [];
+            }
+          }),
+          slashCommandCompletionSource,
+        ],
+        activateOnTyping: true,
+      });
+
+      // Wiki-link click handler
+      const wikiClickHandler = wikiLinkClickHandler((slug: string, _path: string) => {
+        // Resolve path from slug by searching
+        invoke<SearchResult[]>("search_notes", { query: slug })
+          .then((results) => {
+            const match = results.find(
+              (r) => filenameToSlug(r.filename) === slug
+            );
+            if (match) {
+              onWikiLinkClickRef.current?.(slug, match.path);
+            }
+          })
+          .catch(() => {});
+      });
+
+      // Format state change listener
+      const formatStateListener = EditorView.updateListener.of((update) => {
+        if (update.selectionSet || update.docChanged) {
+          const state = detectFormatState(update.view);
+          formatStateRef.current = state;
+          formatStateCallbackRef.current?.(state);
+        }
+      });
+
+      // Doc change listener
+      const docChangeListener = EditorView.updateListener.of((update) => {
+        if (update.docChanged) {
+          onChangeRef.current(update.state.doc.toString());
+        }
+      });
+
+      // Build extensions
+      const extensions = [
+        history(),
+        formatKeybindings,
+        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
+        markdown({
+          base: markdownLanguage,
+          codeLanguages: languages,
+          // Disable setext headings (text\n--- = H2) — they cause jarring
+          // style jumps while typing list markers like "-" on a new line.
+          // ATX headings (# H1, ## H2) are sufficient.
+          extensions: [
+            highlightExtension,
+            {
+              parseBlock: [{
+                name: "SetextHeading",
+                parse: () => false,
+                leaf: () => null,
+              }],
+            },
+          ],
+        }),
+        stikEditorTheme,
+        stikHighlightStyle,
+        cmPlaceholder(placeholder || "Start typing..."),
+        search(),
+        richCopyHandler,
+        imageHandlers,
+        linkClickHandler,
+        wikiLinkDecorations(),
+        wikiClickHandler,
+        combinedAutocomplete,
+        taskCheckboxPlugin,
+        taskCheckboxHandler,
+        hideMarkersPlugin,
+        blockWidgetPlugin,
+        autoCloseMarkup,
+        formatStateListener,
+        docChangeListener,
+        EditorView.lineWrapping,
+        // CSS class for the content element
+        EditorView.contentAttributes.of({ class: "stik-editor" }),
+      ];
+
+      // Add vim mode if enabled
+      if (vimEnabled) {
+        extensions.push(vimCompartment.of(createVimExtension()));
+      } else {
+        extensions.push(vimCompartment.of([]));
+      }
+
+      const state = EditorState.create({
+        doc: initialContent || "",
+        extensions,
+      });
+
+      const view = new EditorView({
+        state,
+        parent: containerRef.current,
+      });
+
+      viewRef.current = view;
+
+      // Setup vim mode listener after view is created
+      if (vimEnabled) {
+        setupVimModeListener(view, (mode) => {
+          if (mode === "normal") {
+            // Check if the vim status shows ":" command
+            // The vim plugin handles command mode internally
+          }
+          onVimModeChangeRef.current?.(mode);
+        });
+
+        registerVimCommands({
+          onSaveAndClose: () => onVimModeChangeRef.current?.("command"),
+          onCloseWithoutSaving: () => onVimModeChangeRef.current?.("command"),
+          onCommandMode: () => onVimModeChangeRef.current?.("command"),
+        });
+      }
+
+      return () => {
+        view.destroy();
+        viewRef.current = null;
+      };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // ^ Intentionally empty deps: CM view is created once per mount.
+    // Parent uses key={vimEnabled} to force remount when vim toggled.
+
+    // Tauri native drag-drop fallback (WebKit dataTransfer can be empty for OS-level drops)
     useEffect(() => {
-      if (!editor) return;
+      const view = viewRef.current;
+      if (!view) return;
 
       let unlisten: (() => void) | null = null;
       let cancelled = false;
@@ -308,27 +493,22 @@ const Editor = forwardRef<EditorRef, EditorProps>(
           if (!onImageDropPathRef.current) return;
           if (Date.now() - lastDomDropAtRef.current < 200) return;
 
-          const droppedImagePath = event.payload.paths
+          const droppedPath = event.payload.paths
             .map((path) => extractDroppedImagePath(path))
             .find((path): path is string => Boolean(path));
-          if (!droppedImagePath) return;
+          if (!droppedPath) return;
 
-          void onImageDropPathRef.current(droppedImagePath).then((url) => {
-            if (cancelled || !url) return;
-
-            editor
-              .chain()
-              .focus()
-              .setImage({ src: url })
-              .run();
+          void onImageDropPathRef.current(droppedPath).then((url) => {
+            if (cancelled || !url || !viewRef.current) return;
+            const insert = `![](${url})`;
+            const pos = viewRef.current.state.selection.main.from;
+            viewRef.current.dispatch({ changes: { from: pos, to: pos, insert } });
+            viewRef.current.focus();
           });
         })
         .then((dispose) => {
-          if (cancelled) {
-            dispose();
-          } else {
-            unlisten = dispose;
-          }
+          if (cancelled) dispose();
+          else unlisten = dispose;
         })
         .catch((error) => {
           console.error("Failed to register native drag-drop listener:", error);
@@ -336,44 +516,64 @@ const Editor = forwardRef<EditorRef, EditorProps>(
 
       return () => {
         cancelled = true;
-        if (unlisten) {
-          unlisten();
-        }
+        unlisten?.();
       };
-    }, [editor]);
-
-    // Set initial content when editor is ready and initialContent changes
-    useEffect(() => {
-      if (editor && initialContent && !editor.getText()) {
-        editor.commands.setContent(initialContent);
-      }
-    }, [editor, initialContent]);
+    }, []);
 
     useImperativeHandle(ref, () => ({
-      focus: () => editor?.commands.focus(),
-      blur: () => editor?.commands.blur(),
-      clear: () => editor?.commands.clearContent(),
-      setContent: (content: string) => editor?.commands.setContent(content),
-      moveToEnd: () => editor?.commands.focus("end"),
-      getHTML: () => editor?.getHTML() || "",
-      getText: () => editor?.getText({ blockSeparator: "\n" }) || "",
-      setVimMode: (mode: VimModeType) => {
-        if (editor?.storage.vimMode) {
-          editor.storage.vimMode.mode = mode;
-          onVimModeChangeRef.current?.(mode);
-          // Dispatch triggers PluginView.update (caret-color) + decorations in one pass
-          editor.view.dispatch(editor.state.tr.setMeta("vimModeChanged", mode));
+      focus: () => viewRef.current?.focus(),
+      blur: () => viewRef.current?.contentDOM.blur(),
+      clear: () => {
+        const view = viewRef.current;
+        if (view) {
+          view.dispatch({
+            changes: { from: 0, to: view.state.doc.length, insert: "" },
+          });
         }
       },
+      setContent: (content: string) => {
+        const view = viewRef.current;
+        if (view) {
+          view.dispatch({
+            changes: { from: 0, to: view.state.doc.length, insert: content },
+          });
+        }
+      },
+      moveToEnd: () => {
+        const view = viewRef.current;
+        if (view) {
+          const end = view.state.doc.length;
+          view.dispatch({ selection: { anchor: end } });
+          view.focus();
+        }
+      },
+      getHTML: () => {
+        const text = viewRef.current?.state.doc.toString() || "";
+        return markdownToHtml(text);
+      },
+      getText: () => viewRef.current?.state.doc.toString() || "",
+      setVimMode: (mode: VimMode) => {
+        if (viewRef.current && vimEnabled) {
+          setVimModeOnView(viewRef.current, mode);
+          onVimModeChangeRef.current?.(mode);
+        }
+      },
+      getView: () => viewRef.current,
+      getFormatState: () => formatStateRef.current,
     }));
 
     const toolbarVisible = showFormatToolbar && !vimEnabled;
 
     return (
-      <div ref={wrapperRef} className={`h-full relative${toolbarVisible ? " has-formatting-toolbar" : ""}`}>
-        <EditorContent editor={editor} className="h-full" />
-        <LinkPopover editor={editor} />
-        {toolbarVisible && <FormattingToolbar editor={editor} />}
+      <div className={`h-full relative${toolbarVisible ? " has-formatting-toolbar" : ""}`}>
+        <div ref={containerRef} className="h-full" />
+        <LinkPopover editorRef={{ current: viewRef.current }} getView={() => viewRef.current} />
+        {toolbarVisible && (
+          <FormattingToolbar
+            getView={() => viewRef.current}
+            onFormatStateChange={setFormatStateCallback}
+          />
+        )}
       </div>
     );
   }

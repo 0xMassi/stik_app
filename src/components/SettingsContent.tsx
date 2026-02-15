@@ -2,7 +2,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import ShortcutRecorder from "./ShortcutRecorder";
-import type { GitSyncStatus, ShortcutMapping, StikSettings } from "@/types";
+import type { CustomTemplate, GitSyncStatus, ShortcutMapping, StikSettings } from "@/types";
+import { BUILTIN_COMMAND_NAMES } from "@/extensions/cm-slash-commands";
+import ConfirmDialog from "./ConfirmDialog";
 import {
   SYSTEM_SHORTCUT_ACTIONS,
   SYSTEM_SHORTCUT_DEFAULTS,
@@ -93,7 +95,7 @@ export function Dropdown({ value, options, onChange, placeholder }: DropdownProp
   );
 }
 
-export type SettingsTab = "shortcuts" | "folders" | "editor" | "git" | "ai" | "insights" | "privacy";
+export type SettingsTab = "shortcuts" | "folders" | "editor" | "templates" | "git" | "ai" | "insights" | "privacy";
 
 interface SettingsContentProps {
   activeTab: SettingsTab;
@@ -255,6 +257,260 @@ function PrivacySection({
         </p>
       </div>
     </div>
+    {toast && <SettingsToast message={toast} onDone={() => setToast(null)} />}
+    </>
+  );
+}
+
+const TEMPLATE_NAME_RE = /^[a-z][a-z0-9-]*$/;
+const TEMPLATE_NAME_MIN = 2;
+const TEMPLATE_NAME_MAX = 20;
+const TEMPLATE_BODY_MAX = 5000;
+
+function validateTemplateName(
+  name: string,
+  existingNames: string[],
+  editingIndex: number | null,
+): string | null {
+  if (name.length < TEMPLATE_NAME_MIN) return `Name must be at least ${TEMPLATE_NAME_MIN} characters`;
+  if (name.length > TEMPLATE_NAME_MAX) return `Name must be at most ${TEMPLATE_NAME_MAX} characters`;
+  if (!TEMPLATE_NAME_RE.test(name)) return "Lowercase letters, numbers, and hyphens only (must start with a letter)";
+  if (BUILTIN_COMMAND_NAMES.includes(name)) return `"${name}" is a built-in command`;
+  const dupeIdx = existingNames.findIndex((n) => n === name);
+  if (dupeIdx >= 0 && dupeIdx !== editingIndex) return "A template with this name already exists";
+  return null;
+}
+
+function TemplatesSection({
+  templates,
+  onChange,
+}: {
+  templates: CustomTemplate[];
+  onChange: (templates: CustomTemplate[]) => void;
+}) {
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [bodyError, setBodyError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState<number | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const startAdd = () => {
+    setEditingIndex(-1); // -1 = new template
+    setEditName("");
+    setEditBody("");
+    setNameError(null);
+    setBodyError(null);
+    setTimeout(() => nameInputRef.current?.focus(), 50);
+  };
+
+  const startEdit = (index: number) => {
+    setEditingIndex(index);
+    setEditName(templates[index].name);
+    setEditBody(templates[index].body);
+    setNameError(null);
+    setBodyError(null);
+    setTimeout(() => nameInputRef.current?.focus(), 50);
+  };
+
+  const cancelEdit = () => {
+    setEditingIndex(null);
+    setEditName("");
+    setEditBody("");
+    setNameError(null);
+    setBodyError(null);
+  };
+
+  const saveEdit = () => {
+    const trimmedName = editName.trim();
+    const trimmedBody = editBody.trim();
+
+    const existingNames = templates.map((t) => t.name);
+    const nErr = validateTemplateName(trimmedName, existingNames, editingIndex === -1 ? null : editingIndex);
+    const bErr = !trimmedBody
+      ? "Body cannot be empty"
+      : trimmedBody.length > TEMPLATE_BODY_MAX
+        ? `Body must be at most ${TEMPLATE_BODY_MAX} characters`
+        : null;
+
+    setNameError(nErr);
+    setBodyError(bErr);
+    if (nErr || bErr) return;
+
+    const entry: CustomTemplate = { name: trimmedName, body: trimmedBody };
+    const isNew = editingIndex === -1;
+    if (isNew) {
+      onChange([...templates, entry]);
+    } else if (editingIndex !== null) {
+      const updated = [...templates];
+      updated[editingIndex] = entry;
+      onChange(updated);
+    }
+    cancelEdit();
+    setToast(isNew ? `Template /${trimmedName} added` : `Template /${trimmedName} updated`);
+  };
+
+  const confirmDelete = (index: number) => {
+    const name = templates[index].name;
+    onChange(templates.filter((_, i) => i !== index));
+    if (editingIndex === index) cancelEdit();
+    setConfirmingDelete(null);
+    setToast(`Template /${name} deleted`);
+  };
+
+  return (
+    <>
+    <div className="space-y-4">
+      <p className="text-[12px] text-stone">
+        Create reusable note templates accessible via <span className="text-ink font-medium">/command</span> in the editor.
+      </p>
+
+      {/* Existing templates */}
+      {templates.length > 0 && (
+        <div className="space-y-2">
+          {templates.map((t, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 px-3 py-2.5 bg-line/30 rounded-xl border border-line/50"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] text-ink font-medium">/{t.name}</p>
+                <p className="text-[11px] text-stone truncate">
+                  {t.body.split("\n")[0].slice(0, 60)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => startEdit(i)}
+                className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
+                title="Edit template"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(i)}
+                className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-coral-light text-stone hover:text-coral transition-colors"
+                title="Delete template"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Edit / Add form */}
+      {editingIndex !== null ? (
+        <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-3">
+          <div>
+            <p className="text-[12px] text-stone mb-1.5">Command name</p>
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] text-stone">/</span>
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={editName}
+                onChange={(e) => {
+                  setEditName(e.target.value);
+                  setNameError(null);
+                }}
+                placeholder="my-template"
+                maxLength={TEMPLATE_NAME_MAX}
+                className="flex-1 px-3 py-2 bg-bg border border-line rounded-lg text-[13px] text-ink placeholder:text-stone/70 focus:outline-none focus:border-coral/50"
+              />
+            </div>
+            {nameError && (
+              <p className="mt-1 text-[11px] text-coral">{nameError}</p>
+            )}
+          </div>
+
+          <div>
+            <p className="text-[12px] text-stone mb-1.5">Template body</p>
+            <textarea
+              value={editBody}
+              onChange={(e) => {
+                setEditBody(e.target.value);
+                setBodyError(null);
+              }}
+              placeholder={"# My Template\n\nContent here...\n\n{{cursor}}"}
+              rows={6}
+              maxLength={TEMPLATE_BODY_MAX}
+              className="w-full px-3 py-2 bg-bg border border-line rounded-lg text-[13px] text-ink font-mono placeholder:text-stone/70 focus:outline-none focus:border-coral/50 resize-y"
+            />
+            {bodyError && (
+              <p className="mt-1 text-[11px] text-coral">{bodyError}</p>
+            )}
+          </div>
+
+          <div className="p-2.5 bg-bg/50 rounded-lg border border-line/50">
+            <p className="text-[11px] text-stone mb-1 font-medium">Placeholders</p>
+            <div className="flex flex-wrap gap-1.5">
+              {["{{date}}", "{{time}}", "{{day}}", "{{datetime}}", "{{isodate}}", "{{cursor}}"].map((ph) => (
+                <code
+                  key={ph}
+                  className="px-1.5 py-0.5 text-[10px] rounded bg-line/50 text-ink font-mono"
+                >
+                  {ph}
+                </code>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[10px] text-stone">
+              <span className="text-ink">{"{{cursor}}"}</span> sets where the cursor lands after insertion.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={saveEdit}
+              className="px-3 py-2 text-[12px] font-medium text-white bg-coral rounded-lg hover:bg-coral/90 transition-colors"
+            >
+              {editingIndex === -1 ? "Add" : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="px-3 py-2 text-[12px] text-stone hover:text-ink rounded-lg hover:bg-line transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={startAdd}
+          className="w-full px-4 py-3 text-[13px] text-coral hover:bg-coral-light rounded-xl transition-colors flex items-center justify-center gap-2 border border-dashed border-coral/30 hover:border-coral/50"
+        >
+          <span className="text-lg">+</span>
+          <span>Add template</span>
+        </button>
+      )}
+
+      <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
+        <p className="text-[12px] text-stone leading-relaxed">
+          Type <span className="text-ink font-medium">/</span> at the start of a line in the editor to see all templates.
+          Custom templates appear with a "Custom" badge.
+        </p>
+      </div>
+    </div>
+    {confirmingDelete !== null && (
+      <ConfirmDialog
+        title="Delete template?"
+        description={`This will remove /${templates[confirmingDelete]?.name} from your slash commands.`}
+        onConfirm={() => confirmDelete(confirmingDelete)}
+        onCancel={() => setConfirmingDelete(null)}
+      />
+    )}
     {toast && <SettingsToast message={toast} onDone={() => setToast(null)} />}
     </>
   );
@@ -716,6 +972,15 @@ export default function SettingsContent({
               </p>
             </div>
           </div>
+        )}
+
+        {activeTab === "templates" && (
+          <TemplatesSection
+            templates={settings.custom_templates ?? []}
+            onChange={(templates) =>
+              onSettingsChange({ ...settings, custom_templates: templates })
+            }
+          />
         )}
 
         {activeTab === "git" && (

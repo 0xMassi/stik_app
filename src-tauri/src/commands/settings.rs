@@ -11,6 +11,12 @@ pub struct ShortcutMapping {
     pub enabled: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CustomTemplate {
+    pub name: String,
+    pub body: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GitSharingSettings {
@@ -69,6 +75,12 @@ pub struct StikSettings {
     pub analytics_notice_dismissed: bool,
     #[serde(default = "default_font_size")]
     pub font_size: u32,
+    #[serde(default)]
+    pub viewing_window_size: Option<(f64, f64)>,
+    #[serde(default)]
+    pub custom_templates: Vec<CustomTemplate>,
+    #[serde(default)]
+    pub sidebar_position: String,
 }
 
 impl Default for StikSettings {
@@ -108,6 +120,9 @@ impl Default for StikSettings {
             analytics_enabled: true,
             analytics_notice_dismissed: false,
             font_size: 14,
+            viewing_window_size: None,
+            custom_templates: vec![],
+            sidebar_position: String::new(),
         }
     }
 }
@@ -193,6 +208,13 @@ pub fn apply_dock_icon_visibility(hide: bool) {
         };
         app.setActivationPolicy(policy);
     }
+}
+
+#[tauri::command]
+pub fn save_viewing_window_size(width: f64, height: f64) -> Result<(), String> {
+    let mut settings = load_settings_from_file()?;
+    settings.viewing_window_size = Some((width, height));
+    save_settings_to_file(&settings)
 }
 
 #[tauri::command]

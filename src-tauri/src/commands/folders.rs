@@ -292,6 +292,8 @@ mod tests {
             system_shortcuts: HashMap::new(),
             analytics_enabled: true,
             analytics_notice_dismissed: false,
+            font_size: 14,
+            viewing_window_size: None,
         }
     }
 

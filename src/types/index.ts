@@ -24,6 +24,11 @@ export interface GitSharingSettings {
   sync_interval_seconds: number;
 }
 
+export interface CustomTemplate {
+  name: string;
+  body: string;
+}
+
 export interface StikSettings {
   shortcut_mappings: ShortcutMapping[];
   default_folder: string;
@@ -38,6 +43,8 @@ export interface StikSettings {
   analytics_enabled: boolean;
   analytics_notice_dismissed: boolean;
   font_size: number;
+  custom_templates: CustomTemplate[];
+  sidebar_position: string;
 }
 
 export interface NoteInfo {
@@ -88,6 +95,15 @@ export interface OnThisDayStatus {
 export interface ClipboardPayload {
   plain_text: string;
   html: string;
+}
+
+export interface AppleNoteEntry {
+  note_id: number;
+  title: string;
+  folder_name: string;
+  snippet: string;
+  modified_date: string;
+  account_name: string;
 }
 
 export interface GitSyncStatus {

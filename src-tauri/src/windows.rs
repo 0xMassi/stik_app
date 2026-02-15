@@ -1,4 +1,4 @@
-use crate::commands::{notes, sticked_notes};
+use crate::commands::{notes, settings, sticked_notes};
 use crate::state::{AppState, LastSavedNote};
 use sticked_notes::StickedNote;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -26,7 +26,7 @@ pub fn show_postit_with_folder(app: &AppHandle, folder: &str) {
     }
 }
 
-pub fn show_search(app: &AppHandle) {
+pub fn show_command_palette(app: &AppHandle) {
     {
         let state = app.state::<AppState>();
         let mut postit_visible = state.postit_was_visible.lock().unwrap_or_else(|e| e.into_inner());
@@ -42,20 +42,19 @@ pub fn show_search(app: &AppHandle) {
         }
     }
 
-    if let Some(window) = app.get_webview_window("search") {
+    if let Some(window) = app.get_webview_window("command-palette") {
         let _ = window.show();
         let _ = window.set_focus();
-        let _ = window.emit("search-opened", ());
         return;
     }
 
     let window = WebviewWindowBuilder::new(
         app,
-        "search",
-        WebviewUrl::App("index.html?window=search".into()),
+        "command-palette",
+        WebviewUrl::App("index.html?window=command-palette".into()),
     )
-    .title("Search Notes")
-    .inner_size(550.0, 450.0)
+    .title("Command Palette")
+    .inner_size(700.0, 480.0)
     .resizable(false)
     .decorations(false)
     .transparent(true)
@@ -146,8 +145,8 @@ pub fn show_settings(app: &AppHandle) {
         WebviewUrl::App("index.html?window=settings".into()),
     )
     .title("Settings")
-    .inner_size(620.0, 700.0)
-    .min_inner_size(520.0, 500.0)
+    .inner_size(740.0, 700.0)
+    .min_inner_size(580.0, 500.0)
     .resizable(true)
     .decorations(false)
     .transparent(true)
@@ -186,89 +185,16 @@ pub fn show_settings(app: &AppHandle) {
     }
 }
 
-pub fn show_manager(app: &AppHandle) {
-    {
-        let state = app.state::<AppState>();
-        let mut postit_visible = state.postit_was_visible.lock().unwrap_or_else(|e| e.into_inner());
-        *postit_visible = app
-            .get_webview_window("postit")
-            .map(|w| w.is_visible().unwrap_or(false))
-            .unwrap_or(false);
-    }
-
-    for (label, window) in app.webview_windows() {
-        if label.starts_with("sticked-") {
-            let _ = window.set_always_on_top(false);
-        }
-    }
-
-    if let Some(window) = app.get_webview_window("manager") {
-        let _ = window.show();
-        let _ = window.set_focus();
-        let _ = window.emit("manager-opened", ());
-        return;
-    }
-
-    let window = WebviewWindowBuilder::new(
-        app,
-        "manager",
-        WebviewUrl::App("index.html?window=manager".into()),
-    )
-    .title("Manage Notes")
-    .inner_size(500.0, 450.0)
-    .resizable(false)
-    .decorations(false)
-    .transparent(true)
-    .always_on_top(true)
-    .skip_taskbar(true)
-    .center()
-    .build();
-
-    if let Ok(win) = window {
-        let app_handle = app.clone();
-        win.on_window_event(move |event| {
-            match event {
-                tauri::WindowEvent::Focused(focused) => {
-                    if !focused {
-                        for (label, window) in app_handle.webview_windows() {
-                            if label.starts_with("sticked-") {
-                                let _ = window.set_always_on_top(true);
-                            }
-                        }
-                    }
-                }
-                tauri::WindowEvent::Destroyed => {
-                    for (label, window) in app_handle.webview_windows() {
-                        if label.starts_with("sticked-") {
-                            let _ = window.set_always_on_top(true);
-                        }
-                    }
-
-                    let state = app_handle.state::<AppState>();
-                    let postit_visible = *state.postit_was_visible.lock().unwrap_or_else(|e| e.into_inner());
-
-                    if postit_visible {
-                        let has_viewing_windows = app_handle
-                            .webview_windows()
-                            .iter()
-                            .any(|(label, _)| label.starts_with("sticked-view-"));
-                        if !has_viewing_windows {
-                            if let Some(postit) = app_handle.get_webview_window("postit") {
-                                let _ = postit.show();
-                                let _ = postit.set_focus();
-                            }
-                        }
-                    }
-                }
-                _ => {}
-            }
-        });
-    }
-}
-
 #[tauri::command]
 pub fn hide_window(window: tauri::Window) {
     let _ = window.hide();
+}
+
+#[tauri::command]
+pub fn hide_postit(app: AppHandle) {
+    if let Some(window) = app.get_webview_window("postit") {
+        let _ = window.hide();
+    }
 }
 
 #[tauri::command]
@@ -417,9 +343,14 @@ pub async fn open_note_for_viewing(
 
     let url = format!("index.html?window=sticked&id={}&viewing=true", id);
 
+    let (width, height) = settings::load_settings_from_file()
+        .ok()
+        .and_then(|s| s.viewing_window_size)
+        .unwrap_or((450.0, 320.0));
+
     let window = WebviewWindowBuilder::new(&app, &window_label, WebviewUrl::App(url.into()))
         .title("View Note")
-        .inner_size(450.0, 320.0)
+        .inner_size(width, height)
         .min_inner_size(320.0, 200.0)
         .max_inner_size(800.0, 600.0)
         .resizable(true)
@@ -470,14 +401,20 @@ pub fn transfer_to_capture(app: AppHandle, content: String, folder: String) -> R
 }
 
 #[tauri::command]
+pub fn open_command_palette(app: AppHandle) -> Result<bool, String> {
+    show_command_palette(&app);
+    Ok(true)
+}
+
+#[tauri::command]
 pub fn open_search(app: AppHandle) -> Result<bool, String> {
-    show_search(&app);
+    show_command_palette(&app);
     Ok(true)
 }
 
 #[tauri::command]
 pub fn open_manager(app: AppHandle) -> Result<bool, String> {
-    show_manager(&app);
+    show_command_palette(&app);
     Ok(true)
 }
 
@@ -500,6 +437,48 @@ pub async fn reopen_last_note(app: AppHandle) -> Result<bool, String> {
 
     let content = notes::get_note_content_inner(&path)?;
     open_note_for_viewing(app, content, folder, path).await
+}
+
+pub fn show_apple_notes_picker(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("apple-notes-picker") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+
+    let window = WebviewWindowBuilder::new(
+        app,
+        "apple-notes-picker",
+        WebviewUrl::App("index.html?window=apple-notes-picker".into()),
+    )
+    .title("Import from Apple Notes")
+    .inner_size(550.0, 500.0)
+    .resizable(false)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .center()
+    .build();
+
+    if let Ok(win) = window {
+        let app_handle = app.clone();
+        win.on_window_event(move |event| {
+            if let tauri::WindowEvent::Focused(focused) = event {
+                if !focused {
+                    if let Some(w) = app_handle.get_webview_window("apple-notes-picker") {
+                        let _ = w.close();
+                    }
+                }
+            }
+        });
+    }
+}
+
+#[tauri::command]
+pub fn show_apple_notes_picker_cmd(app: AppHandle) -> Result<bool, String> {
+    show_apple_notes_picker(&app);
+    Ok(true)
 }
 
 pub fn restore_sticked_notes(app: &AppHandle) {

@@ -1,134 +1,84 @@
 /**
- * Floating popover that appears when the cursor is inside a link.
+ * Floating popover that appears when the cursor is inside a markdown link.
  * Actions: Open in browser, Copy URL, Edit URL, Remove link.
+ *
+ * CodeMirror version — detects [text](url) via regex on the current line.
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { open } from "@tauri-apps/plugin-shell";
-import { normalizeUrl } from "@/extensions/markdown-link-rule";
-import { isLinkEditShortcut } from "@/utils/linkShortcut";
+import type { EditorView } from "@codemirror/view";
+import { normalizeUrl } from "@/utils/normalizeUrl";
 import { consumeEscapeForPopover } from "@/utils/popoverEscape";
-import type { Editor } from "@tiptap/core";
 
 interface LinkPopoverProps {
-  editor: Editor | null;
+  editorRef: { current: EditorView | null };
+  getView: () => EditorView | null;
 }
 
 interface LinkInfo {
   href: string;
   text: string;
-  from: number;
-  to: number;
-  bottom: number;
-  left: number;
+  from: number; // doc position of [
+  to: number; // doc position after )
+  textFrom: number; // doc position of the link text start
+  textTo: number; // doc position of the link text end
+  bottom: number; // px relative to editor
+  left: number; // px relative to editor
   editorWidth: number;
 }
 
-function getActiveLinkInfo(editor: Editor): LinkInfo | null {
-  const { state } = editor;
-  const { from, empty } = state.selection;
+const LINK_RE = /\[([^\]]*)\]\(([^)]*)\)/g;
 
-  // Only show for cursor (no range selection) to avoid clutter
-  if (!empty) return null;
+function getActiveLinkInfo(view: EditorView): LinkInfo | null {
+  const { state } = view;
+  const { from: cursorPos } = state.selection.main;
 
-  const linkMark = state.schema.marks.link;
-  if (!linkMark) return null;
+  // Only show for collapsed cursor
+  if (!state.selection.main.empty) return null;
 
-  const $pos = state.doc.resolve(from);
-  const marks = $pos.marks();
-  const link = marks.find((m) => m.type === linkMark);
-  if (!link) return null;
+  const line = state.doc.lineAt(cursorPos);
+  const offset = cursorPos - line.from;
 
-  const href = link.attrs.href as string;
-  if (!href) return null;
+  LINK_RE.lastIndex = 0;
+  let match;
+  while ((match = LINK_RE.exec(line.text)) !== null) {
+    const start = match.index;
+    const end = start + match[0].length;
+    if (offset >= start && offset <= end) {
+      const linkText = match[1];
+      const href = match[2];
+      if (!href) continue;
 
-  // Find the full extent of the link mark around the cursor
-  let markFrom = from;
-  let markTo = from;
+      const docFrom = line.from + start;
+      const docTo = line.from + end;
+      const textFrom = line.from + start + 1; // after [
+      const textTo = textFrom + linkText.length; // before ]
 
-  // Walk backward
-  const parentNode = $pos.parent;
-  const parentOffset = $pos.parentOffset;
-  for (let i = parentOffset - 1; i >= 0; i--) {
-    const resolved = state.doc.resolve($pos.start() + i);
-    if (resolved.marks().some((m) => m.type === linkMark && m.attrs.href === href)) {
-      markFrom = $pos.start() + i;
-    } else break;
-  }
+      // Get coordinates for positioning
+      const coords = view.coordsAtPos(cursorPos);
+      if (!coords) return null;
 
-  // Walk forward
-  const textLength = parentNode.content.size;
-  for (let i = parentOffset; i < textLength; i++) {
-    const resolved = state.doc.resolve($pos.start() + i);
-    if (resolved.marks().some((m) => m.type === linkMark && m.attrs.href === href)) {
-      markTo = $pos.start() + i + 1;
-    } else break;
-  }
+      const editorRect = view.dom.getBoundingClientRect();
 
-  // Get coordinates for positioning
-  const coords = editor.view.coordsAtPos(from);
-  const editorRect = editor.view.dom.getBoundingClientRect();
-  const text = state.doc.textBetween(markFrom, markTo, " ", " ");
-
-  return {
-    href,
-    text,
-    from: markFrom,
-    to: markTo,
-    bottom: coords.bottom - editorRect.top,
-    left: coords.left - editorRect.left,
-    editorWidth: editorRect.width,
-  };
-}
-
-function getSelectedTextLinkInfo(editor: Editor): LinkInfo | null {
-  const { state } = editor;
-  const { from, to, empty } = state.selection;
-
-  if (empty || from === to) return null;
-
-  const text = state.doc.textBetween(from, to, " ", " ");
-  if (!text.trim()) return null;
-
-  const linkMark = state.schema.marks.link;
-  let href = "";
-
-  if (linkMark) {
-    let candidateHref: string | null = null;
-    let mixedSelection = false;
-
-    state.doc.nodesBetween(from, to, (node) => {
-      if (!node.isText) return;
-      const link = node.marks.find((mark) => mark.type === linkMark);
-      const nodeHref = (link?.attrs.href as string | undefined)?.trim() ?? "";
-
-      if (candidateHref === null) {
-        candidateHref = nodeHref;
-      } else if (candidateHref !== nodeHref) {
-        mixedSelection = true;
-      }
-    });
-
-    if (!mixedSelection && candidateHref) {
-      href = candidateHref;
+      return {
+        href,
+        text: linkText,
+        from: docFrom,
+        to: docTo,
+        textFrom,
+        textTo,
+        bottom: coords.bottom - editorRect.top,
+        left: coords.left - editorRect.left,
+        editorWidth: editorRect.width,
+      };
     }
   }
 
-  const coords = editor.view.coordsAtPos(to);
-  const editorRect = editor.view.dom.getBoundingClientRect();
-
-  return {
-    href,
-    text,
-    from,
-    to,
-    bottom: coords.bottom - editorRect.top,
-    left: coords.left - editorRect.left,
-    editorWidth: editorRect.width,
-  };
+  return null;
 }
 
-export default function LinkPopover({ editor }: LinkPopoverProps) {
+export default function LinkPopover({ getView }: LinkPopoverProps) {
   const [linkInfo, setLinkInfo] = useState<LinkInfo | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState("");
@@ -146,84 +96,46 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
   }, [isEditing]);
 
   const updateLinkInfo = useCallback(() => {
-    if (!editor) {
+    const view = getView();
+    if (!view) {
       setLinkInfo(null);
       setIsEditing(false);
       return;
     }
 
-    // While focus is transitioning from editor -> popover controls,
-    // avoid clearing state here. handleBlur owns hide timing.
-    if (!editor.isFocused) return;
+    // Don't clear while editing
+    if (isEditingRef.current) return;
 
-    const info = getActiveLinkInfo(editor);
+    // Check if editor is focused
+    if (!view.hasFocus) return;
+
+    const info = getActiveLinkInfo(view);
     setLinkInfo(info);
     if (!info) setIsEditing(false);
-  }, [editor]);
+  }, [getView]);
 
-  const handleBlur = useCallback(() => {
-    // Delay so clicks on the popover itself register before hiding
-    setTimeout(() => {
-      if (isEditingRef.current) return;
-      if (!popoverRef.current?.contains(document.activeElement)) {
-        setLinkInfo(null);
-        setIsEditing(false);
-      }
-    }, 150);
-  }, []);
-
+  // Poll for cursor changes (CodeMirror doesn't have TipTap's event system built-in here)
   useEffect(() => {
-    if (!editor) return;
+    const view = getView();
+    if (!view) return;
 
-    editor.on("selectionUpdate", updateLinkInfo);
-    editor.on("transaction", updateLinkInfo);
-    editor.on("blur", handleBlur);
-    window.addEventListener("resize", updateLinkInfo);
+    // Listen for selection changes via a timer (CM updateListener is in Editor.tsx)
+    const interval = setInterval(updateLinkInfo, 200);
+    return () => clearInterval(interval);
+  }, [getView, updateLinkInfo]);
 
-    let resizeObserver: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(() => {
-        updateLinkInfo();
-      });
-      resizeObserver.observe(editor.view.dom);
-    }
-
-    return () => {
-      editor.off("selectionUpdate", updateLinkInfo);
-      editor.off("transaction", updateLinkInfo);
-      editor.off("blur", handleBlur);
-      window.removeEventListener("resize", updateLinkInfo);
-      resizeObserver?.disconnect();
-    };
-  }, [editor, updateLinkInfo, handleBlur]);
-
+  // Also update on key/mouse events
   useEffect(() => {
-    if (!editor) return;
+    const handleKeyUp = () => updateLinkInfo();
+    const handleClick = () => setTimeout(updateLinkInfo, 50);
 
-    const handleShortcut = (event: KeyboardEvent) => {
-      if (!isLinkEditShortcut(event)) return;
-      if (!editor.isFocused) return;
-
-      const info = getSelectedTextLinkInfo(editor);
-      if (!info) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      setLinkInfo(info);
-      setEditText(info.text);
-      setEditHref(info.href);
-      focusHrefOnEditRef.current = true;
-      setIsEditing(true);
-    };
-
-    const dom = editor.view.dom;
-    dom.addEventListener("keydown", handleShortcut);
-
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("click", handleClick);
     return () => {
-      dom.removeEventListener("keydown", handleShortcut);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("click", handleClick);
     };
-  }, [editor]);
+  }, [updateLinkInfo]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -258,7 +170,6 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Fallback
       const ta = document.createElement("textarea");
       ta.value = linkInfo.href;
       ta.style.position = "fixed";
@@ -281,39 +192,37 @@ export default function LinkPopover({ editor }: LinkPopoverProps) {
   }, [linkInfo]);
 
   const handleSaveEdit = useCallback(() => {
-    if (!editor || !linkInfo) return;
+    const view = getView();
+    if (!view || !linkInfo) return;
+
     const href = editHref.trim() ? normalizeUrl(editHref.trim()) : "";
     const text = editText.trim() || linkInfo.text || href;
     if (!href || !text) return;
 
-    const linkMark = editor.state.schema.marks.link;
-    const mark = linkMark?.create({ href });
-    const textNode = mark
-      ? editor.state.schema.text(text, [mark])
-      : editor.state.schema.text(text);
-
-    const transaction = editor.state.tr.replaceWith(linkInfo.from, linkInfo.to, textNode);
-    editor.view.dispatch(transaction);
+    const replacement = `[${text}](${href})`;
+    view.dispatch({
+      changes: { from: linkInfo.from, to: linkInfo.to, insert: replacement },
+    });
 
     setIsEditing(false);
-    editor.commands.focus();
-  }, [editor, linkInfo, editHref, editText]);
+    view.focus();
+  }, [getView, linkInfo, editHref, editText]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
-    editor?.commands.focus();
-  }, [editor]);
+    getView()?.focus();
+  }, [getView]);
 
   const handleUnlink = useCallback(() => {
-    if (!editor || !linkInfo) return;
-    editor
-      .chain()
-      .focus()
-      .setTextSelection({ from: linkInfo.from, to: linkInfo.to })
-      .unsetLink()
-      .run();
+    const view = getView();
+    if (!view || !linkInfo) return;
+
+    // Replace [text](url) with just text
+    view.dispatch({
+      changes: { from: linkInfo.from, to: linkInfo.to, insert: linkInfo.text },
+    });
     setLinkInfo(null);
-  }, [editor, linkInfo]);
+  }, [getView, linkInfo]);
 
   if (!linkInfo) return null;
 

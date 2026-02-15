@@ -93,6 +93,15 @@ body,
   user-select: none;
 }
 
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* IE / Edge */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;                  /* Chrome / Safari */
+}
+
 /* Drag region for frameless window */
 .drag-handle {
   cursor: grab;
@@ -102,18 +111,15 @@ body,
   cursor: grabbing;
 }
 
-/* TipTap Editor Styles */
+/* CodeMirror Editor Styles */
 .stik-editor {
-  height: 100%;
-  padding: 12px 16px;
   font-size: var(--editor-font-size, 14px);
   line-height: 1.5;
   color: rgb(var(--color-ink));
   outline: none;
-  overflow-y: auto;
 }
 
-.has-formatting-toolbar .stik-editor {
+.has-formatting-toolbar .cm-editor {
   padding-bottom: 40px;
 }
 
@@ -128,162 +134,49 @@ body,
   display: none !important;
 }
 
-.capturing-image .has-formatting-toolbar .stik-editor {
+.capturing-image .has-formatting-toolbar .cm-editor {
   padding-bottom: 12px;
 }
 
-.stik-editor:focus {
-  outline: none;
+/* ── Bullet points (source mode widgets) ── */
+.cm-bullet {
+  color: rgb(var(--color-coral));
 }
 
-/* Placeholder */
-.stik-editor p.is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  float: left;
-  color: var(--editor-placeholder);
-  pointer-events: none;
-  height: 0;
-}
-
-/* Headings */
-.stik-editor h1 {
-  font-size: calc(var(--editor-font-size, 14px) * 1.43);
-  font-weight: 700;
-  margin: 0.4em 0 0.2em;
-}
-
-.stik-editor h2 {
-  font-size: calc(var(--editor-font-size, 14px) * 1.21);
-  font-weight: 600;
-  margin: 0.4em 0 0.2em;
-}
-
-.stik-editor h3 {
-  font-size: calc(var(--editor-font-size, 14px) * 1.07);
-  font-weight: 600;
-  margin: 0.4em 0 0.2em;
-}
-
-/* Remove top margin on the very first heading so it doesn't stack with editor padding */
-.stik-editor > :first-child:is(h1, h2, h3) {
-  margin-top: 0;
-}
-
-/* Inline formatting */
-.stik-editor strong {
-  font-weight: 700;
-}
-
-.stik-editor em {
-  font-style: italic;
-}
-
-.stik-editor s {
-  text-decoration: line-through;
-  color: var(--editor-strikethrough);
-}
-
-.stik-editor code {
-  background-color: var(--editor-code-bg);
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-family: Monaco, Consolas, monospace;
-  font-size: calc(var(--editor-font-size, 14px) * 0.86);
-  color: var(--editor-link);
-}
-
-/* Links */
-.stik-editor a {
-  color: var(--editor-link);
-  text-decoration: underline;
-}
-
-.cmd-held .stik-editor a {
-  cursor: pointer;
-}
-
-/* Lists — Tailwind Preflight sets list-style:none, restore it here */
-.stik-editor ul {
-  list-style-type: disc;
-  padding-left: 1.2em;
-  margin: 0.3em 0;
-}
-
-.stik-editor ol {
-  list-style-type: decimal;
-  padding-left: 1.2em;
-  margin: 0.3em 0;
-}
-
-.stik-editor li {
-  margin: 0.15em 0;
-}
-
-.stik-editor ul li::marker {
-  color: var(--editor-marker);
-}
-
-/* Task list */
-.stik-editor ul[data-type="taskList"] {
-  list-style: none;
-  padding-left: 0;
-}
-
-.stik-editor ul[data-type="taskList"] li {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-}
-
-.stik-editor ul[data-type="taskList"] li > label input[type="checkbox"] {
-  appearance: none;
+/* ── Task list checkboxes (source mode widgets) ── */
+.cm-task-checkbox {
+  display: inline-block;
   width: 14px;
   height: 14px;
   border: 2px solid var(--editor-checkbox-border);
   border-radius: 3px;
+  vertical-align: middle;
   cursor: pointer;
-  margin-top: 2px;
+  position: relative;
+  transition: background-color 0.15s, border-color 0.15s;
 }
 
-.stik-editor ul[data-type="taskList"] li > label input[type="checkbox"]:checked {
+.cm-task-checkbox-checked {
   background-color: var(--editor-checkbox-checked);
+  border-color: var(--editor-checkbox-checked);
 }
 
-.stik-editor ul[data-type="taskList"] li[data-checked="true"] > div {
+.cm-task-checkbox-checked::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Checked task lines: strikethrough + muted text */
+.cm-task-checked {
   text-decoration: line-through;
   color: var(--editor-checked-task);
-}
-
-/* Blockquote */
-.stik-editor blockquote {
-  border-left: 2px solid var(--editor-blockquote-border);
-  padding-left: 10px;
-  margin: 0.3em 0;
-  color: var(--editor-blockquote-text);
-  font-style: italic;
-}
-
-/* Code block */
-.stik-editor pre {
-  background-color: var(--editor-code-block-bg);
-  border-radius: 6px;
-  padding: 10px;
-  margin: 0.3em 0;
-}
-
-.stik-editor pre code {
-  background: none;
-  padding: 0;
-  color: var(--editor-code-block-text);
-  font-size: calc(var(--editor-font-size, 14px) * 0.86);
-}
-
-/* Inline images */
-.stik-editor img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 6px;
-  margin: 0.3em 0;
 }
 
 /* Save Animation */
@@ -337,34 +230,13 @@ body,
   }
 }
 
-/* Vim Mode Cursor — caret-color is set by PluginView, not CSS classes */
-
-/* Block cursor: solid, no blink — matches terminal vim behavior */
-.vim-cursor-block {
-  background: rgb(var(--color-ink));
-  color: rgb(var(--color-bg));
-  border-radius: 1px;
-}
-
-/* Visual mode selection highlight */
-.vim-visual-active ::selection {
-  background: transparent;
-}
-
-.vim-visual-selection {
-  background: var(--vim-visual-selection);
-}
-
-/* Widget at end-of-line / empty line */
-.vim-cursor-eol {
-  background: rgb(var(--color-ink));
-  border-radius: 1px;
-}
-
-.vim-normal:not(:focus) .vim-cursor-eol {
-  background: transparent;
-  outline: 1.5px solid rgb(var(--color-ink));
-  outline-offset: -1.5px;
+/* Vim mode — @replit/codemirror-vim handles cursor styles.
+   Override visual selection color to match Stik theme. */
+.cm-vim-panel input {
+  font-family: Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: rgb(var(--color-ink));
+  background: rgb(var(--color-bg));
 }
 
 /* Vim mode indicator */
@@ -437,76 +309,6 @@ body,
   border-radius: 0 0 14px 0;
 }
 
-/* ── Highlight (==text==) ── */
-.stik-editor mark {
-  background-color: rgba(232, 112, 95, 0.15);
-  color: inherit;
-  padding: 1px 2px;
-  border-radius: 2px;
-}
-
-[data-theme="dark"] .stik-editor mark {
-  background-color: rgba(232, 112, 95, 0.25);
-}
-
-/* ── Collapsible Headings ── */
-
-/* Heading wrapper: relative for chevron positioning */
-.stik-editor h1,
-.stik-editor h2,
-.stik-editor h3 {
-  position: relative;
-}
-
-/* Fold toggle chevron — positioned in the left padding gutter, zero inline footprint */
-.heading-fold-toggle {
-  position: absolute;
-  left: -14px;
-  top: 50%;
-  translate: 0 -50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  font-size: 7px;
-  line-height: 1;
-  color: rgb(var(--color-stone));
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s, transform 0.15s, color 0.15s;
-  transform: rotate(90deg);
-  border-radius: 3px;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.heading-fold-toggle:hover {
-  color: rgb(var(--color-coral));
-  background: rgba(232, 112, 95, 0.08);
-}
-
-/* Show chevron on heading hover */
-.stik-editor h1:hover > .heading-fold-toggle,
-.stik-editor h2:hover > .heading-fold-toggle,
-.stik-editor h3:hover > .heading-fold-toggle,
-.stik-editor h1 > .heading-fold-toggle:hover,
-.stik-editor h2 > .heading-fold-toggle:hover,
-.stik-editor h3 > .heading-fold-toggle:hover {
-  opacity: 1;
-}
-
-/* Collapsed state: rotate to right-pointing, always visible, coral color */
-.heading-fold-toggle.collapsed {
-  opacity: 1;
-  transform: rotate(0deg);
-  color: rgb(var(--color-coral));
-}
-
-/* Hidden content when heading is collapsed */
-.heading-collapsed-content {
-  display: none !important;
-}
 
 /* ── Wiki-Links ── */
 .wiki-link {
@@ -525,64 +327,6 @@ body,
   background-color: rgba(232, 112, 95, 0.1);
 }
 
-/* Wiki-link suggestion dropdown */
-.wiki-link-suggestion {
-  min-width: 200px;
-  max-width: 320px;
-  max-height: 240px;
-  overflow-y: auto;
-  background: rgb(var(--color-bg));
-  border: 1px solid rgb(var(--color-line));
-  border-radius: 10px;
-  box-shadow: var(--shadow-stik);
-  padding: 4px;
-}
-
-.wiki-link-suggestion-empty {
-  padding: 8px 12px;
-  font-size: 12px;
-  color: rgb(var(--color-stone));
-}
-
-.wiki-link-suggestion-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  text-align: left;
-  transition: background-color 0.1s;
-}
-
-.wiki-link-suggestion-item:hover,
-.wiki-link-suggestion-item.is-selected {
-  background-color: rgb(var(--color-line));
-}
-
-.wiki-link-suggestion-slug {
-  font-size: 13px;
-  font-weight: 500;
-  color: rgb(var(--color-ink));
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.wiki-link-suggestion-folder {
-  font-size: 10px;
-  font-weight: 600;
-  color: rgb(var(--color-coral));
-  background: rgba(232, 112, 95, 0.1);
-  padding: 1px 6px;
-  border-radius: 99px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
 
 /* ── Link Popover ── */
 .link-popover {

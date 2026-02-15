@@ -39,6 +39,19 @@ const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    id: "templates",
+    label: "Templates",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+        <polyline points="10 9 9 9 8 9" />
+      </svg>
+    ),
+  },
+  {
     id: "git",
     label: "Git Sharing",
     icon: (
@@ -310,25 +323,27 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   );
 
   const tabBar = (
-    <div className="flex items-center gap-0.5 px-4 pb-3">
-      {TABS.map((tab) => {
-        const isActive = activeTab === tab.id;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium rounded-lg transition-colors ${
-              isActive
-                ? "text-coral bg-coral/10"
-                : "text-stone hover:text-ink hover:bg-line/50"
-            }`}
-          >
-            {tab.icon}
-            <span>{tab.label}</span>
-          </button>
-        );
-      })}
+    <div className="overflow-x-auto scrollbar-hide px-4 pb-3">
+      <div className="flex items-center gap-0.5 w-max">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium rounded-lg transition-colors whitespace-nowrap ${
+                isActive
+                  ? "text-coral bg-coral/10"
+                  : "text-stone hover:text-ink hover:bg-line/50"
+              }`}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 
@@ -390,7 +405,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
-      <div className="bg-bg rounded-[14px] w-[min(96vw,620px)] max-h-[85vh] flex flex-col shadow-stik overflow-hidden border border-line/50">
+      <div className="bg-bg rounded-[14px] w-[min(96vw,740px)] max-h-[85vh] flex flex-col shadow-stik overflow-hidden border border-line/50">
         <div className="border-b border-line bg-line/20">
           <div className="flex items-center px-5 pt-4 pb-3">
             <div className="flex items-center gap-2.5">

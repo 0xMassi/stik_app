@@ -1,110 +1,53 @@
+/**
+ * Formatting toolbar for CodeMirror — wraps/unwraps markdown syntax.
+ */
+
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { Editor } from "@tiptap/core";
+import type { EditorView } from "@codemirror/view";
+import {
+  toggleInlineFormat,
+  toggleLinePrefix,
+  insertLink,
+  type FormatState,
+} from "@/extensions/cm-formatting";
 
 interface FormattingToolbarProps {
-  editor: Editor | null;
+  getView: () => EditorView | null;
+  onFormatStateChange: (cb: (state: FormatState) => void) => void;
 }
 
-interface ActiveState {
-  bold: boolean;
-  italic: boolean;
-  strike: boolean;
-  code: boolean;
-  link: boolean;
-  blockquote: boolean;
-  bulletList: boolean;
-  orderedList: boolean;
-  taskList: boolean;
-  highlight: boolean;
-  heading1: boolean;
-  heading2: boolean;
-  heading3: boolean;
-  hasSelection: boolean;
-}
-
-const EMPTY_STATE: ActiveState = {
+const EMPTY_STATE: FormatState = {
   bold: false,
   italic: false,
   strike: false,
   code: false,
-  link: false,
+  highlight: false,
+  heading: 0,
   blockquote: false,
   bulletList: false,
   orderedList: false,
   taskList: false,
-  highlight: false,
-  heading1: false,
-  heading2: false,
-  heading3: false,
+  link: false,
   hasSelection: false,
 };
-
-function readActiveState(editor: Editor): ActiveState {
-  return {
-    bold: editor.isActive("bold"),
-    italic: editor.isActive("italic"),
-    strike: editor.isActive("strike"),
-    code: editor.isActive("code"),
-    link: editor.isActive("link"),
-    blockquote: editor.isActive("blockquote"),
-    bulletList: editor.isActive("bulletList"),
-    orderedList: editor.isActive("orderedList"),
-    taskList: editor.isActive("taskList"),
-    highlight: editor.isActive("highlight"),
-    heading1: editor.isActive("heading", { level: 1 }),
-    heading2: editor.isActive("heading", { level: 2 }),
-    heading3: editor.isActive("heading", { level: 3 }),
-    hasSelection: !editor.state.selection.empty,
-  };
-}
-
-function statesEqual(a: ActiveState, b: ActiveState): boolean {
-  return (
-    a.bold === b.bold &&
-    a.italic === b.italic &&
-    a.strike === b.strike &&
-    a.code === b.code &&
-    a.link === b.link &&
-    a.blockquote === b.blockquote &&
-    a.bulletList === b.bulletList &&
-    a.orderedList === b.orderedList &&
-    a.taskList === b.taskList &&
-    a.highlight === b.highlight &&
-    a.heading1 === b.heading1 &&
-    a.heading2 === b.heading2 &&
-    a.heading3 === b.heading3 &&
-    a.hasSelection === b.hasSelection
-  );
-}
 
 /** Prevent mousedown from stealing editor focus */
 function preventFocus(e: React.MouseEvent) {
   e.preventDefault();
 }
 
-export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
-  const [active, setActive] = useState<ActiveState>(EMPTY_STATE);
+export default function FormattingToolbar({
+  getView,
+  onFormatStateChange,
+}: FormattingToolbarProps) {
+  const [active, setActive] = useState<FormatState>(EMPTY_STATE);
   const [headingOpen, setHeadingOpen] = useState(false);
-  const prevRef = useRef<ActiveState>(EMPTY_STATE);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Track active formatting state from editor transactions
+  // Subscribe to format state changes from the editor
   useEffect(() => {
-    if (!editor) return;
-
-    const onTransaction = () => {
-      const next = readActiveState(editor);
-      if (!statesEqual(prevRef.current, next)) {
-        prevRef.current = next;
-        setActive(next);
-      }
-    };
-
-    editor.on("transaction", onTransaction);
-    return () => {
-      editor.off("transaction", onTransaction);
-    };
-  }, [editor]);
+    onFormatStateChange(setActive);
+  }, [onFormatStateChange]);
 
   // Close heading dropdown on outside click
   useEffect(() => {
@@ -121,28 +64,26 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
   }, [headingOpen]);
 
   const cmd = useCallback(
-    (fn: () => void) => {
-      if (!editor) return;
-      fn();
+    (fn: (view: EditorView) => void) => {
+      const view = getView();
+      if (!view) return;
+      fn(view);
+      view.focus();
     },
-    [editor]
+    [getView]
   );
-
-  if (!editor) return null;
-
-  const activeHeading = active.heading1 ? 1 : active.heading2 ? 2 : active.heading3 ? 3 : 0;
 
   return (
     <div className="formatting-toolbar" onMouseDown={preventFocus}>
       {/* Heading dropdown */}
       <div className="fmt-heading-wrap" ref={dropdownRef}>
         <button
-          className={`fmt-btn fmt-btn-heading${activeHeading ? " fmt-active" : ""}`}
+          className={`fmt-btn fmt-btn-heading${active.heading ? " fmt-active" : ""}`}
           onMouseDown={preventFocus}
           onClick={() => setHeadingOpen(!headingOpen)}
           title="Heading"
         >
-          <span className="fmt-heading-label">H{activeHeading || ""}</span>
+          <span className="fmt-heading-label">H{active.heading || ""}</span>
           <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor">
             <path d="M1 5.5L4 2.5L7 5.5" />
           </svg>
@@ -152,10 +93,10 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
             {([1, 2, 3] as const).map((level) => (
               <button
                 key={level}
-                className={`fmt-heading-option${activeHeading === level ? " fmt-active" : ""}`}
+                className={`fmt-heading-option${active.heading === level ? " fmt-active" : ""}`}
                 onMouseDown={preventFocus}
                 onClick={() => {
-                  cmd(() => editor.chain().focus().toggleHeading({ level }).run());
+                  cmd((view) => toggleLinePrefix(view, "#".repeat(level)));
                   setHeadingOpen(false);
                 }}
               >
@@ -171,7 +112,7 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
       <button
         className={`fmt-btn${active.bold ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
-        onClick={() => cmd(() => editor.chain().focus().toggleBold().run())}
+        onClick={() => cmd((view) => toggleInlineFormat(view, "**"))}
         title="Bold"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -183,7 +124,7 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
       <button
         className={`fmt-btn${active.italic ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
-        onClick={() => cmd(() => editor.chain().focus().toggleItalic().run())}
+        onClick={() => cmd((view) => toggleInlineFormat(view, "*"))}
         title="Italic"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -194,7 +135,7 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
       <button
         className={`fmt-btn${active.strike ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
-        onClick={() => cmd(() => editor.chain().focus().toggleStrike().run())}
+        onClick={() => cmd((view) => toggleInlineFormat(view, "~~"))}
         title="Strikethrough"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -205,7 +146,7 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
       <button
         className={`fmt-btn${active.code ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
-        onClick={() => cmd(() => editor.chain().focus().toggleCode().run())}
+        onClick={() => cmd((view) => toggleInlineFormat(view, "`"))}
         title="Inline code"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -214,27 +155,12 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
         </svg>
       </button>
 
-      {/* Link: triggers Cmd+K to open the LinkPopover editor */}
+      {/* Link */}
       <button
         className={`fmt-btn${active.link ? " fmt-active" : ""}${!active.link && !active.hasSelection ? " fmt-disabled" : ""}`}
         onMouseDown={preventFocus}
-        onClick={() => {
-          if (active.link) {
-            cmd(() => editor.chain().focus().unsetLink().run());
-          } else if (active.hasSelection) {
-            // Dispatch Cmd+K to trigger the LinkPopover edit flow
-            editor.view.dom.dispatchEvent(
-              new KeyboardEvent("keydown", {
-                key: "k",
-                code: "KeyK",
-                metaKey: true,
-                bubbles: true,
-                cancelable: true,
-              })
-            );
-          }
-        }}
-        title={active.link ? "Remove link" : "Add link (select text first)"}
+        onClick={() => cmd((view) => insertLink(view))}
+        title={active.hasSelection ? "Add link" : "Add link (select text first)"}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -247,7 +173,7 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
       <button
         className={`fmt-btn${active.blockquote ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
-        onClick={() => cmd(() => editor.chain().focus().toggleBlockquote().run())}
+        onClick={() => cmd((view) => toggleLinePrefix(view, ">"))}
         title="Blockquote"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -258,7 +184,7 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
       <button
         className={`fmt-btn${active.bulletList ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
-        onClick={() => cmd(() => editor.chain().focus().toggleBulletList().run())}
+        onClick={() => cmd((view) => toggleLinePrefix(view, "-"))}
         title="Bullet list"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -269,7 +195,7 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
       <button
         className={`fmt-btn${active.orderedList ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
-        onClick={() => cmd(() => editor.chain().focus().toggleOrderedList().run())}
+        onClick={() => cmd((view) => toggleLinePrefix(view, "1."))}
         title="Ordered list"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -280,7 +206,7 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
       <button
         className={`fmt-btn${active.taskList ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
-        onClick={() => cmd(() => editor.chain().focus().toggleTaskList().run())}
+        onClick={() => cmd((view) => toggleLinePrefix(view, "- [ ]"))}
         title="Task list"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -294,13 +220,13 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
 
       <div className="fmt-sep" />
 
-      {/* Highlight: only toggles with selection (inclusive:false means stored marks last 1 char) */}
+      {/* Highlight */}
       <button
         className={`fmt-btn${active.highlight ? " fmt-active" : ""}${!active.highlight && !active.hasSelection ? " fmt-disabled" : ""}`}
         onMouseDown={preventFocus}
         onClick={() => {
           if (active.highlight || active.hasSelection) {
-            cmd(() => editor.chain().focus().toggleHighlight().run());
+            cmd((view) => toggleInlineFormat(view, "=="));
           }
         }}
         title={active.hasSelection || active.highlight ? "Highlight" : "Highlight (select text first)"}
