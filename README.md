@@ -79,11 +79,13 @@ From v0.3.3 onwards, Stik includes a built-in auto-updater that silently downloa
 
 **Pin** -- Keep important notes floating on your desktop as sticky notes.
 
-**Rich Editor** -- Full markdown with `==highlighting==`, `[[wiki-links]]` to other notes, collapsible headings, image paste/drop, task lists, and a link popover for quick editing. Optional Vim mode with Normal, Insert, Visual, and Command modes.
+**Rich Editor** -- Source-mode markdown with syntax highlighting, `==highlighting==`, `[[wiki-links]]` to other notes, collapsible headings, image paste/drop, task lists, interactive tables, and a link popover for quick editing. Type `/` for slash commands -- instant templates for meetings, standups, journals, tables, and more. Create your own custom templates in Settings. Optional Vim mode.
 
 **On-Device AI** -- Semantic search, smart folder suggestions, and note embeddings. Powered by Apple's NaturalLanguage framework. Everything runs locally -- no cloud, no API keys, no data leaves your Mac.
 
 **Share** -- Copy notes as rich text, markdown, or image. Sync folders via git with background auto-sync.
+
+**Import** -- Browse and import notes from Apple Notes directly into Stik. No export/import files needed.
 
 **Themes** -- System, Light, or Dark mode. Switches live, respects macOS appearance.
 
@@ -96,8 +98,8 @@ All shortcuts are customizable in Settings.
 | Shortcut | Action |
 |----------|--------|
 | `Cmd+Shift+S` | Capture a new note |
-| `Cmd+Shift+P` | Search all notes |
-| `Cmd+Shift+M` | Manage notes and folders |
+| `Cmd+Shift+P` | Command Palette (search + folders) |
+| `Cmd+Shift+M` | Command Palette (alt shortcut) |
 | `Cmd+Shift+L` | Reopen last note |
 | `Cmd+Shift+,` | Open settings |
 
@@ -132,7 +134,7 @@ npm run tauri build    # Production .app bundle
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19, TypeScript, Tailwind CSS, Tiptap |
+| Frontend | React 19, TypeScript, Tailwind CSS, CodeMirror 6 |
 | Backend | Rust, Tauri 2.0 |
 | AI | DarwinKit (Swift CLI wrapping Apple NaturalLanguage framework) |
 | Storage | Local filesystem (`.md` files), optional git sync |
