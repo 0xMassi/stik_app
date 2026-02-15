@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Stik",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "identifier": "com.stik.app",
   "build": {
     "beforeBuildCommand": "npm run build",

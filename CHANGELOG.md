@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-14
+Unified Command Palette, CodeMirror editor, interactive tables, and Apple Notes import
+
+### Added
+- **Unified Command Palette** — merged Search (`Cmd+Shift+P`) and Manager (`Cmd+Shift+M`) into a single two-pane window with folder sidebar + note list. Both shortcuts open the same palette
+- **Sidebar position toggle** — switch Command Palette sidebar between left and right, persisted in settings
+- **Inline note creation** — create notes directly from the Command Palette via the "New Note" footer button
+- **CodeMirror 6 editor** — replaced Tiptap with CodeMirror for source-mode markdown editing with syntax highlighting, better performance, and extensibility
+- **Interactive table widgets** — markdown tables render as editable rich widgets with Tab/Shift+Tab cell navigation, right-click context menu (insert/delete rows and columns), and keyboard exits (Escape, Enter from last row)
+- **Horizontal rule widgets** — `---` renders as a styled divider line in the editor
+- **Slash commands** — type `/` at line start for Notion/Raycast-style template insertion (headings, lists, code blocks, tables, templates)
+- **Custom user templates** — define reusable slash command templates in Settings with `{{cursor}}`, `{{date}}`, `{{time}}`, `{{day}}` placeholders
+- **Read-only Apple Notes import** — browse and import notes from Apple Notes via SQLite + protobuf parsing (#29)
+- **Note template library** — built-in `/meeting`, `/standup`, `/journal`, `/brainstorm`, `/retro`, `/proscons`, `/weekly` templates with dynamic date insertion
+
+### Changed
+- **Editor engine** — migrated from Tiptap (ProseMirror) to CodeMirror 6 for native markdown source editing
+- **Window consolidation** — `search` and `manager` windows replaced by single `command-palette` window
+- **PostIt footer** — two separate search/manager buttons consolidated into single Command Palette button
+
+### Fixed
+- **Table cursor trap** — block-level table widgets at document end no longer trap the cursor; trailing newline auto-inserted
+- **Tauri capability permissions** — `command-palette` window added to capability allow-list, fixing `event.emit` errors
+- **Settings race condition** — centralized `saveAndEmitSettings` helper prevents concurrent settings mutations from overwriting each other
+
 ## [0.5.0] - 2026-02-11
 Editor toolbar, font zoom, and quality-of-life fixes
 
@@ -228,6 +253,7 @@ First release
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.6.0 | 2026-02-14 | Unified Command Palette, CodeMirror 6 editor, interactive tables, slash commands, Apple Notes import |
 | 0.5.0 | 2026-02-11 | Formatting toolbar, font zoom, root-level notes, image export cleanup, community standards |
 | 0.4.4 | 2026-02-10 | Dock icon hiding, folder colors, custom shortcuts, anonymous analytics, folder-scoped search |
 | 0.4.3 | 2026-02-09 | Escape handling in link popover fixed; opening Settings no longer recreates deleted folders |
@@ -240,7 +266,8 @@ First release
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/0xMassi/stik_app/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/0xMassi/stik_app/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/0xMassi/stik_app/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/0xMassi/stik_app/compare/v0.4.2...v0.4.3
