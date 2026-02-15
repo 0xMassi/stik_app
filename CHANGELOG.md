@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-02-15
+Capture window stability and auto-updater fix
+
+### Fixed
+- **Ghost process from auto-updater in dev mode** — `downloadAndInstall()` was extracting to a temp dir and spawning a second Stik process from an older release, causing two instances to compete for the global shortcut. Auto-updater now skips in dev builds
+- **Stale content on fast Escape** — `handleSaveAndClose` reads from a ref instead of React state closure, preventing "/" or empty content from being saved when typing + Escape outraces React's render flush
+- **Folder picker stuck open after blur-auto-hide** — hiding the window via blur (switching to another app) bypassed `handleSaveAndClose`, leaving `showPicker=true` on reopen. Picker now resets on window focus
+- **Escape ignored with folder picker open** — pressing Escape when the folder picker was visible was a no-op; now explicitly dismisses the picker (next Escape saves/closes)
+- **CM6 autocomplete not reopening after clear** — after a hide/show cycle, CodeMirror's "explicitly closed" state prevented `activateOnTyping` from showing slash commands. Now forces `startCompletion` when a slash prefix is detected
+- **Blur-auto-hide false triggers** — debounced with 140ms delay + grace period to prevent OS focus event races from hiding the window during shortcut-triggered reopen
+
+### Changed
+- **Drop cursor styling** — separated from main cursor; uses subtle 35% opacity instead of solid coral
+
 ## [0.6.0] - 2026-02-14
 Unified Command Palette, CodeMirror editor, interactive tables, and Apple Notes import
 
@@ -253,6 +267,7 @@ First release
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.6.1 | 2026-02-15 | Auto-updater dev fix, capture window race conditions, blur-auto-hide debounce |
 | 0.6.0 | 2026-02-14 | Unified Command Palette, CodeMirror 6 editor, interactive tables, slash commands, Apple Notes import |
 | 0.5.0 | 2026-02-11 | Formatting toolbar, font zoom, root-level notes, image export cleanup, community standards |
 | 0.4.4 | 2026-02-10 | Dock icon hiding, folder colors, custom shortcuts, anonymous analytics, folder-scoped search |
@@ -266,7 +281,8 @@ First release
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/0xMassi/stik_app/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/0xMassi/stik_app/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/0xMassi/stik_app/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/0xMassi/stik_app/compare/v0.4.3...v0.4.4
