@@ -60,6 +60,9 @@ jobs:
           cp "$BINARY" ../binaries/darwinkit-aarch64-apple-darwin
           cp "$BINARY" ../binaries/darwinkit-x86_64-apple-darwin
 
+      - name: Install protobuf compiler
+        run: brew install protobuf
+
       - name: Install npm dependencies
         run: npm ci
 
