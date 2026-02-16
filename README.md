@@ -12,6 +12,7 @@
 
 <p align="center">
   <a href="https://www.stik.ink">Website</a> &middot;
+  <a href="https://www.youtube.com/watch?v=eiMUVcojTng">Demo</a> &middot;
   <a href="https://www.stik.ink/ideas">Ideas Board</a> &middot;
   <a href="https://x.com/stik_app">X</a> &middot;
   <a href="https://discord.gg/ptPc6Zmc">Discord</a> &middot;
