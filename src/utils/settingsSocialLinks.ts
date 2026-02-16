@@ -24,6 +24,6 @@ export const SETTINGS_SOCIAL_LINKS: SettingsSocialLink[] = [
     id: "discord",
     label: "Discord",
     ariaLabel: "Join the Stik Discord server",
-    href: "https://discord.gg/ptPc6Zmc",
+    href: "https://discord.gg/gG8vdCCRzW",
   },
 ];

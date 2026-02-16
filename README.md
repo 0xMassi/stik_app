@@ -15,7 +15,7 @@
   <a href="https://www.youtube.com/watch?v=eiMUVcojTng">Demo</a> &middot;
   <a href="https://www.stik.ink/ideas">Ideas Board</a> &middot;
   <a href="https://x.com/stik_app">X</a> &middot;
-  <a href="https://discord.gg/ptPc6Zmc">Discord</a> &middot;
+  <a href="https://discord.gg/gG8vdCCRzW">Discord</a> &middot;
   <a href="https://github.com/0xMassi/stik_app/releases">Download</a> &middot;
   <a href="ROADMAP.md">Roadmap</a> &middot;
   <a href="CHANGELOG.md">Changelog</a>
@@ -161,7 +161,7 @@ Got a feature idea or want to vote on what gets built next? Visit the **[Stik Id
 
 ## Support
 
-Have a question, found a bug, or want to request a feature? Reach out at [help@stik.ink](mailto:help@stik.ink), join [Discord](https://discord.gg/ptPc6Zmc), follow us on [X](https://x.com/stik_app), or [open an issue](https://github.com/0xMassi/stik_app/issues).
+Have a question, found a bug, or want to request a feature? Reach out at [help@stik.ink](mailto:help@stik.ink), join [Discord](https://discord.gg/gG8vdCCRzW), follow us on [X](https://x.com/stik_app), or [open an issue](https://github.com/0xMassi/stik_app/issues).
 
 ## License
 

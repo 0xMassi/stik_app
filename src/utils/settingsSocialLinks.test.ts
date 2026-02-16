@@ -7,7 +7,7 @@ describe("SETTINGS_SOCIAL_LINKS", () => {
 
     expect(byId.get("help")?.href).toBe("mailto:help@stik.ink");
     expect(byId.get("x")?.href).toBe("https://x.com/stik_app");
-    expect(byId.get("discord")?.href).toBe("https://discord.gg/ptPc6Zmc");
+    expect(byId.get("discord")?.href).toBe("https://discord.gg/gG8vdCCRzW");
   });
 
   it("defines accessibility labels for each entry", () => {

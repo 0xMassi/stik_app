@@ -81,6 +81,8 @@ pub struct StikSettings {
     pub custom_templates: Vec<CustomTemplate>,
     #[serde(default)]
     pub sidebar_position: String,
+    #[serde(default = "default_true")]
+    pub auto_update_enabled: bool,
 }
 
 impl Default for StikSettings {
@@ -123,6 +125,7 @@ impl Default for StikSettings {
             viewing_window_size: None,
             custom_templates: vec![],
             sidebar_position: String::new(),
+            auto_update_enabled: true,
         }
     }
 }

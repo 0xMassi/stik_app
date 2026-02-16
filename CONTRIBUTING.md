@@ -183,7 +183,7 @@ Use the [Ideas Board](https://www.stik.ink/ideas) to submit and vote on feature 
 
 ## Community
 
-- [Discord](https://discord.gg/ptPc6Zmc) -- Chat with other contributors
+- [Discord](https://discord.gg/gG8vdCCRzW) -- Chat with other contributors
 - [X / Twitter](https://x.com/stik_app) -- Updates and announcements
 - [Ideas Board](https://www.stik.ink/ideas) -- Feature voting
 

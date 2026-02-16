@@ -253,7 +253,11 @@ export default function App() {
     // a second Stik process (the released build), causing version conflicts.
     if (window.location.port) return;
 
-    check()
+    invoke<StikSettings>("get_settings")
+      .then((s) => {
+        if (s.auto_update_enabled === false) return;
+        return check();
+      })
       .then(async (update) => {
         if (update) {
           console.log(`Stik update: v${update.currentVersion} → v${update.version}`);
