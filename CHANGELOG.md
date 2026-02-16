@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-02-16
+Discord link refresh, auto-updater toggle, and YouTube demo
+
+### Added
+- **Auto-updater toggle** — disable background update checks from Settings > Privacy (enabled by default)
+- **YouTube demo link** — added to README header navigation
+
+### Changed
+- **Discord invite link** — updated across README, CONTRIBUTING, and in-app settings
+
 ## [0.6.2] - 2026-02-16
 Vim command-mode reliability and markdown link UX fixes
 
