@@ -68,6 +68,17 @@ function buildDecorations(view: EditorView): DecorationSet {
             break;
           }
 
+          case "Link": {
+            if (rangeInSelection(selection, node.from, node.to)) return;
+            for (const mark of node.node.getChildren("LinkMark")) {
+              ranges.push(hiddenDeco.range(mark.from, mark.to));
+            }
+            for (const url of node.node.getChildren("URL")) {
+              ranges.push(hiddenDeco.range(url.from, url.to));
+            }
+            break;
+          }
+
           // Custom ==highlight== extension
           case "Highlight": {
             if (rangeInSelection(selection, node.from, node.to)) return;

@@ -17,6 +17,7 @@ import {
 import { shouldSaveOnGlobalEscape } from "@/utils/captureEscape";
 import { isCaptureSlashQuery } from "@/utils/slashQuery";
 import { markdownToPlainText } from "@/utils/markdownToHtml";
+import { shouldOpenVimCommandBar } from "@/utils/vimCommandKey";
 import {
   resolveImagePaths,
   unresolveImagePaths,
@@ -763,38 +764,48 @@ export default function PostIt({
     editorRef.current?.focus();
   }, []);
 
+  const runVimSaveAndClose = useCallback(() => {
+    const currentContent = contentRef.current;
+    if (!isMarkdownEffectivelyEmpty(currentContent)) {
+      if (isSticked) {
+        void handleSaveAndCloseSticked();
+      } else {
+        void handleSaveAndClose();
+      }
+    } else if (isSticked) {
+      void handleCloseWithoutSaving();
+    } else {
+      void onClose();
+    }
+  }, [isSticked, handleSaveAndCloseSticked, handleSaveAndClose, handleCloseWithoutSaving, onClose]);
+
+  const runVimDiscardAndClose = useCallback(() => {
+    setContent("");
+    contentRef.current = "";
+    onContentChange?.("");
+    setShowPicker(false);
+    editorRef.current?.clear();
+    editorRef.current?.setVimMode("normal");
+    setVimCommand("");
+    setVimCommandError("");
+
+    if (isSticked) {
+      void handleCloseWithoutSaving();
+    } else {
+      void onClose();
+    }
+  }, [isSticked, handleCloseWithoutSaving, onClose, onContentChange]);
+
   const executeVimCommand = useCallback((cmd: string) => {
     const trimmed = cmd.trim();
 
     switch (trimmed) {
       case "wq":
       case "x": // save and close
-        if (!isMarkdownEffectivelyEmpty(content)) {
-          if (isSticked) {
-            handleSaveAndCloseSticked();
-          } else {
-            handleSaveAndClose();
-          }
-        } else {
-          // Nothing to save — just close
-          if (isSticked) {
-            handleCloseWithoutSaving();
-          } else {
-            onClose();
-          }
-        }
+        runVimSaveAndClose();
         break;
       case "q!": // discard and close (no save)
-        setContent("");
-        onContentChange?.("");
-        editorRef.current?.clear();
-        editorRef.current?.setVimMode("normal");
-        setVimCommand("");
-        if (isSticked) {
-          handleCloseWithoutSaving();
-        } else {
-          onClose();
-        }
+        runVimDiscardAndClose();
         break;
       default:
         setVimCommandError(`Not a command: ${trimmed}`);
@@ -803,7 +814,7 @@ export default function PostIt({
 
     setVimCommand("");
     setVimCommandError("");
-  }, [content, isSticked, handleSaveAndClose, handleSaveAndCloseSticked, handleCloseWithoutSaving, onClose]);
+  }, [runVimSaveAndClose, runVimDiscardAndClose]);
 
   // Focus command input when command mode opens
   useEffect(() => {
@@ -814,6 +825,41 @@ export default function PostIt({
       requestAnimationFrame(() => commandInputRef.current?.focus());
     }
   }, [vimMode]);
+
+  // Vim ":" command bar trigger.
+  // Capture phase ensures we can open our custom command bar before CM-vim
+  // opens its internal panel, keeping one consistent UX.
+  useEffect(() => {
+    if (!vimEnabled) return;
+
+    const handleVimCommandTrigger = (e: KeyboardEvent) => {
+      const target = e.target;
+      const targetInsideEditor =
+        target instanceof Element && Boolean(target.closest(".cm-editor"));
+      if (
+        !shouldOpenVimCommandBar({
+          key: e.key,
+          metaKey: e.metaKey,
+          ctrlKey: e.ctrlKey,
+          altKey: e.altKey,
+          vimEnabled,
+          vimMode,
+          targetInsideEditor,
+        })
+      ) {
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      setVimCommand("");
+      setVimCommandError("");
+      setVimMode("command");
+    };
+
+    window.addEventListener("keydown", handleVimCommandTrigger, true);
+    return () => window.removeEventListener("keydown", handleVimCommandTrigger, true);
+  }, [vimEnabled, vimMode]);
 
   const handleFolderSelect = useCallback(
     (selectedFolder: string) => {
@@ -1265,6 +1311,8 @@ export default function PostIt({
             vimEnabled={vimEnabled}
             showFormatToolbar={formatToolbar}
             onVimModeChange={setVimMode}
+            onVimSaveAndClose={runVimSaveAndClose}
+            onVimCloseWithoutSaving={runVimDiscardAndClose}
             onImagePaste={handleImagePaste}
             onImageDropPath={handleImageDropPath}
             onWikiLinkClick={handleWikiLinkClick}

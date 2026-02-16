@@ -72,6 +72,31 @@ export function registerVimCommands(callbacks: {
   });
 }
 
+const VIM_ARROW_KEYMAP: Record<string, string> = {
+  ArrowLeft: "<Left>",
+  ArrowRight: "<Right>",
+  ArrowUp: "<Up>",
+  ArrowDown: "<Down>",
+};
+
+/**
+ * Defensive shim: ensure arrow keys are routed through Vim while in visual mode.
+ * Returns true when the key was handled by Vim.
+ */
+export function handleVimArrowInVisualMode(
+  view: EditorView,
+  key: string
+): boolean {
+  const vimKey = VIM_ARROW_KEYMAP[key];
+  if (!vimKey) return false;
+
+  const cm = getCM(view);
+  if (!cm) return false;
+  if (!cm.state.vim?.visualMode) return false;
+
+  return Boolean(Vim.handleKey(cm, vimKey, "user"));
+}
+
 /** Programmatically set vim mode on an EditorView */
 export function setVimModeOnView(view: EditorView, mode: VimMode): void {
   const cm = getCM(view);

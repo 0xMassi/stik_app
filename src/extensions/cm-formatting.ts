@@ -149,7 +149,7 @@ export function insertLink(view: EditorView): void {
     view.dispatch({
       changes: { from, to, insert: link },
       // Place cursor inside the (url) part for easy editing
-      selection: { anchor: from + selected.length + 2, head: from + selected.length + 5 },
+      selection: { anchor: from + selected.length + 3, head: from + selected.length + 6 },
     });
   } else {
     const link = "[text](url)";

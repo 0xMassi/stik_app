@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-02-16
+Vim command-mode reliability and markdown link UX fixes
+
+### Added
+- **Cmd-hover link affordance** — while holding Cmd, external markdown/bare links now show a pointer cursor before click
+- **Targeted regression tests** — added coverage for link insertion selection, link marker hiding, Vim command callback routing, `:` command-bar trigger logic, and visual-arrow handling
+
+### Fixed
+- **`Cmd+K` URL selection placement** — link insertion now selects only `url`, so replacing destination works in one pass
+- **Markdown link preview rendering** — when cursor is outside a link, `[`, `]`, `(`, `)`, and URL are hidden, leaving clean linked text
+- **Vim `:wq` / `:x` execution path** — ex commands now invoke save-and-close handlers instead of incorrectly toggling command mode
+- **Vim `:` command bar trigger** — pressing `:` in normal/visual mode reliably opens the custom command bar
+- **Vim visual highlight visibility** — enabled CM6 `drawSelection()` so visual selections remain visible despite Vim's transparent native selection styling
+- **Arrow-key behavior in visual mode** — arrow keys are explicitly routed through Vim while visual mode is active, preventing accidental visual-mode exit
+
 ## [0.6.1] - 2026-02-15
 Capture window stability and auto-updater fix
 
@@ -267,6 +282,7 @@ First release
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.6.2 | 2026-02-16 | Vim `:wq` + `:` command mode fixes, visible visual selection, arrow stability in visual mode, improved markdown link UX |
 | 0.6.1 | 2026-02-15 | Auto-updater dev fix, capture window race conditions, blur-auto-hide debounce |
 | 0.6.0 | 2026-02-14 | Unified Command Palette, CodeMirror 6 editor, interactive tables, slash commands, Apple Notes import |
 | 0.5.0 | 2026-02-11 | Formatting toolbar, font zoom, root-level notes, image export cleanup, community standards |
@@ -281,7 +297,8 @@ First release
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/0xMassi/stik_app/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/0xMassi/stik_app/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/0xMassi/stik_app/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/0xMassi/stik_app/compare/v0.4.4...v0.5.0

@@ -13,7 +13,12 @@ import {
   useCallback,
 } from "react";
 import { EditorState } from "@codemirror/state";
-import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
+import {
+  EditorView,
+  drawSelection,
+  keymap,
+  placeholder as cmPlaceholder,
+} from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab, insertNewline } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
@@ -38,6 +43,7 @@ import { slashCommandCompletionSource } from "@/extensions/cm-slash-commands";
 import { blockWidgetPlugin } from "@/extensions/cm-block-widgets";
 import {
   createVimExtension,
+  handleVimArrowInVisualMode,
   setupVimModeListener,
   registerVimCommands,
   setVimModeOnView,
@@ -52,7 +58,12 @@ import { normalizeUrl } from "@/utils/normalizeUrl";
 import { isImageUrl } from "@/utils/isImageUrl";
 import { isImageFile } from "@/utils/isImageFile";
 import { extractDroppedImagePath } from "@/utils/droppedImagePath";
+import {
+  findExternalLinkAtOffset,
+  shouldShowCmdLinkCursor,
+} from "@/utils/externalLinkHitTest";
 import { markdownToHtml, markdownToPlainText } from "@/utils/markdownToHtml";
+import { createVimCommandCallbacks } from "@/utils/vimCommandBridge";
 import FormattingToolbar from "@/components/FormattingToolbar";
 import LinkPopover from "@/components/LinkPopover";
 import type { SearchResult } from "@/types";
@@ -66,6 +77,8 @@ interface EditorProps {
   vimEnabled?: boolean;
   showFormatToolbar?: boolean;
   onVimModeChange?: (mode: VimMode) => void;
+  onVimSaveAndClose?: () => void;
+  onVimCloseWithoutSaving?: () => void;
   onImagePaste?: (file: File) => Promise<string | null>;
   onImageDropPath?: (path: string) => Promise<string | null>;
   onWikiLinkClick?: (slug: string, path: string) => void;
@@ -93,6 +106,8 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       vimEnabled,
       showFormatToolbar,
       onVimModeChange,
+      onVimSaveAndClose,
+      onVimCloseWithoutSaving,
       onImagePaste,
       onImageDropPath,
       onWikiLinkClick,
@@ -112,6 +127,10 @@ const Editor = forwardRef<EditorRef, EditorProps>(
     onChangeRef.current = onChange;
     const onVimModeChangeRef = useRef(onVimModeChange);
     onVimModeChangeRef.current = onVimModeChange;
+    const onVimSaveAndCloseRef = useRef(onVimSaveAndClose);
+    onVimSaveAndCloseRef.current = onVimSaveAndClose;
+    const onVimCloseWithoutSavingRef = useRef(onVimCloseWithoutSaving);
+    onVimCloseWithoutSavingRef.current = onVimCloseWithoutSaving;
     const onImagePasteRef = useRef(onImagePaste);
     onImagePasteRef.current = onImagePaste;
     const onImageDropPathRef = useRef(onImageDropPath);
@@ -131,6 +150,22 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       if (!containerRef.current) return;
 
       const formatKeybindings = keymap.of([
+        {
+          key: "ArrowLeft",
+          run: (view) => handleVimArrowInVisualMode(view, "ArrowLeft"),
+        },
+        {
+          key: "ArrowRight",
+          run: (view) => handleVimArrowInVisualMode(view, "ArrowRight"),
+        },
+        {
+          key: "ArrowUp",
+          run: (view) => handleVimArrowInVisualMode(view, "ArrowUp"),
+        },
+        {
+          key: "ArrowDown",
+          run: (view) => handleVimArrowInVisualMode(view, "ArrowDown"),
+        },
         {
           key: "Escape",
           run: (view) => {
@@ -287,7 +322,16 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         },
       });
 
-      // Link click handler: Cmd+Click opens in browser
+      const setCmdHoverCursor = (view: EditorView, active: boolean) => {
+        const next = active ? "pointer" : "";
+        if (view.contentDOM.style.cursor !== next) {
+          view.contentDOM.style.cursor = next;
+        }
+      };
+
+      // Link interaction handler:
+      // - Cmd+Click opens external link in browser
+      // - Cmd+Hover shows pointer cursor on navigable links
       const linkClickHandler = EditorView.domEventHandlers({
         click(event: MouseEvent, view: EditorView) {
           if (!event.metaKey) return false;
@@ -297,33 +341,42 @@ const Editor = forwardRef<EditorRef, EditorProps>(
 
           const line = view.state.doc.lineAt(pos);
           const offset = pos - line.from;
-          const text = line.text;
+          const hit = findExternalLinkAtOffset(line.text, offset);
+          if (!hit) return false;
 
-          // Check for markdown links: [text](url)
-          const linkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
-          let match;
-          while ((match = linkRegex.exec(text)) !== null) {
-            const start = match.index;
-            const end = start + match[0].length;
-            if (offset >= start && offset < end) {
-              event.preventDefault();
-              open(normalizeUrl(match[2]));
-              return true;
-            }
+          event.preventDefault();
+          open(normalizeUrl(hit));
+          return true;
+        },
+        mousemove(event: MouseEvent, view: EditorView) {
+          const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+          if (pos === null) {
+            setCmdHoverCursor(view, false);
+            return false;
           }
 
-          // Check for bare URLs
-          const urlRegex = /https?:\/\/[^\s)]+/g;
-          while ((match = urlRegex.exec(text)) !== null) {
-            const start = match.index;
-            const end = start + match[0].length;
-            if (offset >= start && offset < end) {
-              event.preventDefault();
-              open(match[0]);
-              return true;
-            }
-          }
-
+          const line = view.state.doc.lineAt(pos);
+          const offset = pos - line.from;
+          setCmdHoverCursor(
+            view,
+            shouldShowCmdLinkCursor({
+              metaKey: event.metaKey,
+              lineText: line.text,
+              offset,
+            })
+          );
+          return false;
+        },
+        mouseleave(_event: MouseEvent, view: EditorView) {
+          setCmdHoverCursor(view, false);
+          return false;
+        },
+        keyup(event: KeyboardEvent, view: EditorView) {
+          if (!event.metaKey) setCmdHoverCursor(view, false);
+          return false;
+        },
+        blur(_event: FocusEvent, view: EditorView) {
+          setCmdHoverCursor(view, false);
           return false;
         },
       });
@@ -426,6 +479,10 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         }),
         stikEditorTheme,
         stikHighlightStyle,
+        // Required for Vim visual mode highlight:
+        // @replit/codemirror-vim makes native ::selection transparent.
+        // drawSelection renders .cm-selectionBackground instead.
+        drawSelection(),
         cmPlaceholder(placeholder || "Start typing..."),
         search(),
         richCopyHandler,
@@ -475,11 +532,13 @@ const Editor = forwardRef<EditorRef, EditorProps>(
           onVimModeChangeRef.current?.(mode);
         });
 
-        registerVimCommands({
-          onSaveAndClose: () => onVimModeChangeRef.current?.("command"),
-          onCloseWithoutSaving: () => onVimModeChangeRef.current?.("command"),
-          onCommandMode: () => onVimModeChangeRef.current?.("command"),
-        });
+        registerVimCommands(
+          createVimCommandCallbacks({
+            onSaveAndClose: () => onVimSaveAndCloseRef.current?.(),
+            onCloseWithoutSaving: () => onVimCloseWithoutSavingRef.current?.(),
+            onModeChange: (mode: VimMode) => onVimModeChangeRef.current?.(mode),
+          })
+        );
       }
 
       return () => {
