@@ -17,7 +17,7 @@ print_success() { echo -e "${GREEN}✓${NC} $1"; }
 print_error() { echo -e "${RED}✗${NC} $1"; exit 1; }
 
 # Get current version
-CURRENT_VERSION=$(grep '"version"' package.json | sed 's/.*"version": "\(.*\)".*/\1/')
+CURRENT_VERSION=$(node -p "require('./package.json').version")
 echo -e "${BLUE}Stik Release${NC}"
 echo "Current version: ${CURRENT_VERSION}"
 echo ""
