@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+Heading fold/collapse
+
+### Added
+- **Heading fold/collapse** — hover any heading (H1–H3) to reveal a chevron; click to collapse everything below until the next same-or-higher-level heading. Folded chevron stays visible in coral. Placing cursor in folded area auto-expands. Restores feature lost during TipTap→CM6 migration (#36)
 
 ## [0.6.3] - 2026-02-16
 Discord link refresh, auto-updater toggle, and YouTube demo
