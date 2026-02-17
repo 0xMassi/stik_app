@@ -53,6 +53,7 @@ import {
 import { highlightExtension } from "@/extensions/cm-highlight";
 import { taskCheckboxPlugin, taskCheckboxHandler } from "@/extensions/cm-task-toggle";
 import { hideMarkersPlugin, autoCloseMarkup } from "@/extensions/cm-hide-markers";
+import { headingFoldPlugin } from "@/extensions/cm-heading-fold";
 import { filenameToSlug } from "@/utils/wikiLink";
 import { normalizeUrl } from "@/utils/normalizeUrl";
 import { isImageUrl } from "@/utils/isImageUrl";
@@ -495,6 +496,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         taskCheckboxHandler,
         hideMarkersPlugin,
         blockWidgetPlugin,
+        headingFoldPlugin,
         autoCloseMarkup,
         formatStateListener,
         docChangeListener,
