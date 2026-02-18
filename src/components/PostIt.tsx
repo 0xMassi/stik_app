@@ -114,6 +114,7 @@ export default function PostIt({
   const [vimCommand, setVimCommand] = useState("");
   const [vimCommandError, setVimCommandError] = useState("");
   const [textDirection, setTextDirection] = useState<"auto" | "ltr" | "rtl">("auto");
+  const [zenMode, setZenMode] = useState(false);
   const [formatToolbar, setFormatToolbar] = useState(() => {
     try { return localStorage.getItem("stik:format-toolbar") !== "0"; } catch { return true; }
   });
@@ -428,6 +429,18 @@ export default function PostIt({
   // Note: handleSaveAndCloseSticked is intentionally omitted — it reads live
   // content from the editor view ref, so a stale closure still saves correctly.
   }, [showPicker, isSaving, isPinning, isSticked, isPinned, isCopyMenuOpen, vimEnabled, handleSaveAndClose]);
+
+  // CMD+. to toggle zen mode (distraction-free writing)
+  useEffect(() => {
+    const handleZenToggle = (e: KeyboardEvent) => {
+      if (e.metaKey && e.key === ".") {
+        e.preventDefault();
+        setZenMode((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleZenToggle);
+    return () => window.removeEventListener("keydown", handleZenToggle);
+  }, []);
 
   // CMD+/CMD-/CMD+0 to adjust editor font size
   useEffect(() => {
@@ -1105,7 +1118,7 @@ export default function PostIt({
       <div
         className={`w-full h-full bg-bg rounded-[14px] overflow-hidden flex flex-col ${
           isSticked && isPinned ? "sticked-note" : ""
-        }`}
+        } ${zenMode ? "zen-mode" : ""}`}
       >
       {/* Header - draggable */}
       <div

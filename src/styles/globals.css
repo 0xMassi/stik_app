@@ -138,6 +138,20 @@ body,
   padding-bottom: 12px;
 }
 
+/* ── Zen mode: distraction-free writing (Cmd+.) ── */
+.zen-mode > div:first-child,     /* header */
+.zen-mode > div:last-child {     /* footer */
+  display: none !important;
+}
+
+.zen-mode .formatting-toolbar {
+  display: none !important;
+}
+
+.zen-mode .has-formatting-toolbar .cm-editor {
+  padding-bottom: 12px;
+}
+
 /* ── Bullet points (source mode widgets) ── */
 .cm-bullet {
   color: rgb(var(--color-coral));
