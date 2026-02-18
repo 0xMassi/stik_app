@@ -113,6 +113,7 @@ export default function PostIt({
   const [vimMode, setVimMode] = useState<VimMode>("normal");
   const [vimCommand, setVimCommand] = useState("");
   const [vimCommandError, setVimCommandError] = useState("");
+  const [textDirection, setTextDirection] = useState<"auto" | "ltr" | "rtl">("auto");
   const [formatToolbar, setFormatToolbar] = useState(() => {
     try { return localStorage.getItem("stik:format-toolbar") !== "0"; } catch { return true; }
   });
@@ -175,6 +176,7 @@ export default function PostIt({
         setFolderColors(s.folder_colors ?? {});
         setSystemShortcuts(s.system_shortcuts ?? {});
         setCustomTemplates(s.custom_templates ?? []);
+        setTextDirection((s.text_direction as "auto" | "ltr" | "rtl") || "auto");
       })
       .catch(() => {});
     invoke<string[]>("list_folders")
@@ -187,6 +189,7 @@ export default function PostIt({
       setFolderColors(event.payload.folder_colors ?? {});
       setSystemShortcuts(event.payload.system_shortcuts ?? {});
       setCustomTemplates(event.payload.custom_templates ?? []);
+      setTextDirection((event.payload.text_direction as "auto" | "ltr" | "rtl") || "auto");
     });
     return () => { unlisten.then((fn) => fn()); };
   }, []);
@@ -1318,13 +1321,14 @@ export default function PostIt({
           <div className="h-full" /> // wait for notes dir to resolve .assets image paths
         ) : (
           <Editor
-            key={vimEnabled ? "vim" : "novim"}
+            key={`${vimEnabled ? "vim" : "novim"}-${textDirection}`}
             ref={editorRef}
             onChange={handleContentChange}
             placeholder={isSticked ? "Sticked note..." : "Type a thought..."}
             initialContent={resolvedInitialContent || initialContent}
             vimEnabled={vimEnabled}
             showFormatToolbar={formatToolbar}
+            textDirection={textDirection}
             onVimModeChange={setVimMode}
             onVimSaveAndClose={runVimSaveAndClose}
             onVimCloseWithoutSaving={runVimDiscardAndClose}

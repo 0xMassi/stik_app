@@ -46,6 +46,7 @@ export interface StikSettings {
   custom_templates: CustomTemplate[];
   sidebar_position: string;
   auto_update_enabled: boolean;
+  text_direction: string;
 }
 
 export interface NoteInfo {

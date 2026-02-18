@@ -41,6 +41,7 @@ import {
 } from "@/extensions/cm-wiki-link";
 import { slashCommandCompletionSource } from "@/extensions/cm-slash-commands";
 import { blockWidgetPlugin } from "@/extensions/cm-block-widgets";
+import { bidiSupport } from "@/extensions/cm-bidi";
 import {
   createVimExtension,
   handleVimArrowInVisualMode,
@@ -77,6 +78,7 @@ interface EditorProps {
   initialContent?: string;
   vimEnabled?: boolean;
   showFormatToolbar?: boolean;
+  textDirection?: "auto" | "ltr" | "rtl";
   onVimModeChange?: (mode: VimMode) => void;
   onVimSaveAndClose?: () => void;
   onVimCloseWithoutSaving?: () => void;
@@ -106,6 +108,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       initialContent,
       vimEnabled,
       showFormatToolbar,
+      textDirection = "auto",
       onVimModeChange,
       onVimSaveAndClose,
       onVimCloseWithoutSaving,
@@ -500,6 +503,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         autoCloseMarkup,
         formatStateListener,
         docChangeListener,
+        bidiSupport(textDirection),
         EditorView.lineWrapping,
         // CSS class for the content element
         EditorView.contentAttributes.of({ class: "stik-editor" }),

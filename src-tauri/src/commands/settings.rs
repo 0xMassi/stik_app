@@ -49,6 +49,10 @@ fn default_font_size() -> u32 {
     14
 }
 
+fn default_text_direction() -> String {
+    "auto".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StikSettings {
     pub shortcut_mappings: Vec<ShortcutMapping>,
@@ -83,6 +87,8 @@ pub struct StikSettings {
     pub sidebar_position: String,
     #[serde(default = "default_true")]
     pub auto_update_enabled: bool,
+    #[serde(default = "default_text_direction")]
+    pub text_direction: String,
 }
 
 impl Default for StikSettings {
@@ -126,6 +132,7 @@ impl Default for StikSettings {
             custom_templates: vec![],
             sidebar_position: String::new(),
             auto_update_enabled: true,
+            text_direction: "auto".to_string(),
         }
     }
 }

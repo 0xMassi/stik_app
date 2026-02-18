@@ -951,6 +951,26 @@ export default function SettingsContent({
               </button>
             </label>
 
+            <div className="p-4 bg-line/30 rounded-xl border border-line/50">
+              <p className="text-[13px] text-ink font-medium mb-1">Text direction</p>
+              <p className="text-[12px] text-stone leading-relaxed mb-3">
+                Set text direction for the editor. Auto detects per line — ideal for Arabic, Hebrew, and mixed-language notes.
+              </p>
+              <div className="max-w-[240px]">
+                <Dropdown
+                  value={settings.text_direction || "auto"}
+                  options={[
+                    { value: "auto", label: "Auto (Recommended)" },
+                    { value: "ltr", label: "Left to Right" },
+                    { value: "rtl", label: "Right to Left" },
+                  ]}
+                  onChange={(value) =>
+                    onSettingsChange({ ...settings, text_direction: value })
+                  }
+                />
+              </div>
+            </div>
+
             <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
               <div>
                 <p className="text-[13px] text-ink font-medium">Hide Dock icon</p>
