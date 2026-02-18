@@ -41,6 +41,47 @@ class HrWidget extends WidgetType {
 
 const hrWidget = new HrWidget();
 
+// ── Inline Image ────────────────────────────────────────────────────
+
+class ImageWidget extends WidgetType {
+  constructor(
+    readonly src: string,
+    readonly alt: string,
+  ) {
+    super();
+  }
+
+  eq(other: ImageWidget) {
+    return this.src === other.src && this.alt === other.alt;
+  }
+
+  toDOM() {
+    const wrap = document.createElement("span");
+    wrap.className = "cm-image-widget";
+
+    const img = document.createElement("img");
+    img.src = this.src;
+    img.alt = this.alt;
+    img.draggable = false;
+
+    img.onerror = () => {
+      wrap.classList.add("cm-image-error");
+      img.style.display = "none";
+      const fallback = document.createElement("span");
+      fallback.className = "cm-image-error-text";
+      fallback.textContent = this.alt || "Image failed to load";
+      wrap.appendChild(fallback);
+    };
+
+    wrap.appendChild(img);
+    return wrap;
+  }
+
+  ignoreEvent() {
+    return false;
+  }
+}
+
 // ── Table helpers ───────────────────────────────────────────────────
 
 function parseCells(text: string): string[] {
@@ -480,7 +521,12 @@ function buildBlockDecorations(state: EditorState): Range<Decoration>[] {
 
   syntaxTree(state).iterate({
     enter(node) {
-      if (node.name !== "HorizontalRule" && node.name !== "Table") return;
+      if (
+        node.name !== "HorizontalRule" &&
+        node.name !== "Table" &&
+        node.name !== "Image"
+      )
+        return;
 
       if (node.name === "HorizontalRule") {
         if (cursor.from >= node.from && cursor.to <= node.to) return false;
@@ -497,6 +543,34 @@ function buildBlockDecorations(state: EditorState): Range<Decoration>[] {
             widget: new TableWidget(source, node.from, node.to),
             block: true,
           }).range(node.from, node.to),
+        );
+        return false;
+      }
+
+      if (node.name === "Image") {
+        if (cursor.from >= node.from && cursor.to <= node.to) return false;
+
+        const urlChildren = node.node.getChildren("URL");
+        if (urlChildren.length === 0) return false;
+        const src = state.doc.sliceString(
+          urlChildren[0].from,
+          urlChildren[0].to,
+        );
+        if (!src) return false;
+
+        // Alt text sits between the first [ and ] markers
+        const marks = node.node.getChildren("LinkMark");
+        let alt = "";
+        if (marks.length >= 2) {
+          // marks[0] = "![", marks[1] = "]"
+          alt = state.doc.sliceString(marks[0].to, marks[1].from);
+        }
+
+        decorations.push(
+          Decoration.replace({ widget: new ImageWidget(src, alt) }).range(
+            node.from,
+            node.to,
+          ),
         );
         return false;
       }
@@ -635,26 +709,29 @@ const blockWidgetEvents = EditorView.domEventHandlers({
   },
 });
 
-// ── Ensure editable line after trailing table ───────────────────────
-// Block replace decorations consume entire lines including newlines.
-// If a Table node reaches the end of the document, there's no CM6 line
-// left for the cursor. This listener appends a newline when needed.
+// ── Ensure editable line after trailing block widget ─────────────────
+// Replace decorations consume entire lines including newlines.
+// If a Table or Image node reaches the end of the document, there's no
+// CM6 line left for the cursor. This listener appends a newline when needed.
 
 const ensureTrailingLine = EditorView.updateListener.of((update) => {
   const { state } = update;
   const docLen = state.doc.length;
   if (docLen === 0) return;
 
-  let endsInTable = false;
+  let needsTrailingLine = false;
   syntaxTree(state).iterate({
     enter(node) {
-      if (node.name === "Table" && node.to >= docLen - 1) {
-        endsInTable = true;
+      if (
+        (node.name === "Table" || node.name === "Image") &&
+        node.to >= docLen
+      ) {
+        needsTrailingLine = true;
       }
     },
   });
 
-  if (endsInTable) {
+  if (needsTrailingLine) {
     update.view.dispatch({
       changes: { from: docLen, insert: "\n" },
     });

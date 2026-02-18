@@ -241,6 +241,34 @@ export const stikEditorTheme = EditorView.theme({
     backgroundColor: "rgb(var(--color-line))",
     margin: "4px 0",
   },
+  // Inline image widget
+  ".cm-image-widget": {
+    display: "inline-block",
+    maxWidth: "100%",
+    margin: "4px 0",
+    lineHeight: "0",
+    userSelect: "none",
+  },
+  ".cm-image-widget img": {
+    maxWidth: "100%",
+    height: "auto",
+    borderRadius: "6px",
+    display: "block",
+  },
+  ".cm-image-widget.cm-image-error": {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "48px",
+    border: "1px dashed rgb(var(--color-line))",
+    borderRadius: "6px",
+    padding: "8px 12px",
+  },
+  ".cm-image-error-text": {
+    fontSize: "12px",
+    color: "rgb(var(--color-stone))",
+    lineHeight: "1.4",
+  },
 });
 
 /** Syntax highlighting for markdown source mode.

@@ -320,10 +320,19 @@ export default function PostIt({
     };
   }, [isSticked, onContentChange]);
 
+  // Read live content from the editor — doc.toString() is the source of truth
+  // (unaffected by Decoration.replace widgets). Falls back to contentRef if
+  // the editor is unmounted.
+  const getLiveContent = useCallback((): string => {
+    const view = editorRef.current?.getView();
+    if (view) {
+      return unresolveImagePaths(view.state.doc.toString());
+    }
+    return contentRef.current;
+  }, []);
+
   const handleSaveAndClose = useCallback(async () => {
-    // Read from ref — React state in the closure can be one render behind
-    // if the user typed and pressed Escape before React flushed.
-    const currentContent = contentRef.current;
+    const currentContent = getLiveContent();
     const isTransientSlashQuery = !isSticked && isCaptureSlashQuery(currentContent);
     if (isTransientSlashQuery || isMarkdownEffectivelyEmpty(currentContent)) {
       flushSync(() => {
@@ -354,7 +363,7 @@ export default function PostIt({
       setIsSaving(false);
       setToast("Failed to save note");
     }
-  }, [isSticked, onSave, onClose, onContentChange, resolveFolderForAction]);
+  }, [isSticked, onSave, onClose, onContentChange, resolveFolderForAction, getLiveContent]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -413,6 +422,8 @@ export default function PostIt({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  // Note: handleSaveAndCloseSticked is intentionally omitted — it reads live
+  // content from the editor view ref, so a stale closure still saves correctly.
   }, [showPicker, isSaving, isPinning, isSticked, isPinned, isCopyMenuOpen, vimEnabled, handleSaveAndClose]);
 
   // CMD+/CMD-/CMD+0 to adjust editor font size
@@ -644,12 +655,16 @@ export default function PostIt({
   }, [currentStickedId, stickedId, isPinned, content, folder, isViewing]);
 
   // Save & Close sticked note (saves content to folder file)
+  // Read from contentRef — React state in the closure can be one render behind
+  // if the user typed and pressed Escape before React flushed.
   const handleSaveAndCloseSticked = useCallback(async () => {
     const idToClose = currentStickedId || stickedId;
     if (!idToClose) return;
 
+    const currentContent = getLiveContent();
+
     // Only show save animation if there's content
-    if (!isMarkdownEffectivelyEmpty(content)) {
+    if (!isMarkdownEffectivelyEmpty(currentContent)) {
       setIsSaving(true);
       try {
         // If still pinned, close from sticked notes
@@ -662,13 +677,13 @@ export default function PostIt({
           // Viewing note - update the existing file
           await invoke("update_note", {
             path: originalPath,
-            content,
+            content: currentContent,
           });
         } else {
           // If unpinned (not viewing), save as new file
           await invoke("save_note", {
             folder,
-            content,
+            content: currentContent,
           });
         }
         // Wait for save animation before closing
@@ -693,7 +708,7 @@ export default function PostIt({
         console.error("Failed to close sticked note:", error);
       }
     }
-  }, [stickedId, currentStickedId, isPinned, content, folder]);
+  }, [stickedId, currentStickedId, isPinned, folder, getLiveContent]);
 
   // Close without saving
   const handleCloseWithoutSaving = useCallback(async () => {
@@ -765,7 +780,7 @@ export default function PostIt({
   }, []);
 
   const runVimSaveAndClose = useCallback(() => {
-    const currentContent = contentRef.current;
+    const currentContent = getLiveContent();
     if (!isMarkdownEffectivelyEmpty(currentContent)) {
       if (isSticked) {
         void handleSaveAndCloseSticked();
@@ -777,7 +792,7 @@ export default function PostIt({
     } else {
       void onClose();
     }
-  }, [isSticked, handleSaveAndCloseSticked, handleSaveAndClose, handleCloseWithoutSaving, onClose]);
+  }, [isSticked, handleSaveAndCloseSticked, handleSaveAndClose, handleCloseWithoutSaving, onClose, getLiveContent]);
 
   const runVimDiscardAndClose = useCallback(() => {
     setContent("");

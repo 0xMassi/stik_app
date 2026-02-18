@@ -79,6 +79,11 @@ function buildDecorations(view: EditorView): DecorationSet {
             break;
           }
 
+          // Image nodes are fully handled by the block widget plugin —
+          // don't hide sub-markers here, it would conflict with the replace decoration.
+          case "Image":
+            return false;
+
           // Custom ==highlight== extension
           case "Highlight": {
             if (rangeInSelection(selection, node.from, node.to)) return;
