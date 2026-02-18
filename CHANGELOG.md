@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-02-18
+Inline images, RTL support, zen mode, and quality-of-life improvements (#37)
+
+### Added
+- **Inline image rendering** — pasted/dropped images render as live previews inside the editor. Click to reveal raw markdown for editing, move cursor away to re-render. Broken images show a placeholder
+- **RTL and bidirectional text support** — three modes (Auto/LTR/RTL) in Settings > Editor. Auto mode detects direction per line using the browser's Unicode Bidi Algorithm, ideal for Arabic, Hebrew, and mixed-language notes
+- **Zen mode** — press Cmd+. (customizable in Settings > Shortcuts) to toggle distraction-free writing. Hides header, footer, and formatting toolbar
+- **Hide menu bar icon** — toggle in Settings > Editor to remove the tray icon from the menu bar. Stik remains accessible via global shortcuts
+- **Capture window size persistence** — the quick capture window remembers its size across sessions. Resize once, and it stays
+
+### Fixed
+- **Image save bug** — notes containing images now save correctly. Reads editor content directly from CodeMirror's document at save time instead of relying on async state
+
 ## [0.6.4] - 2026-02-17
 Heading fold/collapse
 
