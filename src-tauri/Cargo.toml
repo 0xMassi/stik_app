@@ -1,6 +1,6 @@
 [package]
 name = "stik"
-version = "0.6.5"
+version = "0.6.6"
 description = "Instant thought capture"
 authors = ["Massi"]
 edition = "2021"
@@ -38,6 +38,9 @@ prost = "0.13"
 objc2 = { version = "0.6.3", default-features = false, features = ["std"] }
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSView", "NSBitmapImageRep", "NSImageRep", "NSApplication", "NSRunningApplication"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["NSData", "NSDictionary", "NSGeometry"] }
+
+[dev-dependencies]
+glib = ">=0.20"
 
 [profile.release]
 panic = "abort"
