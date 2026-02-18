@@ -21,7 +21,7 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
 
     let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
 
-    let _tray = TrayIconBuilder::new()
+    let _tray = TrayIconBuilder::with_id("main-tray")
         .icon(tray_icon)
         .icon_as_template(true)
         .menu(&menu)

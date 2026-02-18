@@ -20,6 +20,12 @@ fn remember_last_note(state: &AppState, path: &str, folder: &str) {
 
 pub fn show_postit_with_folder(app: &AppHandle, folder: &str) {
     if let Some(window) = app.get_webview_window("postit") {
+        // Restore persisted capture window size (if any)
+        if let Ok(s) = settings::load_settings_from_file() {
+            if let Some((w, h)) = s.capture_window_size {
+                let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(w, h)));
+            }
+        }
         let _ = window.show();
         let _ = window.set_focus();
         let _ = window.emit("shortcut-triggered", folder);

@@ -89,6 +89,10 @@ pub struct StikSettings {
     pub auto_update_enabled: bool,
     #[serde(default = "default_text_direction")]
     pub text_direction: String,
+    #[serde(default)]
+    pub hide_tray_icon: bool,
+    #[serde(default)]
+    pub capture_window_size: Option<(f64, f64)>,
 }
 
 impl Default for StikSettings {
@@ -133,6 +137,8 @@ impl Default for StikSettings {
             sidebar_position: String::new(),
             auto_update_enabled: true,
             text_direction: "auto".to_string(),
+            hide_tray_icon: false,
+            capture_window_size: None,
         }
     }
 }
@@ -143,7 +149,13 @@ pub fn default_system_shortcuts() -> HashMap<String, String> {
         ("manager".to_string(), "Cmd+Shift+M".to_string()),
         ("settings".to_string(), "Cmd+Shift+Comma".to_string()),
         ("last_note".to_string(), "Cmd+Shift+L".to_string()),
+        ("zen_mode".to_string(), "Cmd+Period".to_string()),
     ])
+}
+
+/// Actions that are in-app only (not registered as OS-level global shortcuts).
+pub fn local_only_actions() -> &'static [&'static str] {
+    &["zen_mode"]
 }
 
 fn normalize_system_shortcuts(shortcuts: &mut HashMap<String, String>) {
@@ -225,6 +237,20 @@ pub fn save_viewing_window_size(width: f64, height: f64) -> Result<(), String> {
     let mut settings = load_settings_from_file()?;
     settings.viewing_window_size = Some((width, height));
     save_settings_to_file(&settings)
+}
+
+#[tauri::command]
+pub fn save_capture_window_size(width: f64, height: f64) -> Result<(), String> {
+    let mut settings = load_settings_from_file()?;
+    settings.capture_window_size = Some((width, height));
+    save_settings_to_file(&settings)
+}
+
+#[tauri::command]
+pub fn set_tray_icon_visibility(app: tauri::AppHandle, hide: bool) {
+    if let Some(tray) = app.tray_by_id("main-tray") {
+        let _ = tray.set_visible(!hide);
+    }
 }
 
 #[tauri::command]

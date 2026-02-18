@@ -999,6 +999,34 @@ export default function SettingsContent({
               </button>
             </label>
 
+            <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
+              <div>
+                <p className="text-[13px] text-ink font-medium">Hide menu bar icon</p>
+                <p className="mt-1 text-[12px] text-stone leading-relaxed">
+                  Remove the tray icon from the menu bar. Stik is still accessible via global shortcuts.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  onSettingsChange({
+                    ...settings,
+                    hide_tray_icon: !settings.hide_tray_icon,
+                  })
+                }
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+                  settings.hide_tray_icon ? "bg-coral" : "bg-line"
+                }`}
+                title="Toggle menu bar icon visibility"
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform pointer-events-none ${
+                    settings.hide_tray_icon ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </label>
+
             <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-2">
               <p className="text-[13px] text-ink font-medium">Quick reference</p>
               <div className="text-[12px] text-stone leading-relaxed space-y-1">

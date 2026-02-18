@@ -430,17 +430,32 @@ export default function PostIt({
   // content from the editor view ref, so a stale closure still saves correctly.
   }, [showPicker, isSaving, isPinning, isSticked, isPinned, isCopyMenuOpen, vimEnabled, handleSaveAndClose]);
 
-  // CMD+. to toggle zen mode (distraction-free writing)
+  // Zen mode shortcut (reads from settings, defaults to Cmd+.)
   useEffect(() => {
+    const shortcutStr = systemShortcuts.zen_mode || "Cmd+Period";
     const handleZenToggle = (e: KeyboardEvent) => {
-      if (e.metaKey && e.key === ".") {
-        e.preventDefault();
-        setZenMode((prev) => !prev);
-      }
+      const parts = shortcutStr.split("+");
+      const key = parts[parts.length - 1];
+      const needsMeta = parts.some((p) => p === "Cmd" || p === "Command" || p === "Meta");
+      const needsShift = parts.some((p) => p === "Shift");
+      const needsAlt = parts.some((p) => p === "Alt" || p === "Option");
+      const needsCtrl = parts.some((p) => p === "Ctrl" || p === "Control");
+
+      if (needsMeta !== e.metaKey) return;
+      if (needsShift !== e.shiftKey) return;
+      if (needsAlt !== e.altKey) return;
+      if (needsCtrl !== e.ctrlKey) return;
+
+      // Match the key portion
+      const eventKey = e.key === "." ? "Period" : e.key === "," ? "Comma" : e.key;
+      if (eventKey.toLowerCase() !== key.toLowerCase()) return;
+
+      e.preventDefault();
+      setZenMode((prev) => !prev);
     };
     window.addEventListener("keydown", handleZenToggle);
     return () => window.removeEventListener("keydown", handleZenToggle);
-  }, []);
+  }, [systemShortcuts.zen_mode]);
 
   // CMD+/CMD-/CMD+0 to adjust editor font size
   useEffect(() => {
@@ -974,6 +989,35 @@ export default function PostIt({
       clearTimeout(timeout);
     };
   }, [isSticked, currentStickedId, isPinned, isViewing]);
+
+  // Save capture window size on resize (capture mode only — not sticked/viewing)
+  useEffect(() => {
+    if (isSticked) return;
+
+    let timeout: ReturnType<typeof setTimeout>;
+    let unlistenResize: (() => void) | undefined;
+
+    getCurrentWindow().onResized(() => {
+      clearTimeout(timeout);
+      timeout = setTimeout(async () => {
+        try {
+          const win = getCurrentWindow();
+          const scaleFactor = await win.scaleFactor();
+          const size = await win.innerSize();
+          const w = size.width / scaleFactor;
+          const h = size.height / scaleFactor;
+          await invoke("save_capture_window_size", { width: w, height: h });
+        } catch (error) {
+          console.error("Failed to save capture window size:", error);
+        }
+      }, 500);
+    }).then((fn) => { unlistenResize = fn; });
+
+    return () => {
+      unlistenResize?.();
+      clearTimeout(timeout);
+    };
+  }, [isSticked]);
 
   // Autosave content for pinned sticked notes (prevents content loss on quit)
   useEffect(() => {

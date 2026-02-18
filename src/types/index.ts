@@ -47,6 +47,8 @@ export interface StikSettings {
   sidebar_position: string;
   auto_update_enabled: boolean;
   text_direction: string;
+  hide_tray_icon: boolean;
+  capture_window_size: [number, number] | null;
 }
 
 export interface NoteInfo {

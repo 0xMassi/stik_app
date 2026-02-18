@@ -144,7 +144,9 @@ fn main() {
             shortcuts::pause_shortcuts,
             shortcuts::resume_shortcuts,
             settings::set_dock_icon_visibility,
+            settings::set_tray_icon_visibility,
             settings::save_viewing_window_size,
+            settings::save_capture_window_size,
             darwinkit::darwinkit_status,
             darwinkit::darwinkit_call,
             darwinkit::semantic_search,
@@ -181,8 +183,22 @@ fn main() {
                 eprintln!("Failed to check On This Day notification: {}", e);
             }
 
+            // Restore capture window size from settings
+            if let Some((w, h)) = settings.capture_window_size {
+                if let Some(win) = app.get_webview_window("postit") {
+                    let _ = win.set_size(tauri::Size::Logical(tauri::LogicalSize::new(w, h)));
+                }
+            }
+
             windows::restore_sticked_notes(app.handle());
             tray::setup_tray(app)?;
+
+            // Apply tray icon visibility from settings
+            if settings.hide_tray_icon {
+                if let Some(tray) = app.tray_by_id("main-tray") {
+                    let _ = tray.set_visible(false);
+                }
+            }
             git_share::start_background_worker(app.handle().clone());
 
             // Start DarwinKit sidecar bridge + background embedding build (if AI enabled)

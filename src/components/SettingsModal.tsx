@@ -258,6 +258,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
       await invoke("save_settings", { settings });
       await invoke("reload_shortcuts");
       await invoke("set_dock_icon_visibility", { hide: settings.hide_dock_icon });
+      await invoke("set_tray_icon_visibility", { hide: settings.hide_tray_icon ?? false });
 
       // Rebuild index when notes directory changed
       if (settings.notes_directory !== prevNotesDir.current) {
