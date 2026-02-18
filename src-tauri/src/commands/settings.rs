@@ -17,6 +17,26 @@ pub struct CustomTemplate {
     pub body: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ThemeColors {
+    pub bg: String,
+    pub surface: String,
+    pub ink: String,
+    pub stone: String,
+    pub line: String,
+    pub accent: String,
+    pub accent_light: String,
+    pub accent_dark: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CustomThemeDefinition {
+    pub id: String,
+    pub name: String,
+    pub is_dark: bool,
+    pub colors: ThemeColors,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GitSharingSettings {
@@ -93,6 +113,10 @@ pub struct StikSettings {
     pub hide_tray_icon: bool,
     #[serde(default)]
     pub capture_window_size: Option<(f64, f64)>,
+    #[serde(default)]
+    pub active_theme: String,
+    #[serde(default)]
+    pub custom_themes: Vec<CustomThemeDefinition>,
 }
 
 impl Default for StikSettings {
@@ -139,6 +163,8 @@ impl Default for StikSettings {
             text_direction: "auto".to_string(),
             hide_tray_icon: false,
             capture_window_size: None,
+            active_theme: String::new(),
+            custom_themes: vec![],
         }
     }
 }
@@ -257,6 +283,112 @@ pub fn set_tray_icon_visibility(app: tauri::AppHandle, hide: bool) {
 pub fn set_dock_icon_visibility(hide: bool) {
     #[cfg(target_os = "macos")]
     apply_dock_icon_visibility(hide);
+}
+
+fn normalize_color_value(color: &str) -> String {
+    let trimmed = color.trim();
+    if trimmed.starts_with('#') {
+        let hex = trimmed.trim_start_matches('#');
+        if hex.len() >= 6 {
+            if let (Ok(r), Ok(g), Ok(b)) = (
+                u8::from_str_radix(&hex[0..2], 16),
+                u8::from_str_radix(&hex[2..4], 16),
+                u8::from_str_radix(&hex[4..6], 16),
+            ) {
+                return format!("{} {} {}", r, g, b);
+            }
+        }
+    }
+    trimmed.to_string()
+}
+
+fn color_to_hex(rgb: &str) -> String {
+    let parts: Vec<u8> = rgb
+        .split_whitespace()
+        .filter_map(|s| s.parse().ok())
+        .collect();
+    if parts.len() >= 3 {
+        format!("#{:02x}{:02x}{:02x}", parts[0], parts[1], parts[2])
+    } else {
+        rgb.to_string()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ThemeFile {
+    name: String,
+    is_dark: bool,
+    colors: ThemeColors,
+}
+
+#[tauri::command]
+pub fn import_theme_file(path: String) -> Result<CustomThemeDefinition, String> {
+    let content = fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+
+    let theme_file: ThemeFile = if path.ends_with(".toml") {
+        toml::from_str(&content).map_err(|e| format!("Invalid TOML theme file: {}", e))?
+    } else {
+        serde_json::from_str(&content).map_err(|e| format!("Invalid JSON theme file: {}", e))?
+    };
+
+    if theme_file.name.trim().is_empty() {
+        return Err("Theme file must have a name".to_string());
+    }
+
+    let id = format!(
+        "imported-{}",
+        &uuid::Uuid::new_v4().to_string().replace('-', "")[..12]
+    );
+
+    Ok(CustomThemeDefinition {
+        id,
+        name: theme_file.name,
+        is_dark: theme_file.is_dark,
+        colors: ThemeColors {
+            bg: normalize_color_value(&theme_file.colors.bg),
+            surface: normalize_color_value(&theme_file.colors.surface),
+            ink: normalize_color_value(&theme_file.colors.ink),
+            stone: normalize_color_value(&theme_file.colors.stone),
+            line: normalize_color_value(&theme_file.colors.line),
+            accent: normalize_color_value(&theme_file.colors.accent),
+            accent_light: normalize_color_value(&theme_file.colors.accent_light),
+            accent_dark: normalize_color_value(&theme_file.colors.accent_dark),
+        },
+    })
+}
+
+#[tauri::command]
+pub fn export_theme_file(
+    path: String,
+    name: String,
+    is_dark: bool,
+    colors: ThemeColors,
+) -> Result<(), String> {
+    let theme_file = ThemeFile {
+        name,
+        is_dark,
+        colors: ThemeColors {
+            bg: color_to_hex(&colors.bg),
+            surface: color_to_hex(&colors.surface),
+            ink: color_to_hex(&colors.ink),
+            stone: color_to_hex(&colors.stone),
+            line: color_to_hex(&colors.line),
+            accent: color_to_hex(&colors.accent),
+            accent_light: color_to_hex(&colors.accent_light),
+            accent_dark: color_to_hex(&colors.accent_dark),
+        },
+    };
+
+    let content = if path.ends_with(".toml") {
+        toml::to_string_pretty(&theme_file)
+            .map_err(|e| format!("Failed to serialize theme: {}", e))?
+    } else {
+        serde_json::to_string_pretty(&theme_file)
+            .map_err(|e| format!("Failed to serialize theme: {}", e))?
+    };
+
+    fs::write(&path, content).map_err(|e| format!("Failed to write file: {}", e))?;
+    Ok(())
 }
 
 #[cfg(test)]

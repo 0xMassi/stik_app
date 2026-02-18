@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import ShortcutRecorder from "./ShortcutRecorder";
-import type { CustomTemplate, GitSyncStatus, ShortcutMapping, StikSettings } from "@/types";
+import type { CustomTemplate, CustomThemeDefinition, GitSyncStatus, ShortcutMapping, StikSettings, ThemeColors } from "@/types";
 import { BUILTIN_COMMAND_NAMES } from "@/extensions/cm-slash-commands";
 import ConfirmDialog from "./ConfirmDialog";
 import {
@@ -11,6 +11,7 @@ import {
   SYSTEM_SHORTCUT_LABELS,
   type SystemAction,
 } from "@/utils/systemShortcuts";
+import { BUILTIN_THEMES, generateThemeId, type BuiltinTheme } from "@/themes";
 
 function remoteToWebUrl(remoteUrl: string): string | null {
   const trimmed = remoteUrl.trim();
@@ -95,7 +96,7 @@ export function Dropdown({ value, options, onChange, placeholder }: DropdownProp
   );
 }
 
-export type SettingsTab = "shortcuts" | "folders" | "editor" | "templates" | "git" | "ai" | "insights" | "privacy";
+export type SettingsTab = "appearance" | "shortcuts" | "folders" | "editor" | "templates" | "git" | "ai" | "insights" | "privacy";
 
 interface SettingsContentProps {
   activeTab: SettingsTab;
@@ -286,6 +287,543 @@ function PrivacySection({
       </div>
     </div>
     {toast && <SettingsToast message={toast} onDone={() => setToast(null)} />}
+    </>
+  );
+}
+
+function rgbToHex(rgb: string): string {
+  const parts = rgb.trim().split(/\s+/).map(Number);
+  if (parts.length < 3) return "#000000";
+  return (
+    "#" +
+    parts
+      .slice(0, 3)
+      .map((c) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
+
+function hexToRgb(hex: string): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `${r} ${g} ${b}`;
+}
+
+const COLOR_TOKEN_LABELS: { key: keyof ThemeColors; label: string }[] = [
+  { key: "bg", label: "Background" },
+  { key: "surface", label: "Surface" },
+  { key: "ink", label: "Text" },
+  { key: "stone", label: "Muted text" },
+  { key: "line", label: "Borders" },
+  { key: "accent", label: "Accent" },
+  { key: "accent_light", label: "Accent light" },
+  { key: "accent_dark", label: "Accent dark" },
+];
+
+function ThemePreviewCard({
+  name,
+  colors,
+  isDark,
+  isActive,
+  isSystem,
+  onClick,
+}: {
+  name: string;
+  colors: ThemeColors;
+  isDark: boolean;
+  isActive: boolean;
+  isSystem?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full text-left rounded-xl border transition-all ${
+        isActive
+          ? "border-coral ring-2 ring-coral/20"
+          : "border-line/50 hover:border-coral/40"
+      }`}
+    >
+      <div
+        className="relative rounded-t-xl p-3 h-[72px] flex flex-col justify-between overflow-hidden"
+        style={{ backgroundColor: `rgb(${colors.bg})` }}
+      >
+        <div className="flex items-center gap-1.5">
+          <div
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: `rgb(${colors.accent})` }}
+          />
+          <div
+            className="h-1.5 rounded-full w-10"
+            style={{ backgroundColor: `rgb(${colors.ink})`, opacity: 0.6 }}
+          />
+        </div>
+        <div className="space-y-1">
+          <div
+            className="h-1.5 rounded-full w-full"
+            style={{ backgroundColor: `rgb(${colors.ink})`, opacity: 0.15 }}
+          />
+          <div
+            className="h-1.5 rounded-full w-3/4"
+            style={{ backgroundColor: `rgb(${colors.stone})`, opacity: 0.25 }}
+          />
+        </div>
+        <div
+          className="absolute bottom-0 left-0 right-0 h-px"
+          style={{ backgroundColor: `rgb(${colors.line})` }}
+        />
+      </div>
+      <div className="px-3 py-2 bg-line/20 rounded-b-xl flex items-center justify-between">
+        <span className="text-[11px] font-medium text-ink truncate">
+          {name}
+        </span>
+        {isSystem && (
+          <span className="text-[9px] text-stone uppercase tracking-wider">Auto</span>
+        )}
+        {isDark && !isSystem && (
+          <span className="text-[9px] text-stone uppercase tracking-wider">Dark</span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function CustomThemeEditor({
+  theme,
+  onChange,
+  onSave,
+  onCancel,
+  onDelete,
+  isNew,
+}: {
+  theme: CustomThemeDefinition;
+  onChange: (theme: CustomThemeDefinition) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onDelete?: () => void;
+  isNew: boolean;
+}) {
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setTimeout(() => nameInputRef.current?.focus(), 50);
+  }, []);
+
+  const updateColor = (key: keyof ThemeColors, hex: string) => {
+    onChange({
+      ...theme,
+      colors: { ...theme.colors, [key]: hexToRgb(hex) },
+    });
+  };
+
+  return (
+    <div className="space-y-4 p-4 bg-line/30 rounded-xl border border-line/50">
+      <div>
+        <p className="text-[12px] text-stone mb-1.5">Theme name</p>
+        <input
+          ref={nameInputRef}
+          type="text"
+          value={theme.name}
+          onChange={(e) => onChange({ ...theme, name: e.target.value })}
+          placeholder="My Theme"
+          maxLength={30}
+          className="w-full px-3 py-2 bg-bg border border-line rounded-lg text-[13px] text-ink placeholder:text-stone/70 focus:outline-none focus:border-coral/50"
+        />
+      </div>
+
+      <label className="flex items-center justify-between gap-3">
+        <span className="text-[12px] text-stone">Dark theme</span>
+        <button
+          type="button"
+          onClick={() => onChange({ ...theme, is_dark: !theme.is_dark })}
+          className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+            theme.is_dark ? "bg-coral" : "bg-line"
+          }`}
+        >
+          <span
+            className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform pointer-events-none ${
+              theme.is_dark ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </label>
+
+      <div>
+        <p className="text-[12px] text-stone mb-2">Colors</p>
+        <div className="grid grid-cols-2 gap-2">
+          {COLOR_TOKEN_LABELS.map(({ key, label }) => (
+            <div
+              key={key}
+              className="flex items-center gap-2 px-2.5 py-2 bg-bg rounded-lg border border-line/50"
+            >
+              <label className="relative w-6 h-6 shrink-0">
+                <input
+                  type="color"
+                  value={rgbToHex(theme.colors[key])}
+                  onChange={(e) => updateColor(key, e.target.value)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div
+                  className="w-6 h-6 rounded-md border border-line cursor-pointer"
+                  style={{ backgroundColor: `rgb(${theme.colors[key]})` }}
+                />
+              </label>
+              <span className="text-[11px] text-ink truncate">{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div
+        className="rounded-lg overflow-hidden border border-line/50"
+        style={{ backgroundColor: `rgb(${theme.colors.bg})` }}
+      >
+        <div className="px-3 py-2.5">
+          <p
+            className="text-[13px] font-medium mb-1"
+            style={{ color: `rgb(${theme.colors.ink})` }}
+          >
+            Preview
+          </p>
+          <p
+            className="text-[11px] leading-relaxed"
+            style={{ color: `rgb(${theme.colors.stone})` }}
+          >
+            This is how your theme will look.{" "}
+            <span style={{ color: `rgb(${theme.colors.accent})` }}>
+              Accent color
+            </span>{" "}
+            appears in links and highlights.
+          </p>
+        </div>
+        <div
+          className="px-3 py-2 flex items-center gap-2"
+          style={{
+            backgroundColor: `rgb(${theme.colors.surface})`,
+            borderTop: `1px solid rgb(${theme.colors.line})`,
+          }}
+        >
+          <div
+            className="px-2.5 py-1 rounded-md text-[10px] font-medium"
+            style={{
+              backgroundColor: `rgb(${theme.colors.accent})`,
+              color: theme.is_dark ? `rgb(${theme.colors.bg})` : "#fff",
+            }}
+          >
+            Button
+          </div>
+          <div
+            className="px-2.5 py-1 rounded-md text-[10px]"
+            style={{
+              border: `1px solid rgb(${theme.colors.line})`,
+              color: `rgb(${theme.colors.stone})`,
+            }}
+          >
+            Secondary
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!theme.name.trim()}
+          className="px-3 py-2 text-[12px] font-medium text-white bg-coral rounded-lg hover:bg-coral/90 transition-colors disabled:opacity-50"
+        >
+          {isNew ? "Create" : "Update"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-3 py-2 text-[12px] text-stone hover:text-ink rounded-lg hover:bg-line transition-colors"
+        >
+          Cancel
+        </button>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="ml-auto px-3 py-2 text-[12px] text-coral hover:bg-coral-light rounded-lg transition-colors"
+          >
+            Delete
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AppearanceSection({
+  settings,
+  onSettingsChange,
+}: {
+  settings: StikSettings;
+  onSettingsChange: (settings: StikSettings) => void;
+}) {
+  const [editingTheme, setEditingTheme] = useState<CustomThemeDefinition | null>(null);
+  const [isNewTheme, setIsNewTheme] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+
+  const activeTheme = settings.active_theme || settings.theme_mode || "system";
+  const customThemes = settings.custom_themes ?? [];
+
+  const selectTheme = (id: string) => {
+    onSettingsChange({ ...settings, active_theme: id, theme_mode: id });
+  };
+
+  const startNewTheme = () => {
+    const defaultLight = BUILTIN_THEMES[0];
+    setEditingTheme({
+      id: generateThemeId(),
+      name: "",
+      is_dark: false,
+      colors: { ...defaultLight.colors },
+    });
+    setIsNewTheme(true);
+  };
+
+  const startEditTheme = (theme: CustomThemeDefinition) => {
+    setEditingTheme({ ...theme, colors: { ...theme.colors } });
+    setIsNewTheme(false);
+  };
+
+  const saveTheme = () => {
+    if (!editingTheme || !editingTheme.name.trim()) return;
+
+    let updated: CustomThemeDefinition[];
+    if (isNewTheme) {
+      updated = [...customThemes, editingTheme];
+    } else {
+      updated = customThemes.map((t) =>
+        t.id === editingTheme.id ? editingTheme : t,
+      );
+    }
+
+    onSettingsChange({
+      ...settings,
+      custom_themes: updated,
+      active_theme: editingTheme.id,
+      theme_mode: editingTheme.id,
+    });
+    setEditingTheme(null);
+    setToast(isNewTheme ? `Theme "${editingTheme.name}" created` : `Theme "${editingTheme.name}" updated`);
+  };
+
+  const deleteTheme = (id: string) => {
+    const theme = customThemes.find((t) => t.id === id);
+    const updated = customThemes.filter((t) => t.id !== id);
+    const newSettings: Partial<StikSettings> = { custom_themes: updated };
+
+    if (activeTheme === id) {
+      newSettings.active_theme = "system";
+      newSettings.theme_mode = "";
+    }
+
+    onSettingsChange({ ...settings, ...newSettings });
+    if (editingTheme?.id === id) setEditingTheme(null);
+    setConfirmingDelete(null);
+    if (theme) setToast(`Theme "${theme.name}" deleted`);
+  };
+
+  const handleImport = async () => {
+    const selected = await open({
+      multiple: false,
+      title: "Import theme file",
+      filters: [
+        { name: "Theme files", extensions: ["json", "toml"] },
+      ],
+    });
+    if (!selected) return;
+
+    try {
+      const imported = await invoke<CustomThemeDefinition>("import_theme_file", {
+        path: selected,
+      });
+      const updated = [...customThemes, imported];
+      onSettingsChange({
+        ...settings,
+        custom_themes: updated,
+        active_theme: imported.id,
+        theme_mode: imported.id,
+      });
+      setToast(`Theme "${imported.name}" imported`);
+    } catch (error) {
+      setToast(`Import failed: ${error}`);
+    }
+  };
+
+  const handleExport = async (theme: { name: string; is_dark: boolean; colors: ThemeColors }) => {
+    const selected = await save({
+      title: "Export theme",
+      defaultPath: `${theme.name.toLowerCase().replace(/\s+/g, "-")}.json`,
+      filters: [
+        { name: "JSON", extensions: ["json"] },
+        { name: "TOML", extensions: ["toml"] },
+      ],
+    });
+    if (!selected) return;
+
+    try {
+      await invoke("export_theme_file", {
+        path: selected,
+        name: theme.name,
+        is_dark: theme.is_dark,
+        colors: theme.colors,
+      });
+      setToast(`Theme "${theme.name}" exported`);
+    } catch (error) {
+      setToast(`Export failed: ${error}`);
+    }
+  };
+
+  const systemColors: BuiltinTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? BUILTIN_THEMES[1]
+    : BUILTIN_THEMES[0];
+
+  return (
+    <>
+      <div className="space-y-4">
+        <p className="text-[12px] text-stone">
+          Choose a built-in theme or create your own with custom colors.
+        </p>
+
+        <div className="grid grid-cols-3 gap-2">
+          <ThemePreviewCard
+            name="System"
+            colors={systemColors.colors}
+            isDark={systemColors.isDark}
+            isActive={activeTheme === "system" || activeTheme === ""}
+            isSystem
+            onClick={() => selectTheme("system")}
+          />
+          {BUILTIN_THEMES.map((theme) => (
+            <ThemePreviewCard
+              key={theme.id}
+              name={theme.name}
+              colors={theme.colors}
+              isDark={theme.isDark}
+              isActive={activeTheme === theme.id}
+              onClick={() => selectTheme(theme.id)}
+            />
+          ))}
+          {customThemes.map((theme) => (
+            <div key={theme.id} className="relative group">
+              <ThemePreviewCard
+                name={theme.name}
+                colors={theme.colors}
+                isDark={theme.is_dark}
+                isActive={activeTheme === theme.id}
+                onClick={() => selectTheme(theme.id)}
+              />
+              <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startEditTheme(theme);
+                  }}
+                  className="w-5 h-5 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-ink text-[10px]"
+                  title="Edit theme"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleExport(theme);
+                  }}
+                  className="w-5 h-5 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-ink text-[10px]"
+                  title="Export theme"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmingDelete(theme.id);
+                  }}
+                  className="w-5 h-5 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-coral text-[10px]"
+                  title="Delete theme"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 6h18" />
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {editingTheme ? (
+          <CustomThemeEditor
+            theme={editingTheme}
+            onChange={setEditingTheme}
+            onSave={saveTheme}
+            onCancel={() => setEditingTheme(null)}
+            onDelete={
+              !isNewTheme
+                ? () => setConfirmingDelete(editingTheme.id)
+                : undefined
+            }
+            isNew={isNewTheme}
+          />
+        ) : (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={startNewTheme}
+              className="flex-1 px-4 py-3 text-[13px] text-coral hover:bg-coral-light rounded-xl transition-colors flex items-center justify-center gap-2 border border-dashed border-coral/30 hover:border-coral/50"
+            >
+              <span className="text-lg">+</span>
+              <span>Create custom theme</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleImport}
+              className="px-4 py-3 text-[13px] text-coral hover:bg-coral-light rounded-xl transition-colors flex items-center justify-center gap-2 border border-dashed border-coral/30 hover:border-coral/50"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>Import</span>
+            </button>
+          </div>
+        )}
+
+        <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
+          <p className="text-[12px] text-stone leading-relaxed">
+            Themes control all colors across Stik — the editor, command palette, settings, and sticky notes.
+            System mode automatically follows your macOS appearance.
+          </p>
+        </div>
+      </div>
+
+      {confirmingDelete && (
+        <ConfirmDialog
+          title="Delete theme?"
+          description={`This will permanently remove "${customThemes.find((t) => t.id === confirmingDelete)?.name}" from your themes.`}
+          onConfirm={() => deleteTheme(confirmingDelete)}
+          onCancel={() => setConfirmingDelete(null)}
+        />
+      )}
+      {toast && <SettingsToast message={toast} onDone={() => setToast(null)} />}
     </>
   );
 }
@@ -630,6 +1168,10 @@ export default function SettingsContent({
 
   return (
     <div>
+        {activeTab === "appearance" && (
+          <AppearanceSection settings={settings} onSettingsChange={onSettingsChange} />
+        )}
+
         {activeTab === "shortcuts" && (
           <div>
             <p className="mb-4 text-[12px] text-stone">
@@ -855,37 +1397,6 @@ export default function SettingsContent({
 
         {activeTab === "editor" && (
           <div className="space-y-4">
-            <div className="p-4 bg-line/30 rounded-xl border border-line/50">
-              <p className="text-[13px] text-ink font-medium mb-1">Theme</p>
-              <p className="text-[12px] text-stone leading-relaxed mb-3">
-                Choose light, dark, or follow your macOS appearance.
-              </p>
-              <div className="inline-flex rounded-lg border border-line overflow-hidden">
-                {(["system", "light", "dark"] as const).map((opt) => {
-                  const labels = { system: "System", light: "Light", dark: "Dark" } as const;
-                  const current = settings.theme_mode || "system";
-                  const isActive =
-                    opt === "system" ? !current || current === "system" : current === opt;
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() =>
-                        onSettingsChange({ ...settings, theme_mode: opt === "system" ? "" : opt })
-                      }
-                      className={`px-4 py-1.5 text-[12px] font-medium transition-colors ${
-                        isActive
-                          ? "bg-coral text-white"
-                          : "text-stone hover:text-ink hover:bg-line/50"
-                      }`}
-                    >
-                      {labels[opt]}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             <div className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
               <div>
                 <p className="text-[13px] text-ink font-medium">Font size</p>

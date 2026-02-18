@@ -29,6 +29,24 @@ export interface CustomTemplate {
   body: string;
 }
 
+export interface ThemeColors {
+  bg: string;
+  surface: string;
+  ink: string;
+  stone: string;
+  line: string;
+  accent: string;
+  accent_light: string;
+  accent_dark: string;
+}
+
+export interface CustomThemeDefinition {
+  id: string;
+  name: string;
+  is_dark: boolean;
+  colors: ThemeColors;
+}
+
 export interface StikSettings {
   shortcut_mappings: ShortcutMapping[];
   default_folder: string;
@@ -49,6 +67,8 @@ export interface StikSettings {
   text_direction: string;
   hide_tray_icon: boolean;
   capture_window_size: [number, number] | null;
+  active_theme: string;
+  custom_themes: CustomThemeDefinition[];
 }
 
 export interface NoteInfo {
