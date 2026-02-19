@@ -336,6 +336,10 @@ First release
 | Version | Date | Highlights |
 |---------|------|------------|
 | 0.7.0 | 2026-02-19 | Custom themes + import/export, autosave race fix, settings layout resize, startup crash hardening |
+| 0.6.6 | 2026-02-18 | Security patch: glib vulnerability fix |
+| 0.6.5 | 2026-02-18 | Inline images, RTL support, zen mode, hide tray icon, capture window size persistence |
+| 0.6.4 | 2026-02-17 | Heading fold/collapse |
+| 0.6.3 | 2026-02-16 | Discord link refresh, auto-updater toggle, YouTube demo |
 | 0.6.2 | 2026-02-16 | Vim `:wq` + `:` command mode fixes, visible visual selection, arrow stability in visual mode, improved markdown link UX |
 | 0.6.1 | 2026-02-15 | Auto-updater dev fix, capture window race conditions, blur-auto-hide debounce |
 | 0.6.0 | 2026-02-14 | Unified Command Palette, CodeMirror 6 editor, interactive tables, slash commands, Apple Notes import |
@@ -353,6 +357,10 @@ First release
 
 [Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.7.0...HEAD
 [0.7.0]: https://github.com/0xMassi/stik_app/compare/v0.6.6...v0.7.0
+[0.6.6]: https://github.com/0xMassi/stik_app/compare/v0.6.5...v0.6.6
+[0.6.5]: https://github.com/0xMassi/stik_app/compare/v0.6.4...v0.6.5
+[0.6.4]: https://github.com/0xMassi/stik_app/compare/v0.6.3...v0.6.4
+[0.6.3]: https://github.com/0xMassi/stik_app/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/0xMassi/stik_app/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/0xMassi/stik_app/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/0xMassi/stik_app/compare/v0.5.0...v0.6.0
@@ -364,6 +372,7 @@ First release
 [0.4.0]: https://github.com/0xMassi/stik_app/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/0xMassi/stik_app/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/0xMassi/stik_app/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/0xMassi/stik_app/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/0xMassi/stik_app/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/0xMassi/stik_app/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/0xMassi/stik_app/releases/tag/v0.1.0
