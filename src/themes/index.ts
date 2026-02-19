@@ -1,4 +1,5 @@
 import type { ThemeColors, CustomThemeDefinition } from "@/types";
+import { rgbToHex } from "@/utils/color";
 
 export interface BuiltinTheme {
   id: string;
@@ -164,18 +165,6 @@ export const BUILTIN_THEMES: BuiltinTheme[] = [
 ];
 
 export const BUILTIN_THEME_MAP = new Map(BUILTIN_THEMES.map((t) => [t.id, t]));
-
-function rgbToHex(rgb: string): string {
-  const parts = rgb.trim().split(/\s+/).map(Number);
-  if (parts.length < 3) return "#000000";
-  return (
-    "#" +
-    parts
-      .slice(0, 3)
-      .map((c) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, "0"))
-      .join("")
-  );
-}
 
 function computeEditorTokens(colors: ThemeColors, isDark: boolean) {
   const accentHex = rgbToHex(colors.accent);

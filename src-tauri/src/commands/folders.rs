@@ -283,17 +283,9 @@ mod tests {
                 repository_layout: "folder_root".to_string(),
                 sync_interval_seconds: 300,
             },
-            ai_features_enabled: true,
-            vim_mode_enabled: false,
-            theme_mode: String::new(),
-            notes_directory: String::new(),
-            hide_dock_icon: false,
             folder_colors: HashMap::new(),
             system_shortcuts: HashMap::new(),
-            analytics_enabled: true,
-            analytics_notice_dismissed: false,
-            font_size: 14,
-            viewing_window_size: None,
+            ..StikSettings::default()
         }
     }
 

@@ -7,13 +7,22 @@ import SettingsContent from "./SettingsContent";
 import SettingsFooterLinks from "./SettingsFooterLinks";
 import type { SettingsTab } from "./SettingsContent";
 import type { CaptureStreakStatus, GitSyncStatus, OnThisDayStatus, StikSettings } from "@/types";
-import { Palette } from "lucide-react";
+import { createCoalescedTaskRunner } from "@/utils/coalescedTaskRunner";
+import { SETTINGS_MODAL_MAX_WIDTH, SETTINGS_MODAL_MIN_WIDTH } from "@/utils/settingsLayout";
 
 const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   {
     id: "appearance",
     label: "Appearance",
-    icon: <Palette size={16} strokeWidth={1.8} />,
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="13.5" cy="6.5" r=".5" />
+        <circle cx="17.5" cy="10.5" r=".5" />
+        <circle cx="8.5" cy="7.5" r=".5" />
+        <circle cx="6.5" cy="12.5" r=".5" />
+        <path d="M12 2a10 10 0 1 0 0 20h.5a2.5 2.5 0 0 0 0-5H11a2 2 0 0 1 0-4h2a4 4 0 0 0 0-8Z" />
+      </svg>
+    ),
   },
   {
     id: "shortcuts",
@@ -276,6 +285,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
       console.error("Failed to save settings:", error);
     }
   }, []);
+  const saveQueueRef = useRef(createCoalescedTaskRunner(performSave));
 
   const handleSettingsChange = useCallback((newSettings: StikSettings) => {
     setSettings(newSettings);
@@ -284,9 +294,9 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       hasPendingRef.current = false;
-      performSave(newSettings);
+      saveQueueRef.current.push(newSettings);
     }, 400);
-  }, [performSave]);
+  }, []);
 
   const handleClose = useCallback(async () => {
     if (saveTimerRef.current) {
@@ -295,15 +305,16 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     }
     if (hasPendingRef.current && settings) {
       hasPendingRef.current = false;
-      await performSave(settings);
+      saveQueueRef.current.push(settings);
     }
+    await saveQueueRef.current.flush();
     if (isWindow) {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().close();
     } else {
       onClose();
     }
-  }, [settings, performSave, isWindow, onClose]);
+  }, [settings, isWindow, onClose]);
 
   useEffect(() => {
     return () => {
@@ -316,8 +327,8 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   if (!isOpen || !settings) return null;
 
   const tabBar = (
-    <div className="overflow-x-auto scrollbar-hide px-4 pb-3">
-      <div className="flex items-center gap-0.5 w-max">
+    <div className="px-4 pb-3">
+      <div className="flex flex-wrap items-center gap-0.5">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -392,7 +403,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
           </div>
           {tabBar}
         </div>
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-5">
           {settingsContent}
         </div>
         <div className="flex items-center px-5 py-3 border-t border-line bg-line/10">
@@ -404,7 +415,13 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
-      <div className="bg-bg rounded-[14px] w-[min(96vw,740px)] max-h-[85vh] flex flex-col shadow-stik overflow-hidden border border-line/50">
+      <div
+        className="bg-bg rounded-[14px] max-h-[85vh] flex flex-col shadow-stik overflow-hidden border border-line/50"
+        style={{
+          width: `min(96vw, ${SETTINGS_MODAL_MAX_WIDTH}px)`,
+          minWidth: `min(96vw, ${SETTINGS_MODAL_MIN_WIDTH}px)`,
+        }}
+      >
         <div className="border-b border-line bg-line/20">
           <div className="flex items-center justify-between px-5 pt-4 pb-3">
             <div className="flex items-center gap-2.5">
@@ -427,7 +444,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
           </div>
           {tabBar}
         </div>
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-5">
           {settingsContent}
         </div>
         <div className="flex items-center px-5 py-3 border-t border-line bg-line/10">

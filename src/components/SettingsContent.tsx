@@ -11,6 +11,7 @@ import {
   SYSTEM_SHORTCUT_LABELS,
   type SystemAction,
 } from "@/utils/systemShortcuts";
+import { hexToRgb, rgbToHex } from "@/utils/color";
 import { BUILTIN_THEMES, generateThemeId, type BuiltinTheme } from "@/themes";
 
 function remoteToWebUrl(remoteUrl: string): string | null {
@@ -289,26 +290,6 @@ function PrivacySection({
     {toast && <SettingsToast message={toast} onDone={() => setToast(null)} />}
     </>
   );
-}
-
-function rgbToHex(rgb: string): string {
-  const parts = rgb.trim().split(/\s+/).map(Number);
-  if (parts.length < 3) return "#000000";
-  return (
-    "#" +
-    parts
-      .slice(0, 3)
-      .map((c) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, "0"))
-      .join("")
-  );
-}
-
-function hexToRgb(hex: string): string {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `${r} ${g} ${b}`;
 }
 
 const COLOR_TOKEN_LABELS: { key: keyof ThemeColors; label: string }[] = [
