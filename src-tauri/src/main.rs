@@ -147,6 +147,8 @@ fn main() {
             settings::set_tray_icon_visibility,
             settings::save_viewing_window_size,
             settings::save_capture_window_size,
+            settings::import_theme_file,
+            settings::export_theme_file,
             darwinkit::darwinkit_status,
             darwinkit::darwinkit_call,
             darwinkit::semantic_search,

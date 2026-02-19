@@ -3,6 +3,11 @@ use crate::state::{AppState, LastSavedNote};
 use sticked_notes::StickedNote;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
+const SETTINGS_WINDOW_WIDTH: f64 = 860.0;
+const SETTINGS_WINDOW_HEIGHT: f64 = 720.0;
+const SETTINGS_WINDOW_MIN_WIDTH: f64 = 760.0;
+const SETTINGS_WINDOW_MIN_HEIGHT: f64 = 560.0;
+
 fn remember_last_note(state: &AppState, path: &str, folder: &str) {
     if path.trim().is_empty() {
         return;
@@ -151,8 +156,8 @@ pub fn show_settings(app: &AppHandle) {
         WebviewUrl::App("index.html?window=settings".into()),
     )
     .title("Settings")
-    .inner_size(740.0, 700.0)
-    .min_inner_size(580.0, 500.0)
+    .inner_size(SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT)
+    .min_inner_size(SETTINGS_WINDOW_MIN_WIDTH, SETTINGS_WINDOW_MIN_HEIGHT)
     .resizable(true)
     .decorations(false)
     .transparent(true)
@@ -497,7 +502,7 @@ pub fn restore_sticked_notes(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::remember_last_note;
+    use super::{remember_last_note, SETTINGS_WINDOW_MIN_WIDTH, SETTINGS_WINDOW_WIDTH};
     use crate::state::AppState;
 
     #[test]
@@ -509,5 +514,11 @@ mod tests {
         let note = last.as_ref().expect("last note should be set");
         assert_eq!(note.path, "/tmp/stik/foo.md");
         assert_eq!(note.folder, "Inbox");
+    }
+
+    #[test]
+    fn settings_window_min_width_is_large_enough_for_full_menu_bar() {
+        assert!(SETTINGS_WINDOW_MIN_WIDTH >= 760.0);
+        assert!(SETTINGS_WINDOW_WIDTH > SETTINGS_WINDOW_MIN_WIDTH);
     }
 }

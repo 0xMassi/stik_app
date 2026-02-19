@@ -274,6 +274,16 @@ mod tests {
                     enabled: true,
                 },
             ],
+            git_sharing: GitSharingSettings {
+                enabled: false,
+                shared_folder: "Inbox".to_string(),
+                remote_url: String::new(),
+                branch: "main".to_string(),
+                repository_layout: "folder_root".to_string(),
+                sync_interval_seconds: 300,
+            },
+            folder_colors: HashMap::new(),
+            system_shortcuts: HashMap::new(),
             ..StikSettings::default()
         }
     }

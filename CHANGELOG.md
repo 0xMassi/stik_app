@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-02-18
+Security patch
+
+### Fixed
+- **Security: glib vulnerability** — bumped `glib` transitive dependency to `>=0.20.0` to address [GHSA-wrw7-89jp-8q8g](https://github.com/advisories/GHSA-wrw7-89jp-8q8g) / RUSTSEC-2024-0429. Unsound `Iterator` and `DoubleEndedIterator` implementations in `VariantStrIter` (medium severity)
+
 ## [0.6.5] - 2026-02-18
 Inline images, RTL support, zen mode, and quality-of-life improvements (#37)
 

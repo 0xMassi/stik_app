@@ -17,6 +17,26 @@ pub struct CustomTemplate {
     pub body: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ThemeColors {
+    pub bg: String,
+    pub surface: String,
+    pub ink: String,
+    pub stone: String,
+    pub line: String,
+    pub accent: String,
+    pub accent_light: String,
+    pub accent_dark: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CustomThemeDefinition {
+    pub id: String,
+    pub name: String,
+    pub is_dark: bool,
+    pub colors: ThemeColors,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GitSharingSettings {
@@ -93,6 +113,10 @@ pub struct StikSettings {
     pub hide_tray_icon: bool,
     #[serde(default)]
     pub capture_window_size: Option<(f64, f64)>,
+    #[serde(default)]
+    pub active_theme: String,
+    #[serde(default)]
+    pub custom_themes: Vec<CustomThemeDefinition>,
 }
 
 impl Default for StikSettings {
@@ -139,6 +163,8 @@ impl Default for StikSettings {
             text_direction: "auto".to_string(),
             hide_tray_icon: false,
             capture_window_size: None,
+            active_theme: String::new(),
+            custom_themes: vec![],
         }
     }
 }
@@ -167,6 +193,29 @@ fn normalize_system_shortcuts(shortcuts: &mut HashMap<String, String>) {
     }
 }
 
+const BUILTIN_THEME_IDS: &[&str] = &[
+    "light",
+    "dark",
+    "sepia",
+    "nord",
+    "rose-pine",
+    "solarized-light",
+    "solarized-dark",
+    "dracula",
+    "tokyo-night",
+];
+
+fn is_legacy_theme_mode(mode: &str) -> bool {
+    mode == "system" || mode == "light" || mode == "dark"
+}
+
+fn is_valid_active_theme(active_theme: &str, custom_themes: &[CustomThemeDefinition]) -> bool {
+    active_theme.is_empty()
+        || is_legacy_theme_mode(active_theme)
+        || BUILTIN_THEME_IDS.contains(&active_theme)
+        || custom_themes.iter().any(|theme| theme.id == active_theme)
+}
+
 fn normalize_loaded_settings(mut settings: StikSettings) -> StikSettings {
     // The UI has no enable/disable toggle — users delete shortcuts to remove them.
     // Force all visible shortcuts to enabled so stale disabled state can't persist.
@@ -175,6 +224,18 @@ fn normalize_loaded_settings(mut settings: StikSettings) -> StikSettings {
     }
 
     normalize_system_shortcuts(&mut settings.system_shortcuts);
+
+    if settings.active_theme.is_empty() && is_legacy_theme_mode(&settings.theme_mode) {
+        settings.active_theme = settings.theme_mode.clone();
+    }
+
+    if !is_valid_active_theme(&settings.active_theme, &settings.custom_themes) {
+        settings.active_theme = if is_legacy_theme_mode(&settings.theme_mode) {
+            settings.theme_mode.clone()
+        } else {
+            String::new()
+        };
+    }
 
     settings
 }
@@ -259,9 +320,137 @@ pub fn set_dock_icon_visibility(hide: bool) {
     apply_dock_icon_visibility(hide);
 }
 
+fn parse_color_value(color: &str) -> Option<String> {
+    let trimmed = color.trim();
+    if trimmed.starts_with('#') {
+        let hex = trimmed.trim_start_matches('#');
+        if hex.len() == 6 {
+            if let (Ok(r), Ok(g), Ok(b)) = (
+                u8::from_str_radix(&hex[0..2], 16),
+                u8::from_str_radix(&hex[2..4], 16),
+                u8::from_str_radix(&hex[4..6], 16),
+            ) {
+                return Some(format!("{} {} {}", r, g, b));
+            }
+        }
+        return None;
+    }
+
+    let parts: Vec<&str> = trimmed.split_whitespace().collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let parsed: Option<Vec<u8>> = parts.into_iter().map(|part| part.parse::<u8>().ok()).collect();
+    parsed.map(|rgb| format!("{} {} {}", rgb[0], rgb[1], rgb[2]))
+}
+
+fn parse_theme_colors(colors: ThemeColors) -> Result<ThemeColors, String> {
+    let parse = |field: &str, value: &str| {
+        parse_color_value(value).ok_or_else(|| format!("Invalid color format for {}", field))
+    };
+
+    Ok(ThemeColors {
+        bg: parse("bg", &colors.bg)?,
+        surface: parse("surface", &colors.surface)?,
+        ink: parse("ink", &colors.ink)?,
+        stone: parse("stone", &colors.stone)?,
+        line: parse("line", &colors.line)?,
+        accent: parse("accent", &colors.accent)?,
+        accent_light: parse("accent_light", &colors.accent_light)?,
+        accent_dark: parse("accent_dark", &colors.accent_dark)?,
+    })
+}
+
+fn color_to_hex(rgb: &str) -> String {
+    let parts: Vec<u8> = rgb
+        .split_whitespace()
+        .filter_map(|s| s.parse().ok())
+        .collect();
+    if parts.len() >= 3 {
+        format!("#{:02x}{:02x}{:02x}", parts[0], parts[1], parts[2])
+    } else {
+        rgb.to_string()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ThemeFile {
+    name: String,
+    is_dark: bool,
+    colors: ThemeColors,
+}
+
+#[tauri::command]
+pub fn import_theme_file(path: String) -> Result<CustomThemeDefinition, String> {
+    let content = fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+
+    let theme_file: ThemeFile = if path.ends_with(".toml") {
+        toml::from_str(&content).map_err(|e| format!("Invalid TOML theme file: {}", e))?
+    } else {
+        serde_json::from_str(&content).map_err(|e| format!("Invalid JSON theme file: {}", e))?
+    };
+
+    if theme_file.name.trim().is_empty() {
+        return Err("Theme file must have a name".to_string());
+    }
+
+    let id = format!(
+        "imported-{}",
+        &uuid::Uuid::new_v4().to_string().replace('-', "")[..12]
+    );
+
+    let normalized_colors = parse_theme_colors(theme_file.colors)?;
+
+    Ok(CustomThemeDefinition {
+        id,
+        name: theme_file.name,
+        is_dark: theme_file.is_dark,
+        colors: normalized_colors,
+    })
+}
+
+#[tauri::command]
+pub fn export_theme_file(
+    path: String,
+    name: String,
+    is_dark: bool,
+    colors: ThemeColors,
+) -> Result<(), String> {
+    let theme_file = ThemeFile {
+        name,
+        is_dark,
+        colors: ThemeColors {
+            bg: color_to_hex(&colors.bg),
+            surface: color_to_hex(&colors.surface),
+            ink: color_to_hex(&colors.ink),
+            stone: color_to_hex(&colors.stone),
+            line: color_to_hex(&colors.line),
+            accent: color_to_hex(&colors.accent),
+            accent_light: color_to_hex(&colors.accent_light),
+            accent_dark: color_to_hex(&colors.accent_dark),
+        },
+    };
+
+    let content = if path.ends_with(".toml") {
+        toml::to_string_pretty(&theme_file)
+            .map_err(|e| format!("Failed to serialize theme: {}", e))?
+    } else {
+        serde_json::to_string_pretty(&theme_file)
+            .map_err(|e| format!("Failed to serialize theme: {}", e))?
+    };
+
+    fs::write(&path, content).map_err(|e| format!("Failed to write file: {}", e))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{normalize_loaded_settings, ShortcutMapping, StikSettings};
+    use super::{
+        parse_color_value,
+        normalize_loaded_settings,
+        ShortcutMapping,
+        StikSettings,
+    };
 
     #[test]
     fn normalization_reenables_all_disabled_shortcuts() {
@@ -282,5 +471,22 @@ mod tests {
         let normalized = normalize_loaded_settings(settings);
         assert!(normalized.shortcut_mappings[0].enabled);
         assert!(normalized.shortcut_mappings[1].enabled);
+    }
+
+    #[test]
+    fn normalization_falls_back_to_legacy_theme_mode_when_active_theme_is_invalid() {
+        let mut settings = StikSettings::default();
+        settings.theme_mode = "dark".to_string();
+        settings.active_theme = "removed-custom-theme".to_string();
+
+        let normalized = normalize_loaded_settings(settings);
+        assert_eq!(normalized.active_theme, "dark");
+    }
+
+    #[test]
+    fn parse_color_value_rejects_invalid_strings() {
+        assert_eq!(parse_color_value("#112233"), Some("17 34 51".to_string()));
+        assert_eq!(parse_color_value("10 20 30"), Some("10 20 30".to_string()));
+        assert_eq!(parse_color_value("not-a-color"), None);
     }
 }

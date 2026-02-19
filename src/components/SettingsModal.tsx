@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
@@ -7,8 +7,23 @@ import SettingsContent from "./SettingsContent";
 import SettingsFooterLinks from "./SettingsFooterLinks";
 import type { SettingsTab } from "./SettingsContent";
 import type { CaptureStreakStatus, GitSyncStatus, OnThisDayStatus, StikSettings } from "@/types";
+import { createCoalescedTaskRunner } from "@/utils/coalescedTaskRunner";
+import { SETTINGS_MODAL_MAX_WIDTH, SETTINGS_MODAL_MIN_WIDTH } from "@/utils/settingsLayout";
 
 const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+  {
+    id: "appearance",
+    label: "Appearance",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="13.5" cy="6.5" r=".5" />
+        <circle cx="17.5" cy="10.5" r=".5" />
+        <circle cx="8.5" cy="7.5" r=".5" />
+        <circle cx="6.5" cy="12.5" r=".5" />
+        <path d="M12 2a10 10 0 1 0 0 20h.5a2.5 2.5 0 0 0 0-5H11a2 2 0 0 1 0-4h2a4 4 0 0 0 0-8Z" />
+      </svg>
+    ),
+  },
   {
     id: "shortcuts",
     label: "Shortcuts",
@@ -100,10 +115,9 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ isOpen, onClose, isWindow = false }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("shortcuts");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("appearance");
   const [settings, setSettings] = useState<StikSettings | null>(null);
   const [folders, setFolders] = useState<string[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
   const [captureStreak, setCaptureStreak] = useState<CaptureStreakStatus | null>(null);
   const [isRefreshingStreak, setIsRefreshingStreak] = useState(false);
   const [onThisDayStatus, setOnThisDayStatus] = useState<OnThisDayStatus | null>(null);
@@ -240,6 +254,8 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   }, []);
 
   const prevNotesDir = useRef(settings?.notes_directory ?? "");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasPendingRef = useRef(false);
 
   // Track the notes_directory at load time so we can detect changes on save
   useEffect(() => {
@@ -250,82 +266,69 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  const handleSave = async () => {
-    if (!settings) return;
-
-    setIsSaving(true);
+  const performSave = useCallback(async (settingsToSave: StikSettings) => {
     try {
-      await invoke("save_settings", { settings });
+      await invoke("save_settings", { settings: settingsToSave });
       await invoke("reload_shortcuts");
-      await invoke("set_dock_icon_visibility", { hide: settings.hide_dock_icon });
-      await invoke("set_tray_icon_visibility", { hide: settings.hide_tray_icon ?? false });
+      await invoke("set_dock_icon_visibility", { hide: settingsToSave.hide_dock_icon });
+      await invoke("set_tray_icon_visibility", { hide: settingsToSave.hide_tray_icon ?? false });
 
-      // Rebuild index when notes directory changed
-      if (settings.notes_directory !== prevNotesDir.current) {
+      if (settingsToSave.notes_directory !== prevNotesDir.current) {
         await invoke("rebuild_index");
         const newDir = await invoke<string>("get_notes_directory");
         setResolvedNotesDir(newDir);
-        prevNotesDir.current = settings.notes_directory;
+        prevNotesDir.current = settingsToSave.notes_directory;
       }
 
-      await emit("settings-changed", settings);
-      if (!isWindow) {
-        onClose();
-      }
+      await emit("settings-changed", settingsToSave);
     } catch (error) {
       console.error("Failed to save settings:", error);
-    } finally {
-      setIsSaving(false);
     }
-  };
+  }, []);
+  const saveQueueRef = useRef(createCoalescedTaskRunner(performSave));
+
+  const handleSettingsChange = useCallback((newSettings: StikSettings) => {
+    setSettings(newSettings);
+    hasPendingRef.current = true;
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      hasPendingRef.current = false;
+      saveQueueRef.current.push(newSettings);
+    }, 400);
+  }, []);
+
+  const handleClose = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    if (hasPendingRef.current && settings) {
+      hasPendingRef.current = false;
+      saveQueueRef.current.push(settings);
+    }
+    await saveQueueRef.current.flush();
+    if (isWindow) {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().close();
+    } else {
+      onClose();
+    }
+  }, [settings, isWindow, onClose]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, []);
 
   if (!isOpen || !settings) return null;
 
-  const saveButton = (
-    <button
-      onClick={async () => {
-        await handleSave();
-        if (isWindow) {
-          const { getCurrentWindow } = await import("@tauri-apps/api/window");
-          await getCurrentWindow().close();
-        }
-      }}
-      disabled={isSaving}
-      className="px-5 py-2 text-[13px] text-white bg-coral rounded-lg hover:bg-coral/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-    >
-      {isSaving ? (
-        <>
-          <span className="animate-spin">↻</span>
-          <span>Saving...</span>
-        </>
-      ) : (
-        <>
-          <span>✓</span>
-          <span>Save</span>
-        </>
-      )}
-    </button>
-  );
-
-  const cancelButton = (
-    <button
-      onClick={async () => {
-        if (isWindow) {
-          const { getCurrentWindow } = await import("@tauri-apps/api/window");
-          await getCurrentWindow().close();
-        } else {
-          onClose();
-        }
-      }}
-      className="px-5 py-2 text-[13px] text-stone hover:text-ink rounded-lg hover:bg-line transition-colors"
-    >
-      Cancel
-    </button>
-  );
-
   const tabBar = (
-    <div className="overflow-x-auto scrollbar-hide px-4 pb-3">
-      <div className="flex items-center gap-0.5 w-max">
+    <div className="px-4 pb-3">
+      <div className="flex flex-wrap items-center gap-0.5">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -353,7 +356,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
       activeTab={activeTab}
       settings={settings}
       folders={folders}
-      onSettingsChange={setSettings}
+      onSettingsChange={handleSettingsChange}
       resolvedNotesDir={resolvedNotesDir}
       captureStreakLabel={captureStreak?.label ?? "Streak unavailable"}
       captureStreakDays={captureStreak?.days ?? null}
@@ -379,7 +382,7 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
     return (
       <div className="w-full h-full bg-bg rounded-[14px] flex flex-col overflow-hidden">
         <div data-tauri-drag-region className="border-b border-line bg-line/20">
-          <div className="flex items-center px-5 pt-4 pb-3" data-tauri-drag-region>
+          <div className="flex items-center justify-between px-5 pt-4 pb-3" data-tauri-drag-region>
             <div className="flex items-center gap-2.5">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-coral">
                 <circle cx="12" cy="12" r="3" />
@@ -387,18 +390,24 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
               </svg>
               <h2 className="text-[15px] font-semibold text-ink">Settings</h2>
             </div>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-ink hover:bg-line/50 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
           </div>
           {tabBar}
         </div>
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-5">
           {settingsContent}
         </div>
-        <div className="flex items-center justify-between px-5 py-4 border-t border-line bg-line/10">
+        <div className="flex items-center px-5 py-3 border-t border-line bg-line/10">
           <SettingsFooterLinks appVersion={appVersion} />
-          <div className="flex items-center gap-3">
-            {cancelButton}
-            {saveButton}
-          </div>
         </div>
       </div>
     );
@@ -406,9 +415,15 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
-      <div className="bg-bg rounded-[14px] w-[min(96vw,740px)] max-h-[85vh] flex flex-col shadow-stik overflow-hidden border border-line/50">
+      <div
+        className="bg-bg rounded-[14px] max-h-[85vh] flex flex-col shadow-stik overflow-hidden border border-line/50"
+        style={{
+          width: `min(96vw, ${SETTINGS_MODAL_MAX_WIDTH}px)`,
+          minWidth: `min(96vw, ${SETTINGS_MODAL_MIN_WIDTH}px)`,
+        }}
+      >
         <div className="border-b border-line bg-line/20">
-          <div className="flex items-center px-5 pt-4 pb-3">
+          <div className="flex items-center justify-between px-5 pt-4 pb-3">
             <div className="flex items-center gap-2.5">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-coral">
                 <circle cx="12" cy="12" r="3" />
@@ -416,18 +431,24 @@ export default function SettingsModal({ isOpen, onClose, isWindow = false }: Set
               </svg>
               <h2 className="text-[15px] font-semibold text-ink">Settings</h2>
             </div>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-ink hover:bg-line/50 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
           </div>
           {tabBar}
         </div>
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-5">
           {settingsContent}
         </div>
-        <div className="flex items-center justify-between px-5 py-4 border-t border-line bg-line/10">
+        <div className="flex items-center px-5 py-3 border-t border-line bg-line/10">
           <SettingsFooterLinks appVersion={appVersion} />
-          <div className="flex items-center gap-3">
-            {cancelButton}
-            {saveButton}
-          </div>
         </div>
       </div>
     </div>

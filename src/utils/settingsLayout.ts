@@ -1,0 +1,2 @@
+export const SETTINGS_MODAL_MIN_WIDTH = 760;
+export const SETTINGS_MODAL_MAX_WIDTH = 860;
