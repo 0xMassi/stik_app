@@ -193,7 +193,11 @@ fn read_note_entry(path: &PathBuf, folder: &str) -> Option<NoteEntry> {
     let title = extract_title(&content);
 
     let preview = if content.len() > PREVIEW_LENGTH {
-        content[..PREVIEW_LENGTH].to_string()
+        let mut end = PREVIEW_LENGTH;
+        while end > 0 && !content.is_char_boundary(end) {
+            end -= 1;
+        }
+        content[..end].to_string()
     } else {
         content
     };
@@ -240,13 +244,31 @@ fn extract_title(content: &str) -> String {
         .unwrap_or_else(|| "Untitled".to_string())
 }
 
+/// Find the nearest valid UTF-8 char boundary at or before `pos`.
+fn floor_char_boundary(s: &str, pos: usize) -> usize {
+    let mut i = pos.min(s.len());
+    while i > 0 && !s.is_char_boundary(i) {
+        i -= 1;
+    }
+    i
+}
+
+/// Find the nearest valid UTF-8 char boundary at or after `pos`.
+fn ceil_char_boundary(s: &str, pos: usize) -> usize {
+    let mut i = pos.min(s.len());
+    while i < s.len() && !s.is_char_boundary(i) {
+        i += 1;
+    }
+    i
+}
+
 fn extract_snippet(content: &str, query: &str, max_len: usize) -> String {
     let content_lower = content.to_lowercase();
     let query_lower = query.to_lowercase();
 
     if let Some(pos) = content_lower.find(&query_lower) {
-        let start = pos.saturating_sub(30);
-        let end = (pos + query.len() + 50).min(content.len());
+        let start = ceil_char_boundary(content, pos.saturating_sub(30));
+        let end = floor_char_boundary(content, (pos + query.len() + 50).min(content.len()));
 
         let mut snippet = String::new();
         if start > 0 {
@@ -258,7 +280,7 @@ fn extract_snippet(content: &str, query: &str, max_len: usize) -> String {
         }
         snippet
     } else {
-        let end = max_len.min(content.len());
+        let end = floor_char_boundary(content, max_len.min(content.len()));
         let mut snippet = content[..end].replace('\n', " ");
         if end < content.len() {
             snippet.push_str("...");

@@ -159,7 +159,12 @@ fn build_preview(content: &str) -> String {
     }
 
     if condensed.len() > PREVIEW_MAX_LEN {
-        format!("{}...", &condensed[..PREVIEW_MAX_LEN])
+        // Find a valid UTF-8 char boundary at or before PREVIEW_MAX_LEN
+        let mut end = PREVIEW_MAX_LEN;
+        while end > 0 && !condensed.is_char_boundary(end) {
+            end -= 1;
+        }
+        format!("{}...", &condensed[..end])
     } else {
         condensed
     }

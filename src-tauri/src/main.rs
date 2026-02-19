@@ -216,22 +216,28 @@ fn main() {
             }
 
             // Postit window: emit blur event so frontend can decide whether to hide
-            let window = app.get_webview_window("postit").unwrap();
-            let w = window.clone();
-            window.on_window_event(move |event| {
-                if let tauri::WindowEvent::Focused(focused) = event {
-                    if !focused {
-                        // Don't hide when Apple Notes picker took focus
-                        if w.app_handle().get_webview_window("apple-notes-picker").is_some() {
-                            return;
+            if let Some(window) = app.get_webview_window("postit") {
+                let w = window.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Focused(focused) = event {
+                        if !focused {
+                            // Don't hide when Apple Notes picker took focus
+                            if w.app_handle().get_webview_window("apple-notes-picker").is_some() {
+                                return;
+                            }
+                            let _ = w.emit("postit-blur", ());
                         }
-                        let _ = w.emit("postit-blur", ());
                     }
-                }
-            });
+                });
+            } else {
+                eprintln!("Warning: postit window not found during setup");
+            }
 
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|e| {
+            eprintln!("Fatal: Tauri application failed to start: {}", e);
+            std::process::exit(1);
+        });
 }

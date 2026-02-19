@@ -53,7 +53,11 @@ fn generate_slug(content: &str) -> String {
         .to_lowercase();
 
     if slug.len() > 40 {
-        slug[..40].to_string()
+        let mut end = 40;
+        while end > 0 && !slug.is_char_boundary(end) {
+            end -= 1;
+        }
+        slug[..end].to_string()
     } else if slug.is_empty() {
         "note".to_string()
     } else {
