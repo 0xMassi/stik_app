@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-02-19
+Custom theming, settings UX hardening, and startup crash resilience
+
+### Added
+- **Appearance system** — built-in themes, custom theme creation/editing, and import/export (JSON/TOML)
+- **Theme runtime tokens** — centralized theme resolution and DOM token application for editor/surface colors
+
+### Changed
+- **Settings layout sizing** — wider settings window/modal with improved tab visibility for the expanded menu bar
+- **Settings scrolling UI** — hidden native scrollbar in settings content to align with existing design language
+
+### Fixed
+- **Autosave race in Settings** — settings saves are now coalesced/serialized to avoid overlapping writes and stale persistence
+- **Theme migration behavior** — safer fallback from `active_theme` to legacy `theme_mode` when loading older/mismatched settings
+- **Theme import validation** — strict color parsing rejects malformed color inputs
+- **Crash hardening** — UTF-8 boundary-safe slicing and panic-source cleanup in startup/runtime hot paths to prevent SIGABRT in release
+
 ## [0.6.6] - 2026-02-18
 Security patch
 
@@ -317,6 +334,7 @@ First release
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.7.0 | 2026-02-19 | Custom themes + import/export, autosave race fix, settings layout resize, startup crash hardening |
 | 0.6.2 | 2026-02-16 | Vim `:wq` + `:` command mode fixes, visible visual selection, arrow stability in visual mode, improved markdown link UX |
 | 0.6.1 | 2026-02-15 | Auto-updater dev fix, capture window race conditions, blur-auto-hide debounce |
 | 0.6.0 | 2026-02-14 | Unified Command Palette, CodeMirror 6 editor, interactive tables, slash commands, Apple Notes import |
@@ -332,7 +350,8 @@ First release
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/0xMassi/stik_app/compare/v0.6.6...v0.7.0
 [0.6.2]: https://github.com/0xMassi/stik_app/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/0xMassi/stik_app/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/0xMassi/stik_app/compare/v0.5.0...v0.6.0
