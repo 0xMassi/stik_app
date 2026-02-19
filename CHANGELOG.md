@@ -12,6 +12,7 @@ Custom theming, settings UX hardening, and startup crash resilience
 
 ### Added
 - **Appearance system** — built-in themes, custom theme creation/editing, and import/export (JSON/TOML)
+- **Contributor credit** — Appearance/theming system implemented by [@plyght](https://github.com/plyght)
 - **Theme runtime tokens** — centralized theme resolution and DOM token application for editor/surface colors
 
 ### Changed
