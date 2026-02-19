@@ -66,6 +66,9 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Remove bun to prevent tauri-action misdetection
+        run: brew uninstall --ignore-dependencies bun || true
+
       - name: Build and release (aarch64)
         uses: tauri-apps/tauri-action@v0
         env:
