@@ -139,7 +139,16 @@ body,
 }
 
 /* ── Zen mode: distraction-free writing (Cmd+.) ── */
-.zen-mode > div:first-child,     /* header */
+/* Collapse the header to a thin invisible drag strip so the window stays
+   draggable — hiding it entirely removes the onMouseDown startDragging handler. */
+.zen-mode > div:first-child {    /* header */
+  height: 8px !important;
+  min-height: 8px !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+}
+
 .zen-mode > div:last-child {     /* footer */
   display: none !important;
 }
