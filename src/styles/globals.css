@@ -147,6 +147,12 @@ body,
   padding: 0 !important;
   border: none !important;
   overflow: hidden !important;
+  pointer-events: auto !important; /* ensure header stays interactive */
+}
+
+/* Allow drag handler on the header to work, but block buttons inside */
+.zen-mode > div:first-child > * {
+  pointer-events: none !important;
 }
 
 .zen-mode > div:last-child {     /* footer */
