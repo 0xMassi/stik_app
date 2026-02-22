@@ -139,7 +139,22 @@ body,
 }
 
 /* ── Zen mode: distraction-free writing (Cmd+.) ── */
-.zen-mode > div:first-child,     /* header */
+/* Collapse the header to a thin invisible drag strip so the window stays
+   draggable — hiding it entirely removes the onMouseDown startDragging handler. */
+.zen-mode > div:first-child {    /* header */
+  height: 8px !important;
+  min-height: 8px !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+  pointer-events: auto !important; /* ensure header stays interactive */
+}
+
+/* Allow drag handler on the header to work, but block buttons inside */
+.zen-mode > div:first-child > * {
+  pointer-events: none !important;
+}
+
 .zen-mode > div:last-child {     /* footer */
   display: none !important;
 }
