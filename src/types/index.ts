@@ -66,6 +66,7 @@ export interface StikSettings {
   system_shortcuts: Record<string, string>;
   analytics_enabled: boolean;
   analytics_notice_dismissed: boolean;
+  producthunt_notice_dismissed: boolean;
   font_size: number;
   custom_templates: CustomTemplate[];
   sidebar_position: string;

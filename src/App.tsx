@@ -7,6 +7,7 @@ import PostIt from "./components/PostIt";
 import SettingsModal from "./components/SettingsModal";
 import CommandPalette from "./components/CommandPalette";
 import AnalyticsNotice from "./components/AnalyticsNotice";
+import ProductHuntNotice, { isProductHuntLive } from "./components/ProductHuntNotice";
 import AppleNotesPicker from "./components/AppleNotesPicker";
 import { useTheme } from "./hooks/useTheme";
 import type { StickedNote, StikSettings } from "@/types";
@@ -53,6 +54,7 @@ export default function App() {
   const pendingBlurHideRef = useRef<number | null>(null);
   const skipNextBlurHideRef = useRef(false);
   const [showAnalyticsNotice, setShowAnalyticsNotice] = useState(false);
+  const [showProductHuntNotice, setShowProductHuntNotice] = useState(false);
   const windowInfo = getWindowInfo();
 
   const resolveFolder = useCallback(
@@ -268,18 +270,31 @@ export default function App() {
       .catch((e) => console.debug("Update check skipped:", e));
   }, [windowInfo.type]);
 
-  // One-time analytics notice for existing users
+  // One-time notices for existing users (Product Hunt takes priority)
   useEffect(() => {
     if (windowInfo.type !== "postit") return;
 
     invoke<StikSettings>("get_settings")
       .then((s) => {
-        if (!s.analytics_notice_dismissed) {
+        if (!s.producthunt_notice_dismissed && isProductHuntLive()) {
+          setShowProductHuntNotice(true);
+        } else if (!s.analytics_notice_dismissed) {
           setShowAnalyticsNotice(true);
         }
       })
       .catch(() => {});
   }, [windowInfo.type]);
+
+  const handleDismissProductHuntNotice = useCallback(async () => {
+    try {
+      const settings = await invoke<StikSettings>("get_settings");
+      settings.producthunt_notice_dismissed = true;
+      await invoke("save_settings", { settings });
+    } catch (error) {
+      console.error("Failed to dismiss Product Hunt notice:", error);
+    }
+    setShowProductHuntNotice(false);
+  }, []);
 
   const handleDismissAnalyticsNotice = useCallback(async () => {
     try {
@@ -403,6 +418,7 @@ export default function App() {
         onOpenSettings={handleOpenSettings}
         onContentChange={handleContentChange}
       />
+      {showProductHuntNotice && <ProductHuntNotice onDismiss={handleDismissProductHuntNotice} />}
       {showAnalyticsNotice && <AnalyticsNotice onDismiss={handleDismissAnalyticsNotice} />}
     </>
   );
