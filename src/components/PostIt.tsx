@@ -639,8 +639,6 @@ export default function PostIt({
 
   const hasMeaningfulContent = !isMarkdownEffectivelyEmpty(content);
   const hasValidFolder = folder.trim().length > 0;
-  const isCaptureZenMode = !isSticked && zenMode; // kept for folder picker; use zenMode directly for show/hide
-
   // Pin from capture mode
   const handlePin = useCallback(async () => {
     if (isPinning || isMarkdownEffectivelyEmpty(content)) return;
