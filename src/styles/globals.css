@@ -28,6 +28,10 @@
   --editor-checkbox-border: #e8705f;
   --editor-checkbox-checked: #e8705f;
 
+  /* Editor extras */
+  --editor-highlight-bg: rgba(253, 224, 71, 0.35);
+  --editor-font-family: inherit;
+
   /* Vim */
   --vim-visual-selection: rgba(232, 112, 95, 0.12);
 
@@ -67,6 +71,8 @@
   --editor-blockquote-text: #a8a29e;
   --editor-checkbox-border: #e8705f;
   --editor-checkbox-checked: #e8705f;
+
+  --editor-highlight-bg: rgba(253, 224, 71, 0.40);
 
   --vim-visual-selection: rgba(232, 112, 95, 0.20);
 
@@ -114,6 +120,7 @@ body,
 /* CodeMirror Editor Styles */
 .stik-editor {
   font-size: var(--editor-font-size, 14px);
+  font-family: var(--editor-font-family, inherit);
   line-height: 1.5;
   color: rgb(var(--color-ink));
   outline: none;

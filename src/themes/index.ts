@@ -171,6 +171,10 @@ function computeEditorTokens(colors: ThemeColors, isDark: boolean) {
   const stoneHex = rgbToHex(colors.stone);
   const lineHex = rgbToHex(colors.line);
 
+  // Highlight background: use theme-provided color if set, else amber-300 default.
+  const highlightRgb = colors.highlight ?? "253 224 71";
+  const highlightOpacity = isDark ? 0.4 : 0.35;
+
   return {
     "--editor-placeholder": isDark ? "#666" : "#bbb",
     "--editor-strikethrough": stoneHex,
@@ -184,6 +188,7 @@ function computeEditorTokens(colors: ThemeColors, isDark: boolean) {
     "--editor-blockquote-text": stoneHex,
     "--editor-checkbox-border": accentHex,
     "--editor-checkbox-checked": accentHex,
+    "--editor-highlight-bg": `rgba(${highlightRgb.split(" ").join(", ")}, ${highlightOpacity})`,
     "--vim-visual-selection": `rgba(${colors.accent.split(" ").join(", ")}, ${isDark ? 0.2 : 0.12})`,
     "--overlay-bg": isDark ? "rgba(0, 0, 0, 0.7)" : "rgba(0, 0, 0, 0.6)",
     "--shadow-stik": isDark

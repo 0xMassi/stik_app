@@ -25,6 +25,7 @@ import {
 import { resolveCaptureFolder } from "@/utils/folderSelection";
 import { getFolderColor } from "@/utils/folderColors";
 import { formatShortcutDisplay } from "./ShortcutRecorder";
+import { loadGoogleFont, loadCustomFont } from "@/utils/fonts";
 
 
 interface PostItProps {
@@ -108,6 +109,9 @@ export default function PostIt({
   const [currentStickedId, setCurrentStickedId] = useState(stickedId);
   const [vimEnabled, setVimEnabled] = useState<boolean | null>(null); // null = loading
   const [fontSize, setFontSize] = useState(14);
+  const [fontFamily, setFontFamily] = useState<string | null>(null);
+  const [windowOpacity, setWindowOpacity] = useState(1.0);
+  const [customFonts, setCustomFonts] = useState<import("@/types").CustomFontEntry[]>([]);
   const [folderColors, setFolderColors] = useState<Record<string, string>>({});
   const [systemShortcuts, setSystemShortcuts] = useState<Record<string, string>>({});
   const [vimMode, setVimMode] = useState<VimMode>("normal");
@@ -133,6 +137,32 @@ export default function PostIt({
   useEffect(() => {
     invoke<string>("get_notes_directory").then(setNotesDir).catch(() => {});
   }, []);
+
+  // Apply font family: load from custom fonts or Google Fonts, then update the CSS var.
+  useEffect(() => {
+    if (!fontFamily) {
+      document.documentElement.style.setProperty("--editor-font-family", "inherit");
+      return;
+    }
+    const customEntry = customFonts.find((f) => f.name === fontFamily);
+    if (customEntry) {
+      // Custom local font — load async, apply once ready
+      loadCustomFont(customEntry.name, customEntry.path).then((ok) => {
+        if (ok) {
+          document.documentElement.style.setProperty(
+            "--editor-font-family",
+            `"${fontFamily}", sans-serif`
+          );
+        }
+      });
+    } else {
+      loadGoogleFont(fontFamily);
+      document.documentElement.style.setProperty(
+        "--editor-font-family",
+        `"${fontFamily}", sans-serif`
+      );
+    }
+  }, [fontFamily, customFonts]);
 
   const resolveFolderForAction = useCallback(async (): Promise<string> => {
     const folders = await invoke<string[]>("list_folders");
@@ -174,6 +204,9 @@ export default function PostIt({
       .then((s) => {
         setVimEnabled(s.vim_mode_enabled);
         setFontSize(s.font_size ?? 14);
+        setFontFamily(s.font_family ?? null);
+        setWindowOpacity(s.window_opacity ?? 1.0);
+        setCustomFonts(s.custom_fonts ?? []);
         setFolderColors(s.folder_colors ?? {});
         setSystemShortcuts(s.system_shortcuts ?? {});
         setCustomTemplates(s.custom_templates ?? []);
@@ -187,6 +220,9 @@ export default function PostIt({
     const unlisten = listen<StikSettings>("settings-changed", (event) => {
       setVimEnabled(event.payload.vim_mode_enabled);
       setFontSize(event.payload.font_size ?? 14);
+      setFontFamily(event.payload.font_family ?? null);
+      setWindowOpacity(event.payload.window_opacity ?? 1.0);
+      setCustomFonts(event.payload.custom_fonts ?? []);
       setFolderColors(event.payload.folder_colors ?? {});
       setSystemShortcuts(event.payload.system_shortcuts ?? {});
       setCustomTemplates(event.payload.custom_templates ?? []);
@@ -1161,9 +1197,10 @@ export default function PostIt({
   return (
     <>
       <div
-        className={`w-full h-full bg-bg rounded-[14px] overflow-hidden flex flex-col ${
+        className={`w-full h-full rounded-[14px] overflow-hidden flex flex-col ${
           isSticked && isPinned ? "sticked-note" : ""
         } ${zenMode ? "zen-mode" : ""}`}
+        style={{ backgroundColor: `rgb(var(--color-bg) / ${windowOpacity})` }}
       >
       {/* Header - draggable */}
       <div

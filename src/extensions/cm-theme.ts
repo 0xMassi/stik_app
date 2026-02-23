@@ -18,7 +18,7 @@ export const stikEditorTheme = EditorView.theme({
   },
   ".cm-scroller": {
     overflow: "auto",
-    fontFamily: "inherit",
+    fontFamily: "var(--editor-font-family, inherit)",
     lineHeight: "1.5",
   },
   ".cm-content": {
@@ -316,7 +316,7 @@ export const stikHighlightStyle = syntaxHighlighting(
     // ==highlight== text
     {
       tag: highlightTag,
-      backgroundColor: "rgba(232, 112, 95, 0.15)",
+      backgroundColor: "var(--editor-highlight-bg)",
       borderRadius: "2px",
     },
     // Task markers: [ ] and [x]

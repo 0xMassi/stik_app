@@ -29,6 +29,11 @@ export interface CustomTemplate {
   body: string;
 }
 
+export interface CustomFontEntry {
+  name: string; // font-family CSS name (derived from filename)
+  path: string; // absolute path to the font file on disk
+}
+
 export interface ThemeColors {
   bg: string;
   surface: string;
@@ -38,6 +43,7 @@ export interface ThemeColors {
   accent: string;
   accent_light: string;
   accent_dark: string;
+  highlight?: string; // "R G B" format, e.g. "253 224 71"
 }
 
 export interface CustomThemeDefinition {
@@ -69,6 +75,9 @@ export interface StikSettings {
   capture_window_size: [number, number] | null;
   active_theme: string;
   custom_themes: CustomThemeDefinition[];
+  font_family?: string | null;   // null = system default
+  window_opacity?: number;       // 0.2–1.0, default 1.0
+  custom_fonts?: CustomFontEntry[];
 }
 
 export interface NoteInfo {

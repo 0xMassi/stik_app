@@ -18,6 +18,12 @@ pub struct CustomTemplate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CustomFontEntry {
+    pub name: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ThemeColors {
     pub bg: String,
     pub surface: String,
@@ -27,6 +33,8 @@ pub struct ThemeColors {
     pub accent: String,
     pub accent_light: String,
     pub accent_dark: String,
+    #[serde(default)]
+    pub highlight: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -63,6 +71,10 @@ impl Default for GitSharingSettings {
 
 fn default_true() -> bool {
     true
+}
+
+fn default_window_opacity() -> f64 {
+    1.0
 }
 
 fn default_font_size() -> u32 {
@@ -117,6 +129,12 @@ pub struct StikSettings {
     pub active_theme: String,
     #[serde(default)]
     pub custom_themes: Vec<CustomThemeDefinition>,
+    #[serde(default)]
+    pub font_family: Option<String>,
+    #[serde(default = "default_window_opacity")]
+    pub window_opacity: f64,
+    #[serde(default)]
+    pub custom_fonts: Vec<CustomFontEntry>,
 }
 
 impl Default for StikSettings {
@@ -165,6 +183,9 @@ impl Default for StikSettings {
             capture_window_size: None,
             active_theme: String::new(),
             custom_themes: vec![],
+            font_family: None,
+            window_opacity: 1.0,
+            custom_fonts: vec![],
         }
     }
 }
@@ -358,6 +379,10 @@ fn parse_theme_colors(colors: ThemeColors) -> Result<ThemeColors, String> {
         accent: parse("accent", &colors.accent)?,
         accent_light: parse("accent_light", &colors.accent_light)?,
         accent_dark: parse("accent_dark", &colors.accent_dark)?,
+        highlight: match colors.highlight {
+            Some(h) => Some(parse("highlight", &h)?),
+            None => None,
+        },
     })
 }
 
@@ -428,6 +453,7 @@ pub fn export_theme_file(
             accent: color_to_hex(&colors.accent),
             accent_light: color_to_hex(&colors.accent_light),
             accent_dark: color_to_hex(&colors.accent_dark),
+            highlight: colors.highlight.as_deref().map(color_to_hex),
         },
     };
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import ShortcutRecorder from "./ShortcutRecorder";
-import type { CustomTemplate, CustomThemeDefinition, GitSyncStatus, ShortcutMapping, StikSettings, ThemeColors } from "@/types";
+import type { CustomFontEntry, CustomTemplate, CustomThemeDefinition, GitSyncStatus, ShortcutMapping, StikSettings, ThemeColors } from "@/types";
 import { BUILTIN_COMMAND_NAMES } from "@/extensions/cm-slash-commands";
 import ConfirmDialog from "./ConfirmDialog";
 import {
@@ -13,6 +13,7 @@ import {
 } from "@/utils/systemShortcuts";
 import { hexToRgb, rgbToHex } from "@/utils/color";
 import { BUILTIN_THEMES, generateThemeId, type BuiltinTheme } from "@/themes";
+import { FONTS, loadGoogleFont, loadCustomFont, fontNameFromPath } from "@/utils/fonts";
 
 function remoteToWebUrl(remoteUrl: string): string | null {
   const trimmed = remoteUrl.trim();
@@ -292,7 +293,7 @@ function PrivacySection({
   );
 }
 
-const COLOR_TOKEN_LABELS: { key: keyof ThemeColors; label: string }[] = [
+const COLOR_TOKEN_LABELS: { key: keyof ThemeColors; label: string; optional?: boolean; default?: string }[] = [
   { key: "bg", label: "Background" },
   { key: "surface", label: "Surface" },
   { key: "ink", label: "Text" },
@@ -301,6 +302,7 @@ const COLOR_TOKEN_LABELS: { key: keyof ThemeColors; label: string }[] = [
   { key: "accent", label: "Accent" },
   { key: "accent_light", label: "Accent light" },
   { key: "accent_dark", label: "Accent dark" },
+  { key: "highlight", label: "Highlight", optional: true, default: "253 224 71" },
 ];
 
 function ThemePreviewCard({
@@ -435,26 +437,32 @@ function CustomThemeEditor({
       <div>
         <p className="text-[12px] text-stone mb-2">Colors</p>
         <div className="grid grid-cols-2 gap-2">
-          {COLOR_TOKEN_LABELS.map(({ key, label }) => (
-            <div
-              key={key}
-              className="flex items-center gap-2 px-2.5 py-2 bg-bg rounded-lg border border-line/50"
-            >
-              <label className="relative w-6 h-6 shrink-0">
-                <input
-                  type="color"
-                  value={rgbToHex(theme.colors[key])}
-                  onChange={(e) => updateColor(key, e.target.value)}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                <div
-                  className="w-6 h-6 rounded-md border border-line cursor-pointer"
-                  style={{ backgroundColor: `rgb(${theme.colors[key]})` }}
-                />
-              </label>
-              <span className="text-[11px] text-ink truncate">{label}</span>
-            </div>
-          ))}
+          {COLOR_TOKEN_LABELS.map(({ key, label, optional, default: defaultRgb }) => {
+            const rgbValue = theme.colors[key] ?? defaultRgb ?? "0 0 0";
+            return (
+              <div
+                key={key}
+                className="flex items-center gap-2 px-2.5 py-2 bg-bg rounded-lg border border-line/50"
+              >
+                <label className="relative w-6 h-6 shrink-0">
+                  <input
+                    type="color"
+                    value={rgbToHex(rgbValue)}
+                    onChange={(e) => updateColor(key, e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <div
+                    className="w-6 h-6 rounded-md border border-line cursor-pointer"
+                    style={{ backgroundColor: `rgb(${rgbValue})` }}
+                  />
+                </label>
+                <span className="text-[11px] text-ink truncate">
+                  {label}
+                  {optional && <span className="ml-1 text-stone/60">opt</span>}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -549,6 +557,58 @@ function AppearanceSection({
   const [isNewTheme, setIsNewTheme] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+
+  const selectedFont = settings.font_family ?? null;
+  const windowOpacity = settings.window_opacity ?? 1.0;
+  const customFonts: CustomFontEntry[] = settings.custom_fonts ?? [];
+
+  // Lazily load all built-in Google Fonts and any saved custom fonts when the tab opens.
+  useEffect(() => {
+    for (const font of FONTS) {
+      loadGoogleFont(font.id);
+    }
+    for (const cf of customFonts) {
+      void loadCustomFont(cf.name, cf.path);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleImportFont = async () => {
+    const selected = await open({
+      multiple: false,
+      title: "Import font file",
+      filters: [{ name: "Font files", extensions: ["ttf", "otf", "woff", "woff2"] }],
+    });
+    if (!selected) return;
+
+    const name = fontNameFromPath(selected);
+    // Avoid duplicates (same path)
+    if (customFonts.some((f) => f.path === selected)) {
+      setToast(`Font "${name}" is already imported`);
+      return;
+    }
+
+    const ok = await loadCustomFont(name, selected);
+    if (!ok) {
+      setToast("Could not load this font file");
+      return;
+    }
+
+    const updated = [...customFonts, { name, path: selected }];
+    onSettingsChange({ ...settings, custom_fonts: updated });
+    setToast(`Font "${name}" imported`);
+  };
+
+  const removeCustomFont = (path: string) => {
+    const entry = customFonts.find((f) => f.path === path);
+    const updated = customFonts.filter((f) => f.path !== path);
+    const patch: Partial<StikSettings> = { custom_fonts: updated };
+    // Clear font_family if it was using the removed font
+    if (entry && settings.font_family === entry.name) {
+      patch.font_family = null;
+    }
+    onSettingsChange({ ...settings, ...patch });
+    if (entry) setToast(`Font "${entry.name}" removed`);
+  };
 
   const activeTheme = settings.active_theme || settings.theme_mode || "system";
   const customThemes = settings.custom_themes ?? [];
@@ -787,6 +847,132 @@ function AppearanceSection({
             </button>
           </div>
         )}
+
+        {/* ── Font Picker ── */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[12px] text-stone font-medium">Editor Font</p>
+            <button
+              type="button"
+              onClick={handleImportFont}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] text-coral border border-dashed border-coral/30 hover:bg-coral-light transition-colors"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Import font…
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            <button
+              type="button"
+              onClick={() => onSettingsChange({ ...settings, font_family: null })}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-medium border transition-colors ${
+                selectedFont === null
+                  ? "bg-coral text-white border-coral"
+                  : "border-line text-stone hover:border-coral/40 hover:text-ink"
+              }`}
+            >
+              System Default
+            </button>
+          </div>
+
+          {(["sans", "serif", "mono"] as const).map((cat) => (
+            <div key={cat} className="mb-2">
+              <p className="text-[10px] text-stone uppercase tracking-wider mb-1.5">
+                {cat === "sans" ? "Sans-serif" : cat === "serif" ? "Serif" : "Monospace"}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {FONTS.filter((f) => f.category === cat).map((font) => (
+                  <button
+                    key={font.id}
+                    type="button"
+                    onClick={() => {
+                      loadGoogleFont(font.id);
+                      onSettingsChange({ ...settings, font_family: font.id });
+                    }}
+                    style={{ fontFamily: `"${font.id}", sans-serif` }}
+                    className={`px-3 py-1.5 rounded-full text-[11px] border transition-colors ${
+                      selectedFont === font.id
+                        ? "bg-coral text-white border-coral"
+                        : "border-line text-ink hover:border-coral/40"
+                    }`}
+                  >
+                    {font.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {customFonts.length > 0 && (
+            <div className="mb-1">
+              <p className="text-[10px] text-stone uppercase tracking-wider mb-1.5">Custom</p>
+              <div className="flex flex-wrap gap-1.5">
+                {customFonts.map((cf) => (
+                  <div key={cf.path} className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void loadCustomFont(cf.name, cf.path).then((ok) => {
+                          if (ok) onSettingsChange({ ...settings, font_family: cf.name });
+                          else setToast(`Could not load "${cf.name}" — file may have moved`);
+                        });
+                      }}
+                      style={{ fontFamily: `"${cf.name}", sans-serif` }}
+                      className={`px-3 py-1.5 rounded-l-full text-[11px] border-y border-l transition-colors ${
+                        selectedFont === cf.name
+                          ? "bg-coral text-white border-coral"
+                          : "border-line text-ink hover:border-coral/40"
+                      }`}
+                    >
+                      {cf.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeCustomFont(cf.path)}
+                      className={`px-1.5 py-1.5 rounded-r-full text-[10px] border-y border-r transition-colors ${
+                        selectedFont === cf.name
+                          ? "bg-coral text-white border-coral hover:bg-coral/90"
+                          : "border-line text-stone hover:text-coral hover:border-coral/40"
+                      }`}
+                      title="Remove font"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Background Opacity ── */}
+        <div className="p-4 bg-line/30 rounded-xl border border-line/50">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[13px] text-ink font-medium">Background Opacity</p>
+            <span className="text-[12px] font-mono text-stone tabular-nums">
+              {Math.round(windowOpacity * 100)}%
+            </span>
+          </div>
+          <input
+            type="range"
+            min={20}
+            max={100}
+            step={5}
+            value={Math.round(windowOpacity * 100)}
+            onChange={(e) =>
+              onSettingsChange({ ...settings, window_opacity: Number(e.target.value) / 100 })
+            }
+            className="w-full accent-coral"
+          />
+          <p className="mt-2 text-[11px] text-stone leading-relaxed">
+            Makes the note window translucent. Text stays sharp — only the background fades.
+          </p>
+        </div>
 
         <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
           <p className="text-[12px] text-stone leading-relaxed">
