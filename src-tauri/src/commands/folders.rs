@@ -253,11 +253,12 @@ pub fn get_folder_stats() -> Result<Vec<FolderStats>, String> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use super::{
         is_visible_folder_name, reconcile_settings_after_folder_delete,
         reconcile_settings_after_folder_rename, validate_name,
     };
-    use crate::commands::settings::{ShortcutMapping, StikSettings};
+    use crate::commands::settings::{GitSharingSettings, ShortcutMapping, StikSettings};
 
     fn sample_settings() -> StikSettings {
         StikSettings {

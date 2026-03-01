@@ -109,8 +109,6 @@ pub struct StikSettings {
     pub analytics_enabled: bool,
     #[serde(default)]
     pub analytics_notice_dismissed: bool,
-    #[serde(default)]
-    pub producthunt_notice_dismissed: bool,
     #[serde(default = "default_font_size")]
     pub font_size: u32,
     #[serde(default)]
@@ -175,7 +173,6 @@ impl Default for StikSettings {
             system_shortcuts: default_system_shortcuts(),
             analytics_enabled: true,
             analytics_notice_dismissed: false,
-            producthunt_notice_dismissed: false,
             font_size: 14,
             viewing_window_size: None,
             custom_templates: vec![],

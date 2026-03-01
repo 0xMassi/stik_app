@@ -5,6 +5,21 @@ All notable changes to Stik will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2026-03-01
+Finder integration, auto-updater improvements, and cleanup
+
+### Added
+- **macOS Finder "Open With" support** — Stik now registers as a markdown editor; double-click or right-click any `.md`/`.markdown` file in Finder to open it directly in Stik (contributed by [@ildunari](https://github.com/ildunari))
+
+### Changed
+- **Smarter auto-updater** — update check now uses a 15s timeout, deduplicates already-installed updates, and avoids re-downloading the same version on repeated launches
+
+### Fixed
+- **Non-blocking file reads** — files opened via Finder are read asynchronously (`spawn_blocking`) to avoid blocking the event loop
+
+### Removed
+- **Product Hunt launch notice** — removed the one-time popup now that the launch window has passed
+
 ## [0.7.2] - 2026-02-23
 Product Hunt launch support
 

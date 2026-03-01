@@ -7,7 +7,6 @@ import PostIt from "./components/PostIt";
 import SettingsModal from "./components/SettingsModal";
 import CommandPalette from "./components/CommandPalette";
 import AnalyticsNotice from "./components/AnalyticsNotice";
-import ProductHuntNotice, { isProductHuntLive } from "./components/ProductHuntNotice";
 import AppleNotesPicker from "./components/AppleNotesPicker";
 import { useTheme } from "./hooks/useTheme";
 import type { StickedNote, StikSettings } from "@/types";
@@ -16,6 +15,7 @@ import { shouldHideCaptureOnBlur } from "@/utils/blurAutoHide";
 import { resolveCaptureFolder } from "@/utils/folderSelection";
 
 type WindowType = "postit" | "sticked" | "settings" | "command-palette" | "apple-notes-picker";
+const PENDING_UPDATE_KEY = "stik_pending_update_version";
 
 function getWindowInfo(): { type: WindowType; id?: string; viewing?: boolean } {
   const params = new URLSearchParams(window.location.search);
@@ -54,7 +54,6 @@ export default function App() {
   const pendingBlurHideRef = useRef<number | null>(null);
   const skipNextBlurHideRef = useRef(false);
   const [showAnalyticsNotice, setShowAnalyticsNotice] = useState(false);
-  const [showProductHuntNotice, setShowProductHuntNotice] = useState(false);
   const windowInfo = getWindowInfo();
 
   const resolveFolder = useCallback(
@@ -255,46 +254,50 @@ export default function App() {
     // a second Stik process (the released build), causing version conflicts.
     if (window.location.port) return;
 
-    invoke<StikSettings>("get_settings")
-      .then((s) => {
-        if (s.auto_update_enabled === false) return;
-        return check();
-      })
-      .then(async (update) => {
-        if (update) {
-          console.log(`Stik update: v${update.currentVersion} → v${update.version}`);
-          await update.downloadAndInstall();
-          console.log("Update installed, will apply on next restart");
+    const runAutoUpdate = async () => {
+      try {
+        const settings = await invoke<StikSettings>("get_settings");
+        if (settings.auto_update_enabled === false) {
+          console.debug("Auto-update skipped: disabled in settings");
+          return;
         }
-      })
-      .catch((e) => console.debug("Update check skipped:", e));
+
+        const update = await check({ timeout: 15_000 });
+        if (!update) {
+          localStorage.removeItem(PENDING_UPDATE_KEY);
+          return;
+        }
+
+        const pendingVersion = localStorage.getItem(PENDING_UPDATE_KEY);
+        if (pendingVersion === update.version) {
+          console.log(`Update v${update.version} already installed and pending restart`);
+          return;
+        }
+
+        console.log(`Stik update available: v${update.currentVersion} → v${update.version}`);
+        await update.downloadAndInstall();
+        localStorage.setItem(PENDING_UPDATE_KEY, update.version);
+        console.log(`Update v${update.version} installed; will apply on next restart`);
+      } catch (error) {
+        console.error("Auto-update failed:", error);
+      }
+    };
+
+    void runAutoUpdate();
   }, [windowInfo.type]);
 
-  // One-time notices for existing users (Product Hunt takes priority)
+  // One-time notices for existing users
   useEffect(() => {
     if (windowInfo.type !== "postit") return;
 
     invoke<StikSettings>("get_settings")
       .then((s) => {
-        if (!s.producthunt_notice_dismissed && isProductHuntLive()) {
-          setShowProductHuntNotice(true);
-        } else if (!s.analytics_notice_dismissed) {
+        if (!s.analytics_notice_dismissed) {
           setShowAnalyticsNotice(true);
         }
       })
       .catch(() => {});
   }, [windowInfo.type]);
-
-  const handleDismissProductHuntNotice = useCallback(async () => {
-    try {
-      const settings = await invoke<StikSettings>("get_settings");
-      settings.producthunt_notice_dismissed = true;
-      await invoke("save_settings", { settings });
-    } catch (error) {
-      console.error("Failed to dismiss Product Hunt notice:", error);
-    }
-    setShowProductHuntNotice(false);
-  }, []);
 
   const handleDismissAnalyticsNotice = useCallback(async () => {
     try {
@@ -418,7 +421,6 @@ export default function App() {
         onOpenSettings={handleOpenSettings}
         onContentChange={handleContentChange}
       />
-      {showProductHuntNotice && <ProductHuntNotice onDismiss={handleDismissProductHuntNotice} />}
       {showAnalyticsNotice && <AnalyticsNotice onDismiss={handleDismissAnalyticsNotice} />}
     </>
   );

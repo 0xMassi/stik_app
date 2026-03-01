@@ -40,21 +40,31 @@ fn handle_opened_files(app: &AppHandle, paths: Vec<std::path::PathBuf>) {
             continue;
         }
 
-        let path_str = path.to_string_lossy().to_string();
-        let content = match std::fs::read_to_string(&path) {
-            Ok(content) => content,
-            Err(err) => {
-                eprintln!("Failed to read opened markdown file {}: {}", path_str, err);
-                continue;
-            }
-        };
-
-        let folder = folders::get_stik_folder()
-            .map(|root| folder_for_opened_note(&path, &root))
-            .unwrap_or_default();
-
         let app_handle = app.clone();
         tauri::async_runtime::spawn(async move {
+            let path_str = path.to_string_lossy().to_string();
+            let path_for_read = path.clone();
+
+            let content = match tauri::async_runtime::spawn_blocking(move || {
+                std::fs::read_to_string(&path_for_read)
+            }).await {
+                Ok(Ok(content)) => content,
+                Ok(Err(err)) => {
+                    eprintln!("Failed to read opened markdown file {}: {}", path_str, err);
+                    return;
+                }
+                Err(err) => {
+                    eprintln!("Failed to read opened markdown file {}: task join error: {}", path_str, err);
+                    return;
+                }
+            };
+
+            // Files inside Stik folder get their folder name resolved;
+            // external files get an empty folder (read-only viewing context).
+            let folder = folders::get_stik_folder()
+                .map(|root| folder_for_opened_note(&path, &root))
+                .unwrap_or_default();
+
             if let Err(err) = windows::open_note_for_viewing(app_handle, content, folder, path_str).await {
                 eprintln!("Failed to open markdown file from Finder: {}", err);
             }
@@ -295,4 +305,38 @@ fn main() {
                 handle_opened_files(app, paths);
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+    use super::folder_for_opened_note;
+
+    #[test]
+    fn file_in_stik_subfolder_returns_folder_name() {
+        let root = Path::new("/Users/test/Documents/Stik");
+        let path = Path::new("/Users/test/Documents/Stik/Work/20260301-note-abc1.md");
+        assert_eq!(folder_for_opened_note(path, root), "Work");
+    }
+
+    #[test]
+    fn file_directly_in_root_returns_empty() {
+        let root = Path::new("/Users/test/Documents/Stik");
+        let path = Path::new("/Users/test/Documents/Stik/note.md");
+        assert_eq!(folder_for_opened_note(path, root), "");
+    }
+
+    #[test]
+    fn nested_subfolder_returns_top_level_folder() {
+        let root = Path::new("/Users/test/Documents/Stik");
+        let path = Path::new("/Users/test/Documents/Stik/Projects/sub/deep/note.md");
+        assert_eq!(folder_for_opened_note(path, root), "Projects");
+    }
+
+    #[test]
+    fn file_outside_root_returns_empty() {
+        let root = Path::new("/Users/test/Documents/Stik");
+        let path = Path::new("/tmp/random/note.md");
+        assert_eq!(folder_for_opened_note(path, root), "");
+    }
 }
