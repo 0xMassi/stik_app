@@ -4,6 +4,7 @@ pub mod apple_notes;
 pub mod cursor_positions;
 pub mod darwinkit;
 pub mod embeddings;
+pub mod file_watcher;
 pub mod folders;
 pub mod git_share;
 pub mod icloud;

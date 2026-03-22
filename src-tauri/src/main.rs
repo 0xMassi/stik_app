@@ -10,7 +10,7 @@ mod windows;
 use commands::embeddings::EmbeddingIndex;
 use commands::index::NoteIndex;
 use commands::{
-    ai_assistant, analytics, apple_notes, cursor_positions, darwinkit, embeddings,
+    ai_assistant, analytics, apple_notes, cursor_positions, darwinkit, embeddings, file_watcher,
     folders, git_share, icloud, index, note_lock, notes, on_this_day, settings, share,
     stats, sticked_notes, storage,
 };
@@ -248,6 +248,19 @@ fn main() {
                     eprintln!("Failed to build note index: {}", e);
                 }
             }
+            // Start local file watcher for non-iCloud modes
+            if !settings.icloud.enabled {
+                let watcher_handle = app.handle().clone();
+                std::thread::Builder::new()
+                    .name("stik-file-watcher".to_string())
+                    .spawn(move || {
+                        if let Err(e) = file_watcher::start_watching(watcher_handle) {
+                            eprintln!("Failed to start file watcher: {}", e);
+                        }
+                    })
+                    .ok();
+            }
+
             shortcuts::register_shortcuts_from_settings(app.handle(), &settings);
             analytics::start_analytics(app.handle());
 

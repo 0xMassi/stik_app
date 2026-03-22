@@ -326,6 +326,16 @@ export default function CommandPalette() {
     }
   }, [loadFolderStats, query, selectedFolder]);
 
+  // Refresh when external file changes are detected (e.g. edits from Obsidian)
+  useEffect(() => {
+    const unlisten = listen("icloud-files-changed", () => {
+      refreshAfterChange();
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [refreshAfterChange]);
+
   // Delete note
   const handleDeleteNote = useCallback(
     async (note: SearchResult) => {

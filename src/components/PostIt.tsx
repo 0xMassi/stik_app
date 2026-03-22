@@ -320,6 +320,30 @@ export default function PostIt({
     };
   }, [isViewing, originalPath, currentStickedId, stickedId]);
 
+  // Reload content when file changes externally (e.g. edited in Obsidian)
+  useEffect(() => {
+    if (!originalPath) return;
+
+    const unlisten = listen<string[]>("icloud-files-changed", async (event) => {
+      const changedPaths = event.payload;
+      if (changedPaths.includes(originalPath)) {
+        try {
+          const newContent = await invoke<string>("get_note_content", { path: originalPath });
+          if (newContent !== content) {
+            setContent(newContent);
+            editorRef.current?.setContent(newContent);
+          }
+        } catch (err) {
+          console.error("Failed to reload externally changed note:", err);
+        }
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [originalPath, content]);
+
   // Focus editor on mount, when folder changes, or when editor becomes available after settings load
   useEffect(() => {
     if (vimEnabled === null) return; // editor not mounted yet
