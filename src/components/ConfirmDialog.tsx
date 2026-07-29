@@ -56,7 +56,7 @@ export default function ConfirmDialog({
             onClick={onCancel}
             className="px-4 py-2 text-[12px] bg-line hover:bg-line/70 text-ink rounded-lg transition-colors"
           >
-            Cancel
+            {t("common.cancelAction")}
           </button>
           <button
             onClick={onConfirm}

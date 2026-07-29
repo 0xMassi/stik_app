@@ -275,14 +275,13 @@ function PrivacySection({
         {/* Note Locking */}
         <div className="space-y-3">
           <p className="text-[11px] font-semibold text-stone uppercase tracking-wider">
-            Note Locking
+            {t("settings.lock.title")}
           </p>
 
           {!authAvailable && (
             <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
               <p className="text-[12px] text-stone leading-relaxed">
-                Touch ID or device password is required to use note locking. Set
-                up a password in System Settings.
+                {t("settings.lock.needPassword")}
               </p>
             </div>
           )}
@@ -290,11 +289,10 @@ function PrivacySection({
           <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
             <div>
               <p className="text-[13px] text-ink font-medium">
-                Enable note locking
+                {t("settings.lock.enable")}
               </p>
               <p className="mt-1 text-[12px] text-stone leading-relaxed">
-                Lock individual notes with Touch ID or device password. Content
-                is encrypted with AES-256.
+                {t("settings.lock.describe")}
               </p>
             </div>
             <button
@@ -324,10 +322,10 @@ function PrivacySection({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[13px] text-ink font-medium">
-                      Auto-lock timeout
+                      {t("settings.lock.timeout")}
                     </p>
                     <p className="text-[12px] text-stone">
-                      Re-authenticate after this period of inactivity.
+                      {t("settings.lock.timeoutDescribe")}
                     </p>
                   </div>
                   <div className="w-[140px]">
@@ -356,10 +354,10 @@ function PrivacySection({
                 <label className="flex items-center justify-between">
                   <div>
                     <p className="text-[13px] text-ink font-medium">
-                      Lock on sleep
+                      {t("settings.lock.onSleep")}
                     </p>
                     <p className="text-[12px] text-stone">
-                      Require authentication when your Mac wakes up.
+                      {t("settings.lock.onSleepDescribe")}
                     </p>
                   </div>
                   <button
@@ -402,7 +400,7 @@ function PrivacySection({
                   onClick={handleExportRecoveryKey}
                   className="flex-1 px-3 py-2.5 text-[12px] text-stone border border-line rounded-lg hover:bg-line/50 transition-colors"
                 >
-                  Export recovery key
+                  {t("settings.lock.exportKey")}
                 </button>
               </div>
             </>
@@ -412,17 +410,17 @@ function PrivacySection({
         {/* Analytics */}
         <div className="mt-2">
           <p className="text-[11px] font-semibold text-stone uppercase tracking-wider mb-3">
-            Analytics
+            {t("settings.analytics.title")}
           </p>
         </div>
 
         <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
           <div>
             <p className="text-[13px] text-ink font-medium">
-              Share anonymous usage data
+              {t("settings.analytics.share")}
             </p>
             <p className="mt-1 text-[12px] text-stone leading-relaxed">
-              Help improve Stik by sharing anonymous usage statistics.
+              {t("settings.analytics.shareDescribe")}
             </p>
           </div>
           <button
@@ -449,10 +447,10 @@ function PrivacySection({
         <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
           <div>
             <p className="text-[13px] text-ink font-medium">
-              Automatic updates
+              {t("settings.autoUpdate.title")}
             </p>
             <p className="mt-1 text-[12px] text-stone leading-relaxed">
-              Check for and install updates silently in the background.
+              {t("settings.autoUpdate.describe")}
             </p>
           </div>
           <button
@@ -479,7 +477,7 @@ function PrivacySection({
         <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-3">
           <div>
             <p className="text-[13px] text-ink font-medium mb-2">
-              What we collect
+              {t("settings.analytics.weCollect")}
             </p>
             <ul className="text-[12px] text-stone leading-relaxed space-y-1">
               <li>App opens (daily active usage)</li>
@@ -490,7 +488,7 @@ function PrivacySection({
           </div>
           <div>
             <p className="text-[13px] text-ink font-medium mb-2">
-              What we NEVER collect
+              {t("settings.analytics.neverCollect")}
             </p>
             <ul className="text-[12px] text-stone leading-relaxed space-y-1">
               <li>Your notes, titles, or folder names</li>
@@ -512,20 +510,18 @@ function PrivacySection({
                 onClick={copyDeviceId}
                 className="px-3 py-2 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors whitespace-nowrap"
               >
-                Copy
+                {t("common.copy")}
               </button>
             </div>
             <p className="mt-2 text-[11px] text-stone">
-              This random identifier is not linked to your identity.
+              {t("settings.analytics.idNotLinked")}
             </p>
           </div>
         )}
 
         <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
           <p className="text-[12px] text-stone leading-relaxed">
-            Analytics are sent to PostHog using a write-only key. Stik is
-            open-source — you can verify exactly what is collected in the source
-            code.
+            {t("settings.analytics.posthog")}
           </p>
         </div>
       </div>
@@ -571,6 +567,7 @@ function ThemePreviewCard({
   isSystem?: boolean;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
@@ -616,12 +613,12 @@ function ThemePreviewCard({
         </span>
         {isSystem && (
           <span className="text-[9px] text-stone uppercase tracking-wider">
-            Auto
+            {t("common.auto")}
           </span>
         )}
         {isDark && !isSystem && (
           <span className="text-[9px] text-stone uppercase tracking-wider">
-            Dark
+            {t("theme.dark")}
           </span>
         )}
       </div>
@@ -735,7 +732,7 @@ function CustomThemeEditor({
             className="text-[13px] font-medium mb-1"
             style={{ color: `rgb(${theme.colors.ink})` }}
           >
-            Preview
+            {t("settings.theme.preview")}
           </p>
           <p
             className="text-[11px] leading-relaxed"
@@ -743,9 +740,9 @@ function CustomThemeEditor({
           >
             This is how your theme will look.{" "}
             <span style={{ color: `rgb(${theme.colors.accent})` }}>
-              Accent color
+              {t("settings.theme.accentColor")}
             </span>{" "}
-            appears in links and highlights.
+            {t("settings.theme.accentColorDesc")}
           </p>
         </div>
         <div
@@ -762,7 +759,7 @@ function CustomThemeEditor({
               color: theme.is_dark ? `rgb(${theme.colors.bg})` : "#fff",
             }}
           >
-            Button
+            {t("settings.theme.button")}
           </div>
           <div
             className="px-2.5 py-1 rounded-md text-[10px]"
@@ -771,7 +768,7 @@ function CustomThemeEditor({
               color: `rgb(${theme.colors.stone})`,
             }}
           >
-            Secondary
+            {t("settings.theme.secondary")}
           </div>
         </div>
       </div>
@@ -790,7 +787,7 @@ function CustomThemeEditor({
           onClick={onCancel}
           className="px-3 py-2 text-[12px] text-stone hover:text-ink rounded-lg hover:bg-line transition-colors"
         >
-          Cancel
+          {t("common.cancelAction")}
         </button>
         {onDelete && (
           <button
@@ -798,7 +795,7 @@ function CustomThemeEditor({
             onClick={onDelete}
             className="ml-auto px-3 py-2 text-[12px] text-coral hover:bg-coral-light rounded-lg transition-colors"
           >
-            Delete
+            {t("common.delete")}
           </button>
         )}
       </div>
@@ -1032,7 +1029,7 @@ function AppearanceSection({
         </div>
 
         <p className="text-[12px] text-stone">
-          Choose a built-in theme or create your own with custom colors.
+          {t("settings.theme.chooseIntro")}
         </p>
 
         <div className="grid grid-cols-3 gap-2">
@@ -1225,7 +1222,7 @@ function AppearanceSection({
                   : "border-line text-stone hover:border-coral/40 hover:text-ink"
               }`}
             >
-              System Default
+              {t("settings.font.systemDefault")}
             </button>
           </div>
 
@@ -1264,7 +1261,7 @@ function AppearanceSection({
           {customFonts.length > 0 && (
             <div className="mb-1">
               <p className="text-[10px] text-stone uppercase tracking-wider mb-1.5">
-                Custom
+                {t("settings.template.custom")}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {customFonts.map((cf) => (
@@ -1316,7 +1313,7 @@ function AppearanceSection({
         <div className="p-4 bg-line/30 rounded-xl border border-line/50">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[13px] text-ink font-medium">
-              Background Opacity
+              {t("settings.opacity.title")}
             </p>
             <span className="text-[12px] font-mono text-stone tabular-nums">
               {Math.round(windowOpacity * 100)}%
@@ -1337,16 +1334,13 @@ function AppearanceSection({
             className="w-full accent-coral"
           />
           <p className="mt-2 text-[11px] text-stone leading-relaxed">
-            Makes the note window translucent. Text stays sharp — only the
-            background fades.
+            {t("settings.opacity.describe")}
           </p>
         </div>
 
         <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
           <p className="text-[12px] text-stone leading-relaxed">
-            Themes control all colors across Stik — the editor, command palette,
-            settings, and sticky notes. System mode automatically follows your
-            macOS appearance.
+            {t("settings.theme.scopeNote")}
           </p>
         </div>
       </div>
@@ -1590,7 +1584,7 @@ function TemplatesSection({
 
             <div className="p-2.5 bg-bg/50 rounded-lg border border-line/50">
               <p className="text-[11px] text-stone mb-1 font-medium">
-                Placeholders
+                {t("settings.template.placeholders")}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {[
@@ -1610,8 +1604,8 @@ function TemplatesSection({
                 ))}
               </div>
               <p className="mt-1.5 text-[10px] text-stone">
-                <span className="text-ink">{"{{cursor}}"}</span> sets where the
-                cursor lands after insertion.
+                <span className="text-ink">{"{{cursor}}"}</span>{" "}
+                {t("settings.template.cursorHint")}
               </p>
             </div>
 
@@ -1628,7 +1622,7 @@ function TemplatesSection({
                 onClick={cancelEdit}
                 className="px-3 py-2 text-[12px] text-stone hover:text-ink rounded-lg hover:bg-line transition-colors"
               >
-                Cancel
+                {t("common.cancelAction")}
               </button>
             </div>
           </div>
@@ -1774,8 +1768,7 @@ export default function SettingsContent({
       {activeTab === "shortcuts" && (
         <div>
           <p className="mb-4 text-[12px] text-stone">
-            Configure global shortcuts that instantly open capture in a chosen
-            folder.
+            {t("settings.shortcut.intro")}
           </p>
 
           <div className="space-y-2">
@@ -1935,7 +1928,7 @@ export default function SettingsContent({
                 }
                 className="mt-2 text-[11px] text-coral hover:underline"
               >
-                Reset all to defaults
+                {t("settings.shortcut.resetAll")}
               </button>
             )}
           </div>
@@ -1949,7 +1942,7 @@ export default function SettingsContent({
             <div>
               <p className="text-[13px] text-ink font-medium">iCloud Drive</p>
               <p className="mt-1 text-[12px] text-stone leading-relaxed">
-                Sync notes between Mac and iPhone via iCloud
+                {t("settings.icloud.describe")}
               </p>
             </div>
             <button
@@ -1977,8 +1970,7 @@ export default function SettingsContent({
           {settings.icloud?.enabled && (
             <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
               <p className="text-[12px] text-stone leading-relaxed">
-                Notes sync automatically between devices signed into the same
-                Apple ID. Git sharing is disabled while iCloud is active.
+                {t("settings.icloud.detail")}
               </p>
               {!settings.icloud?.migrated && (
                 <button
@@ -2002,7 +1994,7 @@ export default function SettingsContent({
                   }}
                   className="mt-2 px-3 py-1.5 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors"
                 >
-                  Copy existing notes to iCloud
+                  {t("settings.icloud.copyExisting")}
                 </button>
               )}
             </div>
@@ -2037,7 +2029,7 @@ export default function SettingsContent({
                   }}
                   className="px-3 py-2.5 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors whitespace-nowrap"
                 >
-                  Browse
+                  {t("common.browse")}
                 </button>
                 {settings.notes_directory && (
                   <button
@@ -2047,16 +2039,13 @@ export default function SettingsContent({
                     }
                     className="px-3 py-2.5 text-[12px] text-stone hover:text-coral border border-line rounded-lg hover:border-coral/30 transition-colors whitespace-nowrap"
                   >
-                    Reset
+                    {t("common.reset")}
                   </button>
                 )}
               </div>
               {!settings.use_directory_as_root && (
                 <p className="mt-1.5 text-[12px] text-stone leading-relaxed">
-                  Stik creates a{" "}
-                  <span className="text-ink font-medium">Stik/</span> folder
-                  inside your chosen location. Existing notes are not moved
-                  automatically.
+                  {t("settings.notesDirectory.stikFolderNote")}
                 </p>
               )}
               {settings.notes_directory && (
@@ -2073,7 +2062,7 @@ export default function SettingsContent({
                     className="rounded border-line"
                   />
                   <span className="text-[12px] text-ink">
-                    Use directory as root (skip Stik subfolder)
+                    {t("settings.notesDirectory.asRoot")}
                   </span>
                 </label>
               )}
@@ -2092,7 +2081,7 @@ export default function SettingsContent({
               />
             </div>
             <p className="mt-1.5 text-[12px] text-stone leading-relaxed">
-              Opens when using tray menu or if no folder is specified.
+              {t("settings.defaultFolder.describe")}
             </p>
           </div>
 
@@ -2121,9 +2110,7 @@ export default function SettingsContent({
           ) : !settings.icloud?.enabled ? (
             <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
               <p className="text-[12px] text-stone leading-relaxed">
-                Sync tip: notes are saved in {notesDir}. If that folder is
-                synced (iCloud Drive, Dropbox, Syncthing), Stik syncs across
-                Macs automatically.
+                {t("settings.syncTip", { dir: notesDir })}
               </p>
             </div>
           ) : null}
@@ -2136,19 +2123,7 @@ export default function SettingsContent({
             <div>
               <p className="text-[13px] text-ink font-medium">Font size</p>
               <p className="mt-1 text-[12px] text-stone leading-relaxed">
-                Editor text size. Use{" "}
-                <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">
-                  Cmd+
-                </kbd>{" "}
-                /{" "}
-                <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">
-                  Cmd-
-                </kbd>{" "}
-                to adjust,{" "}
-                <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">
-                  Cmd+0
-                </kbd>{" "}
-                to reset.
+                {t("settings.fontSize.describe")}
               </p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
@@ -2188,15 +2163,7 @@ export default function SettingsContent({
             <div>
               <p className="text-[13px] text-ink font-medium">Vim mode</p>
               <p className="mt-1 text-[12px] text-stone leading-relaxed">
-                Use Vim-style keybindings in the editor. Press{" "}
-                <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">
-                  i
-                </kbd>{" "}
-                to type,{" "}
-                <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">
-                  Esc
-                </kbd>{" "}
-                to return to Normal mode.
+                {t("settings.vimMode.describe")}
               </p>
             </div>
             <button
@@ -2222,11 +2189,10 @@ export default function SettingsContent({
 
           <div className="p-4 bg-line/30 rounded-xl border border-line/50">
             <p className="text-[13px] text-ink font-medium mb-1">
-              Text direction
+              {t("settings.textDirection.title")}
             </p>
             <p className="text-[12px] text-stone leading-relaxed mb-3">
-              Set text direction for the editor. Auto detects per line — ideal
-              for Arabic, Hebrew, and mixed-language notes.
+              {t("settings.textDirection.describe")}
             </p>
             <div className="max-w-[240px]">
               <Dropdown
@@ -2247,7 +2213,7 @@ export default function SettingsContent({
             <div>
               <p className="text-[13px] text-ink font-medium">Hide Dock icon</p>
               <p className="mt-1 text-[12px] text-stone leading-relaxed">
-                Access Stik from the menu bar icon and global shortcuts.
+                {t("settings.hideDockIcon.describe")}
               </p>
             </div>
             <button
@@ -2274,11 +2240,10 @@ export default function SettingsContent({
           <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
             <div>
               <p className="text-[13px] text-ink font-medium">
-                Hide menu bar icon
+                {t("settings.hideTrayIcon.title")}
               </p>
               <p className="mt-1 text-[12px] text-stone leading-relaxed">
-                Remove the tray icon from the menu bar. Stik is still accessible
-                via global shortcuts.
+                {t("settings.hideTrayIcon.describe")}
               </p>
             </div>
             <button
@@ -2335,16 +2300,7 @@ export default function SettingsContent({
           <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl space-y-1">
             <p className="text-[12px] font-semibold text-ink">How to close</p>
             <p className="text-[12px] text-stone leading-relaxed">
-              Press{" "}
-              <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">
-                :
-              </kbd>{" "}
-              in Normal mode to open the command bar, then type{" "}
-              <kbd className="px-1 py-0.5 bg-bg border border-line rounded text-[11px] font-mono">
-                wq
-              </kbd>{" "}
-              + Enter to save and close. Escape always switches between Insert
-              and Normal mode.
+              {t("settings.vim.commandBar")}
             </p>
           </div>
         </div>
@@ -2364,8 +2320,7 @@ export default function SettingsContent({
           {settings.icloud?.enabled && (
             <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl mb-2">
               <p className="text-[12px] text-stone leading-relaxed">
-                Git sharing is disabled while iCloud sync is active. Disable
-                iCloud in the Folders tab to use Git sharing.
+                {t("settings.git.disabledByICloud")}
               </p>
             </div>
           )}
@@ -2375,7 +2330,7 @@ export default function SettingsContent({
             className={`flex items-center justify-between gap-3 ${settings.icloud?.enabled ? "opacity-50 pointer-events-none" : ""}`}
           >
             <span className="text-[13px] text-ink font-medium">
-              Enable Git sharing
+              {t("settings.git.enable")}
             </span>
             <button
               type="button"
@@ -2421,8 +2376,7 @@ export default function SettingsContent({
             </div>
           ) : (
             <p className="text-[12px] text-stone leading-relaxed">
-              Notes are synced from your full Stik root, so GitHub will show
-              folders like
+              {t("settings.git.rootLayoutNote")}
               <span className="mx-1 text-ink">Inbox/</span>
               <span className="text-ink">Work/</span>
               <span className="mx-1 text-ink">Ideas/</span>.
@@ -2494,10 +2448,7 @@ export default function SettingsContent({
                 Last error: {gitSyncStatus.last_error}
               </p>
             )}
-            <p>
-              Auto-sync commits and pushes changes ~30s after note edits in the
-              shared folder.
-            </p>
+            <p>{t("settings.git.autoSyncNote")}</p>
           </div>
 
           {/* Advanced toggle */}
@@ -2514,7 +2465,7 @@ export default function SettingsContent({
             <div className="space-y-3 pl-3 border-l-2 border-line">
               <div>
                 <p className="text-[12px] text-stone mb-1.5">
-                  Repository layout
+                  {t("settings.git.layout")}
                 </p>
                 <Dropdown
                   value={settings.git_sharing.repository_layout}
@@ -2577,15 +2528,13 @@ export default function SettingsContent({
           {/* GitHub credentials tip */}
           <div className="p-3 bg-coral-light/35 border border-coral/20 rounded-xl space-y-1">
             <p className="text-[12px] font-semibold text-ink">
-              GitHub account setup
+              {t("settings.git.accountSetup")}
             </p>
             <p className="text-[12px] text-stone leading-relaxed">
-              Stik uses your existing Git credentials on this Mac (SSH key or
-              HTTPS credential helper). Stik does not ask for or store GitHub
-              tokens.
+              {t("settings.git.credentials")}
             </p>
             <p className="text-[12px] text-stone leading-relaxed">
-              If auth fails once, run this in Terminal to complete login:
+              {t("settings.git.authHint")}
             </p>
             <code className="block px-2.5 py-2 text-[11px] rounded-lg bg-bg border border-line text-ink break-all">
               git -C "{linkedRepoPath}" push
@@ -2599,11 +2548,10 @@ export default function SettingsContent({
           <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
             <div>
               <p className="text-[13px] text-ink font-medium">
-                Enable AI features
+                {t("settings.ai.enable")}
               </p>
               <p className="mt-1 text-[12px] text-stone leading-relaxed">
-                Powers semantic search in the search bar and folder suggestions
-                while capturing notes.
+                {t("settings.ai.describe")}
               </p>
             </div>
             <button
@@ -2656,15 +2604,13 @@ export default function SettingsContent({
           <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl space-y-1">
             <p className="text-[12px] font-semibold text-ink">Privacy</p>
             <p className="text-[12px] text-stone leading-relaxed">
-              All processing happens on-device via Apple NaturalLanguage. No
-              data leaves your Mac. English works best; other languages have
-              limited semantic understanding.
+              {t("settings.ai.privacyNote")}
             </p>
           </div>
 
           {!settings.ai_features_enabled && (
             <p className="text-[12px] text-stone text-center">
-              Restart Stik after enabling to start the AI engine.
+              {t("settings.ai.restartHint")}
             </p>
           )}
         </div>
@@ -2683,7 +2629,7 @@ export default function SettingsContent({
             <div className="flex items-center gap-2 mb-3">
               <span className="text-coral">↻</span>
               <h3 className="text-[13px] font-semibold text-stone uppercase tracking-wide">
-                Capture Streak
+                {t("settings.streak.title")}
               </h3>
             </div>
             <div className="p-4 bg-line/30 rounded-xl border border-line/50 flex items-center justify-between gap-3">
@@ -2692,7 +2638,7 @@ export default function SettingsContent({
                   {captureStreakLabel}
                 </p>
                 <p className="mt-1 text-[12px] text-stone leading-relaxed">
-                  Consecutive days with at least one captured note.
+                  {t("settings.streak.describe")}
                   {captureStreakDays === null
                     ? ` ${t("settings.streak.unavailableHint")}`
                     : ""}
@@ -2713,7 +2659,7 @@ export default function SettingsContent({
             <div className="flex items-center gap-2 mb-3">
               <span className="text-coral">☼</span>
               <h3 className="text-[13px] font-semibold text-stone uppercase tracking-wide">
-                On This Day
+                {t("settings.onThisDay.title")}
               </h3>
             </div>
             <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-2">
@@ -2944,15 +2890,14 @@ function DictationSettingsPanel({
       <div className="p-4 bg-line/30 rounded-xl border border-line/50">
         <p className="text-[13px] text-ink font-medium">On-device dictation</p>
         <p className="mt-1 text-[12px] text-stone leading-relaxed">
-          Stik uses <span className="text-ink font-medium">Whisper</span>{" "}
-          running locally on your Mac. Audio never leaves your device.
+          {t("dictation.whisperLocal")}
         </p>
       </div>
 
       {/* Language */}
       <div>
         <label className="block text-[12px] text-stone mb-1.5">
-          Dictation language
+          {t("dictation.language")}
         </label>
         <Dropdown
           value={dictation.active_language ?? ""}
@@ -2972,8 +2917,7 @@ function DictationSettingsPanel({
           placeholder={t("dictation.selectLanguage")}
         />
         <p className="mt-1.5 text-[11px] text-stone">
-          Auto-detect works for most cases. Pick a specific language for the
-          best accuracy.
+          {t("dictation.languageDescribe")}
         </p>
       </div>
 
@@ -3000,7 +2944,7 @@ function DictationSettingsPanel({
                     </span>
                     {isActive && (
                       <span className="text-[10px] text-coral uppercase tracking-wide">
-                        Active
+                        {t("common.active")}
                       </span>
                     )}
                   </div>
@@ -3041,7 +2985,7 @@ function DictationSettingsPanel({
                         onClick={cancelDownload}
                         className="text-coral hover:underline"
                       >
-                        Cancel
+                        {t("common.cancelAction")}
                       </button>
                     </div>
                   </div>
@@ -3064,7 +3008,7 @@ function DictationSettingsPanel({
                             disabled={loadingId !== null}
                             className="px-3 py-1 text-[11px] bg-coral text-white rounded-md hover:bg-coral/90 disabled:opacity-50"
                           >
-                            Use this model
+                            {t("dictation.useModel")}
                           </button>
                         ))}
                       <button
@@ -3073,7 +3017,7 @@ function DictationSettingsPanel({
                         disabled={loadingId !== null}
                         className="px-3 py-1 text-[11px] text-stone border border-line rounded-md hover:text-coral hover:border-coral/30 disabled:opacity-50"
                       >
-                        Delete
+                        {t("common.delete")}
                       </button>
                     </div>
                     {loadingId === m.id && (
@@ -3091,7 +3035,7 @@ function DictationSettingsPanel({
                     disabled={downloadingId !== null}
                     className="px-3 py-1 text-[11px] bg-coral text-white rounded-md hover:bg-coral/90 disabled:opacity-50"
                   >
-                    Download
+                    {t("common.download")}
                   </button>
                 )}
               </div>

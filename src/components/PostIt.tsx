@@ -1684,19 +1684,19 @@ export default function PostIt({
                         onClick={() => void handleCopy("rich")}
                         className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors"
                       >
-                        Copy as rich text
+                        {t("postit.copyRichText")}
                       </button>
                       <button
                         onClick={() => void handleCopy("markdown")}
                         className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors"
                       >
-                        Copy as markdown
+                        {t("postit.copyMarkdown")}
                       </button>
                       <button
                         onClick={() => void handleCopy("image")}
                         className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors"
                       >
-                        Copy as image
+                        {t("postit.copyImage")}
                       </button>
                       <div className="border-t border-line" />
                       <button
@@ -1713,7 +1713,7 @@ export default function PostIt({
                         }}
                         className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors"
                       >
-                        Import from Apple Notes
+                        {t("postit.importAppleNotes")}
                       </button>
                     </div>
                   )}
@@ -1805,7 +1805,7 @@ export default function PostIt({
                       className="px-2 py-1 rounded-md hover:bg-line text-stone hover:text-ink transition-colors text-[10px]"
                       title={t("postit.closeWithoutSaving")}
                     >
-                      Close
+                      {t("common.close")}
                     </button>
                     <button
                       onClick={handleSaveAndCloseSticked}
@@ -1821,7 +1821,7 @@ export default function PostIt({
                           : t("postit.nothingToSave")
                       }
                     >
-                      Save
+                      {t("common.save")}
                     </button>
                   </div>
                 ) : isSticked ? (
@@ -1830,7 +1830,7 @@ export default function PostIt({
                     className="px-2.5 py-1.5 bg-coral-light text-coral rounded-lg text-[10px] font-semibold hover:bg-coral hover:text-white transition-colors cursor-pointer"
                     title={t("postit.saveAndClose")}
                   >
-                    esc
+                    {t("common.esc")}
                   </button>
                 ) : (
                   <button
@@ -1838,7 +1838,7 @@ export default function PostIt({
                     className="px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors bg-coral-light text-coral hover:bg-coral hover:text-white cursor-pointer"
                     title={t("postit.saveAndClose")}
                   >
-                    esc
+                    {t("common.esc")}
                   </button>
                 )}
               </div>

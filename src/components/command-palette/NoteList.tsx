@@ -117,8 +117,8 @@ export default function NoteList({
             />
           </div>
           <div className="mt-1 ml-6 text-[10px] text-stone">
-            in <span className="text-coral font-medium">{targetFolder}</span> —
-            enter to create, esc to cancel
+            in <span className="text-coral font-medium">{targetFolder}</span> —{" "}
+            {t("palette.createHint")}
           </div>
         </div>
       )}
@@ -127,7 +127,7 @@ export default function NoteList({
       {!hasQuery && results.length > 0 && (
         <div className="px-4 py-2 border-b border-line/50 bg-line/20">
           <span className="text-[10px] font-semibold text-stone uppercase tracking-wider">
-            Recent
+            {t("palette.recent")}
           </span>
         </div>
       )}
@@ -200,7 +200,7 @@ export default function NoteList({
         <>
           <div className="px-4 py-2 border-b border-line/50 bg-line/20">
             <span className="text-[10px] font-semibold text-stone uppercase tracking-wider">
-              Related
+              {t("palette.related")}
             </span>
           </div>
           {semanticResults.map((result, index) => {

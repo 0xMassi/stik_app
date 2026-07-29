@@ -188,13 +188,13 @@ export default function AiMenu({
                   onClick={handleClose}
                   className="px-2.5 py-1 rounded-md text-[10px] text-stone hover:bg-line transition-colors"
                 >
-                  Discard
+                  {t("ai.discard")}
                 </button>
                 <button
                   onClick={handleApply}
                   className="px-2.5 py-1 rounded-md text-[10px] font-medium bg-coral text-white hover:bg-coral/90 transition-colors"
                 >
-                  Apply
+                  {t("common.apply")}
                 </button>
               </div>
             </div>
@@ -205,7 +205,7 @@ export default function AiMenu({
             <div className="min-w-[240px] max-w-[300px]">
               <div className="px-3 py-2 border-b border-line">
                 <span className="text-[10px] font-semibold text-coral uppercase tracking-wider">
-                  Organization suggestion
+                  {t("ai.organizationSuggestion")}
                 </span>
               </div>
               <div className="px-3 py-2 space-y-2">
@@ -239,7 +239,7 @@ export default function AiMenu({
                 )}
                 {!organizeResult.suggested_folder && organizeResult.tags.length === 0 && (
                   <p className="text-[11px] text-stone">
-                    Current organization looks good.
+                    {t("ai.organizationLooksGood")}
                   </p>
                 )}
               </div>
@@ -248,7 +248,7 @@ export default function AiMenu({
                   onClick={handleClose}
                   className="px-2.5 py-1 rounded-md text-[10px] text-stone hover:bg-line transition-colors"
                 >
-                  Dismiss
+                  {t("ai.dismiss")}
                 </button>
               </div>
             </div>
@@ -282,14 +282,14 @@ export default function AiMenu({
                 className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors flex items-center gap-2"
               >
                 <span className="text-coral w-4 text-center">A</span>
-                Rephrase
+                {t("ai.rephrase")}
               </button>
               <button
                 onClick={handleSummarize}
                 className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors flex items-center gap-2"
               >
                 <span className="text-coral w-4 text-center">S</span>
-                Summarize
+                {t("ai.summarize")}
               </button>
               <div className="border-t border-line" />
               <button
@@ -297,7 +297,7 @@ export default function AiMenu({
                 className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors flex items-center gap-2"
               >
                 <span className="text-coral w-4 text-center">O</span>
-                Organize
+                {t("ai.organize")}
               </button>
             </div>
           )}
