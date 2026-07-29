@@ -22,11 +22,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/0xMassi/stik_app/releases/latest"><img src="https://img.shields.io/github/v/release/0xMassi/stik_app?style=flat-square&color=E8705F&v=1" alt="Latest release"></a>
-  <img src="https://img.shields.io/github/license/0xMassi/stik_app?style=flat-square&v=1" alt="License">
-  <img src="https://img.shields.io/badge/platform-macOS-000?style=flat-square&logo=apple&v=1" alt="macOS">
-  <a href="https://github.com/0xMassi/stik_app/releases"><img src="https://img.shields.io/github/downloads/0xMassi/stik_app/total?style=flat-square&color=E8705F&v=1" alt="Downloads"></a>
-  <a href="https://github.com/0xMassi/stik_app/stargazers"><img src="https://img.shields.io/github/stars/0xMassi/stik_app?style=flat-square&color=E8705F&v=1" alt="Stars"></a>
+  <a href="https://github.com/0xMassi/stik_app/releases/latest"><img src="https://shieldcn.dev/github/0xMassi/stik_app/release.svg?color=E8705F" alt="Latest release"></a>
+  <img src="https://shieldcn.dev/github/0xMassi/stik_app/license.svg" alt="License">
+  <img src="https://shieldcn.dev/badge/platform-macOS-000.svg?logo=apple" alt="macOS">
+  <a href="https://github.com/0xMassi/stik_app/releases"><img src="https://shieldcn.dev/github/downloads/0xMassi/stik_app.svg?color=E8705F" alt="Downloads"></a>
+  <a href="https://github.com/0xMassi/stik_app/stargazers"><img src="https://shieldcn.dev/github/0xMassi/stik_app/stars.svg?color=E8705F" alt="Stars"></a>
 </p>
 
 <p align="center">
@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.stik.ink/download?utm_source=github&utm_medium=readme&utm_campaign=hero_cta"><img src="https://img.shields.io/badge/Download_Stik_for_Mac-E8705F?style=for-the-badge&logo=apple&logoColor=white" alt="Download Stik for Mac"></a>
+  <a href="https://www.stik.ink/download?utm_source=github&utm_medium=readme&utm_campaign=hero_cta"><img src="https://shieldcn.dev/badge/Download_Stik_for_Mac-E8705F.svg?logo=apple&logoColor=white&size=lg" alt="Download Stik for Mac"></a>
 </p>
 
 ---
