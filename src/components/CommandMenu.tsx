@@ -50,10 +50,25 @@ export default function CommandMenu() {
     const controller = new AbortController();
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === "k") {
-        e.preventDefault();
-        setOpen((prev) => !prev);
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.key !== "k") return;
+
+      // Cmd+K is already "insert link" inside the editor (Editor.tsx binds
+      // Mod-k), so leave it alone while the user is writing. Without this,
+      // Cmd+K mid-note both inserted a link and opened this menu.
+      const target = e.target as HTMLElement | null;
+      const tagName = target?.tagName;
+      if (
+        tagName === "INPUT" ||
+        tagName === "TEXTAREA" ||
+        tagName === "SELECT" ||
+        target?.isContentEditable ||
+        target?.closest(".cm-editor")
+      ) {
+        return;
       }
+
+      e.preventDefault();
+      setOpen((prev) => !prev);
     };
 
     document.addEventListener("keydown", onKeyDown, { signal: controller.signal });
