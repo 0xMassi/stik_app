@@ -1,5 +1,6 @@
 import type { ThemeColors, CustomThemeDefinition } from "@/types";
 import { rgbToHex } from "@/utils/color";
+import { t } from "@/i18n";
 
 export interface BuiltinTheme {
   id: string;
@@ -10,7 +11,7 @@ export interface BuiltinTheme {
 
 const light: BuiltinTheme = {
   id: "light",
-  name: "Light",
+  name: t("theme.light"),
   isDark: false,
   colors: {
     bg: "255 252 249",
@@ -26,7 +27,7 @@ const light: BuiltinTheme = {
 
 const dark: BuiltinTheme = {
   id: "dark",
-  name: "Dark",
+  name: t("theme.dark"),
   isDark: true,
   colors: {
     bg: "28 25 23",
@@ -42,7 +43,7 @@ const dark: BuiltinTheme = {
 
 const sepia: BuiltinTheme = {
   id: "sepia",
-  name: "Sepia",
+  name: t("theme.sepia"),
   isDark: false,
   colors: {
     bg: "245 235 220",

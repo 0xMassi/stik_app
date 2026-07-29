@@ -70,6 +70,7 @@ import { createVimCommandCallbacks } from "@/utils/vimCommandBridge";
 import FormattingToolbar from "@/components/FormattingToolbar";
 import LinkPopover from "@/components/LinkPopover";
 import type { SearchResult } from "@/types";
+import { t } from "@/i18n";
 
 export { type VimMode } from "@/extensions/cm-vim";
 
@@ -514,7 +515,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         // @replit/codemirror-vim makes native ::selection transparent.
         // drawSelection renders .cm-selectionBackground instead.
         drawSelection(),
-        cmPlaceholder(placeholder || "Start typing..."),
+        cmPlaceholder(placeholder || t("editor.startTyping")),
         search(),
         richCopyHandler,
         imageHandlers,

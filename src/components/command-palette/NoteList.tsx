@@ -134,7 +134,7 @@ export default function NoteList({
 
       {results.map((result, index) => {
         const displayTitle = normalizeNoteTitle(
-          result.title || result.filename || "Untitled",
+          result.title || result.filename || t("common.untitled"),
         );
         const displaySnippet = normalizeNoteSnippet(result.snippet);
         const shouldShowSnippet =
@@ -206,7 +206,7 @@ export default function NoteList({
           {semanticResults.map((result, index) => {
             const globalIndex = results.length + index;
             const displayTitle = normalizeNoteTitle(
-              result.title || result.filename || "Untitled",
+              result.title || result.filename || t("common.untitled"),
             );
             const displaySnippet = normalizeNoteSnippet(result.snippet);
             const shouldShowSnippet =

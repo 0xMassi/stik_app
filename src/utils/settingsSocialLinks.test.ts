@@ -12,8 +12,8 @@ describe("SETTINGS_SOCIAL_LINKS", () => {
 
   it("defines accessibility labels for each entry", () => {
     for (const link of SETTINGS_SOCIAL_LINKS) {
-      expect(link.ariaLabel.trim().length).toBeGreaterThan(0);
-      expect(link.label.trim().length).toBeGreaterThan(0);
+      expect(link.ariaLabelKey.trim().length).toBeGreaterThan(0);
+      expect(link.labelKey.trim().length).toBeGreaterThan(0);
     }
   });
 });

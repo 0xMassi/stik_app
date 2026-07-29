@@ -18,6 +18,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import type { Range } from "@codemirror/state";
+import { t } from "@/i18n";
 
 const TASK_RE = /^(\s*)([-*+]) \[([ xX])\]/;
 const BULLET_RE = /^(\s*)([-*+]) /;
@@ -34,7 +35,7 @@ class CheckboxWidget extends WidgetType {
   toDOM() {
     const span = document.createElement("span");
     span.className = `cm-task-checkbox${this.checked ? " cm-task-checkbox-checked" : ""}`;
-    span.setAttribute("aria-label", this.checked ? "Completed task" : "Incomplete task");
+    span.setAttribute("aria-label", this.checked ? t("task.completed") : t("task.incomplete"));
     span.setAttribute("role", "checkbox");
     span.setAttribute("aria-checked", String(this.checked));
     return span;

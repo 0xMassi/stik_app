@@ -83,7 +83,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
         setSelectedModelId(balanced?.id ?? list[0]?.id ?? null);
       })
       .catch((e) => {
-        setErrorMsg(`Couldn't load model list: ${String(e)}`);
+        setErrorMsg(t("dictation.modelListFailed", { error: String(e) }));
         setPhase("error");
       });
   }, []);
@@ -275,7 +275,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
                     bytesTotal / 1_000_000
                   ).toFixed(1)} MB`;
                 }
-                return progress > 0 ? `${pct}%` : "Connecting…";
+                return progress > 0 ? `${pct}%` : t("dictation.connecting");
               })()}
             </p>
             <div className="flex justify-end mt-4">
@@ -297,8 +297,8 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
             </p>
             <p className="text-[11px] text-stone mt-2 leading-snug max-w-[360px] mx-auto">
               {selectedModel && selectedModel.size_mb >= 500
-                ? "First load can take up to 2 minutes for the High quality model. This only happens once — subsequent launches are instant."
-                : "First load takes 20–30 seconds. This only happens once — subsequent launches are instant."}
+                ? t("dictation.firstLoadHigh")
+                : t("dictation.firstLoadShort")}
             </p>
           </div>
         )}
@@ -307,7 +307,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
           <div className="py-4">
             <p className="text-[13px] text-coral mb-2">Something went wrong</p>
             <p className="text-[11px] text-stone mb-4 break-words">
-              {errorMsg ?? "Unknown error"}
+              {errorMsg ?? t("common.unknownError")}
             </p>
             <div className="flex justify-end gap-2">
               <button

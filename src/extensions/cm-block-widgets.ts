@@ -70,7 +70,7 @@ class ImageWidget extends WidgetType {
       img.style.display = "none";
       const fallback = document.createElement("span");
       fallback.className = "cm-image-error-text";
-      fallback.textContent = this.alt || "Image failed to load";
+      fallback.textContent = this.alt || t("image.failedToLoad");
       wrap.appendChild(fallback);
     };
 

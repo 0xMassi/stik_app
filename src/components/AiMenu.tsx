@@ -115,7 +115,7 @@ export default function AiMenu({
   const handleApply = () => {
     if (previewText) {
       onApplyText(previewText);
-      onShowToast(currentAction === "summarize" ? "Summary applied" : "Text rephrased");
+      onShowToast(currentAction === "summarize" ? t("ai.summaryApplied") : t("ai.textRephrased"));
     }
     handleClose();
   };
@@ -165,9 +165,9 @@ export default function AiMenu({
             <div className="px-4 py-3 flex items-center gap-2 text-[11px] text-stone min-w-[200px]">
               <span className="animate-spin text-coral">*</span>
               <span>
-                {currentAction === "rephrase" && "Rephrasing..."}
-                {currentAction === "summarize" && "Summarizing..."}
-                {currentAction === "organize" && "Analyzing..."}
+                {currentAction === "rephrase" && t("ai.rephrasing")}
+                {currentAction === "summarize" && t("ai.summarizing")}
+                {currentAction === "organize" && t("ai.analyzing")}
               </span>
             </div>
           )}
@@ -177,7 +177,7 @@ export default function AiMenu({
             <div className="min-w-[260px] max-w-[320px]">
               <div className="px-3 py-2 border-b border-line">
                 <span className="text-[10px] font-semibold text-coral uppercase tracking-wider">
-                  {currentAction === "summarize" ? "Summary" : "Rephrased"}
+                  {currentAction === "summarize" ? t("ai.summary") : t("ai.rephrased")}
                 </span>
               </div>
               <div className="px-3 py-2 text-[12px] text-ink leading-relaxed max-h-[200px] overflow-y-auto">

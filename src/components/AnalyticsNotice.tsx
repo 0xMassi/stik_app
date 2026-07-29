@@ -58,8 +58,8 @@ export default function AnalyticsNotice({ onDismiss }: AnalyticsNoticeProps) {
               type="button"
               onClick={() => void handleOpen(xLink.href)}
               className="inline-flex items-center p-1.5 text-stone hover:text-coral hover:bg-line rounded-md transition-colors"
-              title={xLink.label}
-              aria-label={xLink.ariaLabel}
+              title={t(xLink.labelKey)}
+              aria-label={t(xLink.ariaLabelKey)}
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -69,8 +69,8 @@ export default function AnalyticsNotice({ onDismiss }: AnalyticsNoticeProps) {
               type="button"
               onClick={() => void handleOpen(discordLink.href)}
               className="inline-flex items-center p-1.5 text-stone hover:text-coral hover:bg-line rounded-md transition-colors"
-              title={discordLink.label}
-              aria-label={discordLink.ariaLabel}
+              title={t(discordLink.labelKey)}
+              aria-label={t(discordLink.ariaLabelKey)}
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M20.317 4.369A19.791 19.791 0 0 0 15.885 3c-.191.328-.404.767-.553 1.112a18.27 18.27 0 0 0-5.175 0A11.31 11.31 0 0 0 9.603 3a19.736 19.736 0 0 0-4.433 1.369C2.368 8.554 1.608 12.635 1.988 16.658a19.904 19.904 0 0 0 5.427 2.771 13.264 13.264 0 0 0 1.163-1.872 12.955 12.955 0 0 1-1.831-.883c.154-.113.304-.233.45-.358 3.53 1.662 7.37 1.662 10.858 0 .146.125.297.245.45.358-.586.34-1.2.637-1.834.883.333.65.724 1.274 1.167 1.872a19.89 19.89 0 0 0 5.43-2.771c.446-4.666-.762-8.709-3.951-12.289ZM9.03 14.228c-1.058 0-1.924-.962-1.924-2.144 0-1.182.847-2.144 1.924-2.144 1.078 0 1.943.962 1.924 2.144 0 1.182-.846 2.144-1.924 2.144Zm5.94 0c-1.058 0-1.924-.962-1.924-2.144 0-1.182.846-2.144 1.924-2.144 1.077 0 1.943.962 1.924 2.144 0 1.182-.847 2.144-1.924 2.144Z" />

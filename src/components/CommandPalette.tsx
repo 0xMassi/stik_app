@@ -18,6 +18,7 @@ import LockPrompt from "./LockPrompt";
 import FolderSidebar from "./command-palette/FolderSidebar";
 import NoteList from "./command-palette/NoteList";
 import MovePicker from "./command-palette/MovePicker";
+import { useTranslation } from "@/hooks/useTranslation";
 
 /** Derive a human-readable title from a Stik filename like `20260310-114522-my-note-a1b2.md` */
 function titleFromFilename(filename: string): string {
@@ -58,6 +59,7 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
 }
 
 export default function CommandPalette() {
+  const { t } = useTranslation();
   // Search state
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -508,7 +510,7 @@ export default function CommandPalette() {
     // Default to first available folder if "All" is selected
     const targetFolder = selectedFolder || folders[0];
     if (!targetFolder) {
-      setToast("Create a folder first");
+      setToast(t("palette.createFolderFirst"));
       return;
     }
 
@@ -646,10 +648,10 @@ export default function CommandPalette() {
                     if (!ok) return;
                   }
                   await invoke("unlock_note", { path: note.path });
-                  setToast("Note unlocked");
+                  setToast(t("palette.noteUnlocked"));
                 } else {
                   await invoke("lock_note", { path: note.path });
-                  setToast("Note locked");
+                  setToast(t("palette.noteLocked"));
                 }
                 await refreshAfterChange();
               } catch (err) {
@@ -788,7 +790,7 @@ export default function CommandPalette() {
             placeholder={
               selectedFolder
                 ? `Search in ${selectedFolder}...`
-                : "Search across all notes..."
+                : t("palette.searchAll")
             }
             className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-stone outline-none"
           />
@@ -927,14 +929,14 @@ export default function CommandPalette() {
         <ConfirmDialog
           title={
             confirmDelete.type === "folder"
-              ? `Delete folder "${confirmDelete.folderName}"?`
-              : "Delete note?"
+              ? t("palette.deleteFolder", { name: confirmDelete.folderName ?? "" })
+              : t("palette.deleteNote")
           }
           description={
             confirmDelete.type === "folder"
-              ? "This will delete the folder and all its notes."
+              ? t("palette.deleteFolderWarning")
               : confirmDelete.note
-                ? `From: ${confirmDelete.note.folder}`
+                ? t("palette.fromFolder", { folder: confirmDelete.note.folder })
                 : undefined
           }
           onConfirm={() => {

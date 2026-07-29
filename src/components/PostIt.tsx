@@ -575,7 +575,7 @@ export default function PostIt({
     } catch (error) {
       console.error("Failed to save note:", error);
       setIsSaving(false);
-      setToast("Failed to save note");
+      setToast(t("postit.saveFailed"));
     }
   }, [
     isSticked,
@@ -820,7 +820,7 @@ export default function PostIt({
       if (isCopying) return;
       if (isMarkdownEffectivelyEmpty(content)) {
         setIsCopyMenuOpen(false);
-        showToast("Nothing to copy");
+        showToast(t("postit.nothingToCopy"));
         return;
       }
 
@@ -847,14 +847,14 @@ export default function PostIt({
             plainText,
           });
 
-          showToast("Copied as rich text");
+          showToast(t("postit.copiedRichText"));
         } else if (mode === "markdown") {
           const markdownText = normalizeMarkdownForCopy(content);
           const copied = await copyPlainText(markdownText);
           if (!copied) {
-            throw new Error("Markdown copy failed in all available methods");
+            throw new Error(t("postit.markdownCopyFailed"));
           }
-          showToast("Copied as markdown");
+          showToast(t("postit.copiedMarkdown"));
         } else {
           const activeElement = document.activeElement as HTMLElement | null;
           const shouldRestoreEditorFocus =
@@ -873,7 +873,7 @@ export default function PostIt({
               );
             });
             await invoke("copy_visible_note_image_to_clipboard");
-            showToast("Copied as image");
+            showToast(t("postit.copiedImage"));
           } finally {
             document.documentElement.classList.remove("capturing-image");
             if (shouldRestoreEditorFocus) {
@@ -888,9 +888,9 @@ export default function PostIt({
           error instanceof Error &&
           error.message.includes("not supported")
         ) {
-          showToast("Image copy is not supported here");
+          showToast(t("postit.imageCopyUnsupported"));
         } else {
-          showToast("Copy failed");
+          showToast(t("postit.copyFailed"));
         }
       } finally {
         setIsCopying(false);
@@ -1596,8 +1596,8 @@ export default function PostIt({
                     }`}
                     title={
                       isPinned
-                        ? "Unpin (won't restore on restart)"
-                        : "Pin (will restore on restart)"
+                        ? t("postit.unpinHint")
+                        : t("postit.pinHint")
                     }
                   >
                     <svg
@@ -1817,8 +1817,8 @@ export default function PostIt({
                       }`}
                       title={
                         hasMeaningfulContent
-                          ? "Save to folder and close"
-                          : "Nothing to save"
+                          ? t("postit.saveToFolder")
+                          : t("postit.nothingToSave")
                       }
                     >
                       Save
@@ -1862,7 +1862,7 @@ export default function PostIt({
               key={`${vimEnabled ? "vim" : "novim"}-${textDirection}`}
               ref={editorRef}
               onChange={handleContentChange}
-              placeholder={isSticked ? "Sticked note..." : "Type a thought..."}
+              placeholder={isSticked ? t("postit.stickedPlaceholder") : t("postit.typePlaceholder")}
               initialContent={resolvedInitialContent || initialContent}
               vimEnabled={vimEnabled}
               showFormatToolbar={zenMode ? false : formatToolbar}
@@ -1995,8 +1995,8 @@ export default function PostIt({
                         }`}
                         title={
                           formatToolbar
-                            ? "Hide format buttons"
-                            : "Show format buttons"
+                            ? t("postit.hideFormatButtons")
+                            : t("postit.showFormatButtons")
                         }
                       >
                         <svg
@@ -2018,7 +2018,7 @@ export default function PostIt({
                     <button
                       onClick={() => invoke("open_command_palette")}
                       className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
-                      title={`Command Palette (${formatShortcutDisplay(systemShortcuts.search || "Cmd+Shift+P")})`}
+                      title={`${t("postit.commandPalette")} (${formatShortcutDisplay(systemShortcuts.search || "Cmd+Shift+P")})`}
                     >
                       <svg
                         width="14"

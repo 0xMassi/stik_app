@@ -1,3 +1,4 @@
+import type { TranslationKey } from "@/i18n";
 export const SYSTEM_SHORTCUT_ACTIONS = [
   "search",
   "manager",
@@ -21,15 +22,15 @@ export const SYSTEM_SHORTCUT_DEFAULTS: Record<SystemAction, string> = {
   clip_capture: "Cmd+Shift+C",
 };
 
-export const SYSTEM_SHORTCUT_LABELS: Record<SystemAction, string> = {
-  search: "Command Palette",
-  manager: "Command Palette (alt)",
-  settings: "Settings",
-  last_note: "Last note",
-  zen_mode: "Zen mode",
-  dictation: "Toggle dictation (in note)",
-  voice_note: "New voice note",
-  clip_capture: "Capture clipboard",
+export const SYSTEM_SHORTCUT_LABEL_KEYS: Record<SystemAction, TranslationKey> = {
+  search: "shortcut.search",
+  manager: "shortcut.manager",
+  settings: "shortcut.settings",
+  last_note: "shortcut.lastNote",
+  zen_mode: "shortcut.zenMode",
+  dictation: "shortcut.dictation",
+  voice_note: "shortcut.voiceNote",
+  clip_capture: "shortcut.clipCapture",
 };
 
 /** Get all system shortcut values for use as reserved list */
