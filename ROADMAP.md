@@ -85,87 +85,33 @@ Stik ships when a phase is useful, not when it is complete. Items are moved to
 
 ### Phase 8 — Mobile & Sync (v1.0)
 
-- [ ] iOS companion app (capture + read, via iCloud initially) — in progress
-- [ ] E2E encrypted cloud sync (optional, paid)
-- [ ] Cross-device conflict resolution
-- [ ] Zero-knowledge architecture
-- [ ] Android companion — see [Discussion #68](https://github.com/0xMassi/stik_app/discussions/68)
+Planned in detail in [MOBILE_PLAN.md](MOBILE_PLAN.md). Desktop, iOS, Android
+and cloud sync ship together as 1.0.
 
----
+**One React Native app for both platforms**
+- [ ] `@stik/tokens` — design tokens extracted from `src/themes`, consumed by
+      desktop, the editor bundle, and NativeWind
+- [ ] Expo bare project with NativeWind + react-native-reusables (the
+      shadcn/ui port for React Native)
+- [ ] Filename contract ported to TypeScript, tested for parity with `notes.rs`
+- [ ] Capture screen, note list, folder navigation
+- [ ] Existing CodeMirror `WebEditor` bundle hosted in a WebView
 
-## v0.9 — Hardening
+**Platform surfaces**
+- [ ] iPhone Action button — Swift native module reusing the scaffold's
+      `QuickCaptureIntent`; App Intents are Swift on any stack
+- [ ] iOS iCloud Drive module; Android Storage Access Framework module
+- [ ] Android share target and quick-settings tile
 
-Stik is at the point where feature velocity is outrunning its safety net. This
-phase is deliberately unglamorous: it exists so 1.0 can be trusted.
-
-### Blocking for 0.9
-
-- [ ] **CI on pull requests.** `release.yml` only fires on `v*` tags, so nothing
-      runs `cargo test` / `npm test` on a PR or on a push to `main`. Every
-      Dependabot PR merges with "no checks reported" and regressions are only
-      caught by hand. This is the single highest-value fix in the repo.
-- [ ] **`.github/dependabot.yml`.** Only *security* updates arrive today
-      (GitHub's default). Routine version updates are never proposed, so the
-      dependency tree drifts until an advisory forces a jump.
-- [ ] **Finish the i18n migration.** ~190 strings are still hardcoded English,
-      ~133 of them in `SettingsContent.tsx`. The foundation shipped; the
-      settings surface — the part a non-English speaker most needs — has not.
-- [ ] **Translate backend-generated strings.** Capture-streak labels and
-      "On This Day" messages are formatted in `stats.rs` / `on_this_day.rs` and
-      reach the UI pre-rendered in English. They need to return structured data
-      (counts, dates) and let the frontend format.
-
-### Test coverage
-
-Current: 100 frontend tests, 62 Rust tests — but concentrated in pure helpers.
-
-- [ ] **No component tests exist.** All 24 frontend test files cover
-      `utils/` and `extensions/`. `PostIt`, `CommandPalette` and `SettingsContent`
-      — where the real behaviour lives — have none.
-- [ ] **13 of 23 Rust command modules have no tests**, including
-      `storage.rs` and `versioning.rs` (data integrity), `icloud.rs` (sync
-      correctness) and `embeddings.rs`. A migration bug here silently corrupts
-      user notes.
-- [ ] **No window-behaviour smoke test.** The v0.9 tauri bump moved
-      wry / tao / tray-icon a full minor each; `cargo test` proved nothing about
-      window creation, vibrancy, or the tray. A scripted launch-and-assert would
-      have.
-
-### Security & privacy
-
-- [ ] **Tighten CSP `img-src`.** It currently allows `https:` and `http:`
-      wholesale, so a remote image URL pasted into a note silently fetches on
-      render — leaking the reader's IP and enabling tracking pixels. For a
-      privacy-first, local-first app this is the sharpest inconsistency in the
-      codebase. Consider proxying remote images through the backend, or
-      requiring explicit per-note opt-in.
-- [ ] **Audit panic surface.** 15 `unwrap()` and 18 `expect()` outside tests.
-      In a Tauri command a panic takes down the webview, not just the call.
-- [ ] **Review 9 `unsafe` blocks** (objc2 / AppKit interop) and document the
-      invariant each one relies on.
-- [ ] Accepted, not actionable: `rand 0.7.3` (RUSTSEC low) arrives via
-      `phf_generator`, build-time only, and the advisory requires a custom
-      runtime logger.
-
-### Architecture
-
-- [ ] **`SettingsContent.tsx` is 3,069 lines** and `PostIt.tsx` is 2,065.
-      Both are past the point of comfortable review; splitting settings into
-      per-tab modules would also make the i18n migration tractable.
-- [ ] **`main.rs` has grown to 737 lines**, having been refactored down to a
-      thin orchestrator in Phase 2. The command registry and setup hook are the
-      bulk — worth re-splitting before it accretes further.
-- [ ] **Frontend ships a 1.19 MB chunk** (378 kB gzipped) with no code
-      splitting. Each of the five window types loads the whole bundle,
-      including CodeMirror language modes it will never use — directly at odds
-      with the sub-second-capture promise.
-
-### Repo hygiene
-
-- [ ] Delete merged branches — 7 stale refs on `origin`.
-- [ ] `feature/apple-notes-import` exists **only locally** with 2 unpushed
-      commits (direct Apple Notes SQLite read/write). It is one disk failure
-      from being lost — push it or fold it in.
+**Stik Cloud — the critical path, roughly 3x the app work**
+- [ ] Auth and account
+- [ ] E2E envelope: Argon2id, per-note keys, recovery key. Zero-knowledge, so
+      no password reset exists by design
+- [ ] Sync engine with version vectors and conflict copies
+- [ ] €4.99/mo — Apple takes 15% under the Small Business Program
+- [ ] IAP on both stores, Stripe on desktop
+- [ ] Behind a feature flag from day one, so an unfinished backend never
+      blocks shipping app binaries
 
 ---
 
