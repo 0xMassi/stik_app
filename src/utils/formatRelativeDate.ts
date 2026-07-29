@@ -1,3 +1,5 @@
+import { t, getLocale } from "@/i18n";
+
 /**
  * Convert a Stik filename-derived date string (YYYYMMDD-HHMMSS) into a
  * human-friendly relative label: "Just now", "5 min ago", "2 hours ago",
@@ -16,19 +18,20 @@ export function formatRelativeDate(created: string): string {
   const diffHrs = Math.floor(diffMs / 3_600_000);
 
   // Future or just created
-  if (diffMin < 1) return "Just now";
-  if (diffMin < 60) return `${diffMin} min ago`;
-  if (diffHrs < 24 && isSameDay(now, date)) return `${diffHrs}h ago`;
+  if (diffMin < 1) return t("common.justNow");
+  if (diffMin < 60) return t("date.minAgo", { count: diffMin });
+  if (diffHrs < 24 && isSameDay(now, date))
+    return t("date.hoursAgo", { count: diffHrs });
 
   // Yesterday
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
-  if (isSameDay(yesterday, date)) return "Yesterday";
+  if (isSameDay(yesterday, date)) return t("date.yesterday");
 
   // Within last 7 days — show day name
   const diffDays = Math.floor(diffMs / 86_400_000);
   if (diffDays < 7) {
-    return date.toLocaleDateString("en-US", { weekday: "long" });
+    return date.toLocaleDateString(getLocale(), { weekday: "long" });
   }
 
   // Older — DD/MM/YY

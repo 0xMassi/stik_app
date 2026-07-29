@@ -85,6 +85,15 @@ export function setLocale(next: Locale): void {
   subscribers.forEach((notify) => notify());
 }
 
+/// Translate using the currently active locale.
+///
+/// For code outside React — CodeMirror widgets, plain helpers — where the
+/// `useTranslation` hook is unavailable. These call sites are rebuilt when
+/// the editor re-renders, so they pick up language changes naturally.
+export function t(key: TranslationKey, vars?: TranslationVars): string {
+  return translate(activeLocale, key, vars);
+}
+
 export function subscribeToLocale(onChange: () => void): () => void {
   subscribers.add(onChange);
   return () => subscribers.delete(onChange);
