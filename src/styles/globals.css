@@ -123,12 +123,13 @@ body,
   font-family: var(--editor-font-family, inherit);
   line-height: 1.5;
   color: rgb(var(--color-ink));
-  outline: none;
+  /* Transparent rather than none: the caret and selection carry focus during
+     normal typing, but keyboard users still get a visible boundary when the
+     surface itself takes focus. */
+  outline: 2px solid transparent;
+  outline-offset: -2px;
 }
 
-/* The editor suppresses its own outline because the caret and selection are
-   the real focus affordance, but keyboard users still need a visible boundary
-   when the surface itself takes focus. */
 .stik-editor:focus-visible {
   outline: 2px solid rgb(var(--color-coral));
   outline-offset: -2px;
@@ -471,7 +472,8 @@ body,
   width: 200px;
   max-width: 100%;
   min-width: 0;
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
 }
 
 .link-popover-input:focus-visible {

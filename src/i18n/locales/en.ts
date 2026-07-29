@@ -546,4 +546,7 @@ export const en = {
   "palette.renameFolderLabel": "Rename folder",
   "palette.newFolderLabel": "New folder name",
   "palette.newNoteLabel": "New note title",
+  "palette.commandMenu": "Command menu",
+  "palette.commandMenuPlaceholder": "Type a command…",
+  "palette.commandMenuEmpty": "No matching commands",
 } as const;

@@ -548,4 +548,7 @@ export const zhCN: Translations = {
   "palette.renameFolderLabel": "重命名文件夹",
   "palette.newFolderLabel": "新文件夹名称",
   "palette.newNoteLabel": "新笔记标题",
+  "palette.commandMenu": "命令菜单",
+  "palette.commandMenuPlaceholder": "输入命令…",
+  "palette.commandMenuEmpty": "没有匹配的命令",
 };

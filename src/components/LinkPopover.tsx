@@ -90,7 +90,7 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
   // Validation feedback: the save handler used to bail silently on an empty
   // URL, so the popover just sat there doing nothing.
   const [error, setError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const textInputRef = useRef<HTMLInputElement>(null);
   const hrefInputRef = useRef<HTMLInputElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -210,7 +210,7 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
     }
 
     setError(null);
-    setIsSaving(true);
+    setIsSubmitting(true);
     // Yield once so the disabled/pending state paints before the editor
     // dispatch, which is synchronous and can be slow on very large documents.
     await Promise.resolve();
@@ -221,7 +221,7 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
     });
 
     setIsEditing(false);
-    setIsSaving(false);
+    setIsSubmitting(false);
     view.focus();
   }, [getView, linkInfo, editHref, editText, t]);
 
@@ -260,12 +260,12 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
           className="link-popover-edit"
           onSubmit={async (e) => {
             e.preventDefault();
-            if (isSaving) return;
-            setIsSaving(true);
+            if (isSubmitting) return;
+            setIsSubmitting(true);
             try {
               await handleSaveEdit();
             } finally {
-              setIsSaving(false);
+              setIsSubmitting(false);
             }
           }}
           onKeyDown={(e) => {
@@ -305,6 +305,8 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
               id="link-popover-url"
               type="text"
               required
+              minLength={1}
+              pattern=".*\\S.*"
               aria-invalid={error !== null}
               aria-describedby={error ? "link-popover-error" : undefined}
               value={editHref}
@@ -329,12 +331,12 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
           <div className="link-popover-edit-actions">
             <button
               type="submit"
-              disabled={isSaving}
-              aria-disabled={isSaving || !editHref.trim()}
-              aria-busy={isSaving}
+              disabled={isSubmitting}
+              aria-disabled={isSubmitting || !editHref.trim()}
+              aria-busy={isSubmitting}
               className="link-popover-btn link-popover-save disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSaving ? t("common.saving") : t("common.save")}
+              {isSubmitting ? t("common.saving") : t("common.save")}
             </button>
           </div>
         </form>
