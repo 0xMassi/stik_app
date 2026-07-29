@@ -26,6 +26,8 @@ export const zhCN: Translations = {
   "common.somethingWentWrong": "出错了",
   "common.justNow": "刚刚",
   "common.delete": "删除",
+  "common.close": "关闭",
+  "note.failedToLoad": "无法加载笔记",
   "sync.syncingWithICloud": "正在与 iCloud 同步…",
   "sync.syncedWithICloud": "已与 iCloud 同步",
 

@@ -23,6 +23,8 @@ export const en = {
   "common.somethingWentWrong": "Something went wrong",
   "common.justNow": "Just now",
   "common.delete": "Delete",
+  "common.close": "Close",
+  "note.failedToLoad": "Failed to load note",
   "sync.syncingWithICloud": "Syncing with iCloud...",
   "sync.syncedWithICloud": "Synced with iCloud",
 

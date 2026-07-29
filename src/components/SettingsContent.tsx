@@ -24,6 +24,8 @@ import {
   type SystemAction,
 } from "@/utils/systemShortcuts";
 import { hexToRgb, rgbToHex } from "@/utils/color";
+import { useTranslation } from "@/hooks/useTranslation";
+import { LOCALES } from "@/i18n";
 import { BUILTIN_THEMES, generateThemeId, type BuiltinTheme } from "@/themes";
 import {
   FONTS,
@@ -808,6 +810,7 @@ function AppearanceSection({
   settings: StikSettings;
   onSettingsChange: (settings: StikSettings) => void;
 }) {
+  const { t } = useTranslation();
   const [editingTheme, setEditingTheme] =
     useState<CustomThemeDefinition | null>(null);
   const [isNewTheme, setIsNewTheme] = useState(false);
@@ -998,6 +1001,33 @@ function AppearanceSection({
   return (
     <>
       <div className="space-y-4">
+        <div className="p-4 bg-line/30 rounded-xl border border-line/50">
+          <p className="text-[13px] text-ink font-medium mb-1">
+            {t("settings.language.title")}
+          </p>
+          <p className="text-[12px] text-stone leading-relaxed mb-3">
+            {t("settings.language.description")}
+          </p>
+          <div className="max-w-[240px]">
+            <Dropdown
+              value={settings.language ?? ""}
+              options={[
+                { value: "", label: t("settings.language.system") },
+                ...LOCALES.map((l) => ({
+                  value: l.id,
+                  label:
+                    l.nativeLabel === l.englishLabel
+                      ? l.nativeLabel
+                      : `${l.nativeLabel} (${l.englishLabel})`,
+                })),
+              ]}
+              onChange={(value) =>
+                onSettingsChange({ ...settings, language: value })
+              }
+            />
+          </div>
+        </div>
+
         <p className="text-[12px] text-stone">
           Choose a built-in theme or create your own with custom colors.
         </p>
