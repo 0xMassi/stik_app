@@ -58,7 +58,7 @@ fn encrypt(plaintext: &str, key: &[u8; 32]) -> Result<String, String> {
     let cipher = Aes256Gcm::new_from_slice(key).map_err(|e| e.to_string())?;
 
     let mut nonce_bytes = [0u8; 12];
-    rand::thread_rng().fill_bytes(&mut nonce_bytes);
+    rand::rng().fill_bytes(&mut nonce_bytes);
     let nonce = Nonce::from_slice(&nonce_bytes);
 
     let ciphertext = cipher
@@ -171,7 +171,7 @@ fn get_or_create_key() -> Result<[u8; 32], String> {
 
     // 3. Generate new key
     let mut key = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut key);
+    rand::rng().fill_bytes(&mut key);
     save_key_file(&path, &key)?;
     Ok(key)
 }
