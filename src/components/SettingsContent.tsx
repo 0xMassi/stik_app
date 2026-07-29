@@ -24,6 +24,8 @@ import {
   type SystemAction,
 } from "@/utils/systemShortcuts";
 import { hexToRgb, rgbToHex } from "@/utils/color";
+import { useTranslation } from "@/hooks/useTranslation";
+import { LOCALES, type TranslationKey } from "@/i18n";
 import { BUILTIN_THEMES, generateThemeId, type BuiltinTheme } from "@/themes";
 import {
   FONTS,
@@ -808,6 +810,7 @@ function AppearanceSection({
   settings: StikSettings;
   onSettingsChange: (settings: StikSettings) => void;
 }) {
+  const { t } = useTranslation();
   const [editingTheme, setEditingTheme] =
     useState<CustomThemeDefinition | null>(null);
   const [isNewTheme, setIsNewTheme] = useState(false);
@@ -998,6 +1001,33 @@ function AppearanceSection({
   return (
     <>
       <div className="space-y-4">
+        <div className="p-4 bg-line/30 rounded-xl border border-line/50">
+          <p className="text-[13px] text-ink font-medium mb-1">
+            {t("settings.language.title")}
+          </p>
+          <p className="text-[12px] text-stone leading-relaxed mb-3">
+            {t("settings.language.description")}
+          </p>
+          <div className="max-w-[240px]">
+            <Dropdown
+              value={settings.language ?? ""}
+              options={[
+                { value: "", label: t("settings.language.system") },
+                ...LOCALES.map((l) => ({
+                  value: l.id,
+                  label:
+                    l.nativeLabel === l.englishLabel
+                      ? l.nativeLabel
+                      : `${l.nativeLabel} (${l.englishLabel})`,
+                })),
+              ]}
+              onChange={(value) =>
+                onSettingsChange({ ...settings, language: value })
+              }
+            />
+          </div>
+        </div>
+
         <p className="text-[12px] text-stone">
           Choose a built-in theme or create your own with custom colors.
         </p>
@@ -2716,28 +2746,28 @@ export default function SettingsContent({
 
 // ── Dictation settings panel ───────────────────────────────────────
 
-const DICTATION_LANGUAGES: { code: string | null; label: string }[] = [
-  { code: null, label: "Auto-detect" },
-  { code: "en", label: "English" },
-  { code: "it", label: "Italian" },
-  { code: "es", label: "Spanish" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "pt", label: "Portuguese" },
-  { code: "nl", label: "Dutch" },
-  { code: "ja", label: "Japanese" },
-  { code: "zh", label: "Chinese" },
-  { code: "ko", label: "Korean" },
-  { code: "ru", label: "Russian" },
-  { code: "ar", label: "Arabic" },
-  { code: "hi", label: "Hindi" },
-  { code: "tr", label: "Turkish" },
-  { code: "pl", label: "Polish" },
-  { code: "el", label: "Greek" },
-  { code: "cs", label: "Czech" },
-  { code: "sv", label: "Swedish" },
-  { code: "ro", label: "Romanian" },
-  { code: "uk", label: "Ukrainian" },
+const DICTATION_LANGUAGES: { code: string | null; labelKey: TranslationKey }[] = [
+  { code: null, labelKey: "language.autoDetect" },
+  { code: "en", labelKey: "language.english" },
+  { code: "it", labelKey: "language.italian" },
+  { code: "es", labelKey: "language.spanish" },
+  { code: "fr", labelKey: "language.french" },
+  { code: "de", labelKey: "language.german" },
+  { code: "pt", labelKey: "language.portuguese" },
+  { code: "nl", labelKey: "language.dutch" },
+  { code: "ja", labelKey: "language.japanese" },
+  { code: "zh", labelKey: "language.chinese" },
+  { code: "ko", labelKey: "language.korean" },
+  { code: "ru", labelKey: "language.russian" },
+  { code: "ar", labelKey: "language.arabic" },
+  { code: "hi", labelKey: "language.hindi" },
+  { code: "tr", labelKey: "language.turkish" },
+  { code: "pl", labelKey: "language.polish" },
+  { code: "el", labelKey: "language.greek" },
+  { code: "cs", labelKey: "language.czech" },
+  { code: "sv", labelKey: "language.swedish" },
+  { code: "ro", labelKey: "language.romanian" },
+  { code: "uk", labelKey: "language.ukrainian" },
 ];
 
 function DictationSettingsPanel({
@@ -2747,6 +2777,7 @@ function DictationSettingsPanel({
   settings: StikSettings;
   onSettingsChange: (s: StikSettings) => void;
 }) {
+  const { t } = useTranslation();
   const [models, setModels] = useState<DictationModelInfo[]>([]);
   const [status, setStatus] = useState<DictationStatus | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -2917,7 +2948,7 @@ function DictationSettingsPanel({
           value={dictation.active_language ?? ""}
           options={DICTATION_LANGUAGES.map((l) => ({
             value: l.code ?? "",
-            label: l.label,
+            label: t(l.labelKey),
           }))}
           onChange={(value) =>
             onSettingsChange({
@@ -2928,7 +2959,7 @@ function DictationSettingsPanel({
               },
             })
           }
-          placeholder="Select language"
+          placeholder={t("dictation.selectLanguage")}
         />
         <p className="mt-1.5 text-[11px] text-stone">
           Auto-detect works for most cases. Pick a specific language for the

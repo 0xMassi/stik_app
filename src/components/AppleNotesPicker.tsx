@@ -2,9 +2,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { AppleNoteEntry, StikSettings } from "@/types";
+import { useTranslation } from "@/hooks/useTranslation";
 import { formatRelativeDate } from "@/utils/formatRelativeDate";
 
 export default function AppleNotesPicker() {
+  const { t } = useTranslation();
   const [notes, setNotes] = useState<AppleNoteEntry[]>([]);
   const [filteredNotes, setFilteredNotes] = useState<AppleNoteEntry[]>([]);
   const [query, setQuery] = useState("");
@@ -232,7 +234,7 @@ export default function AppleNotesPicker() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search Apple Notes..."
+            placeholder={t("appleNotes.searchPlaceholder")}
             className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-stone outline-none"
           />
           {isLoading && (
@@ -312,7 +314,7 @@ export default function AppleNotesPicker() {
           </span>
         </div>
         <span>
-          <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">esc</kbd>{" "}
+          <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">{t("common.esc")}</kbd>{" "}
           close
         </span>
       </div>

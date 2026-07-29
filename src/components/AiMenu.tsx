@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface AiMenuProps {
   content: string;
@@ -25,6 +26,7 @@ export default function AiMenu({
   onShowToast,
   disabled,
 }: AiMenuProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentAction, setCurrentAction] = useState<AiAction>(null);
@@ -135,7 +137,7 @@ export default function AiMenu({
               ? "bg-coral-light text-coral"
               : "hover:bg-coral-light text-coral/70 hover:text-coral"
         }`}
-        title="AI Assistant"
+        title={t("ai.assistant")}
       >
         <svg
           width="13"
@@ -209,7 +211,7 @@ export default function AiMenu({
               <div className="px-3 py-2 space-y-2">
                 {organizeResult.suggested_folder && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-stone">Folder:</span>
+                    <span className="text-[10px] text-stone">{t("ai.folder")}</span>
                     <span className="text-[11px] font-medium text-ink px-1.5 py-0.5 bg-coral/10 rounded">
                       {organizeResult.suggested_folder}
                     </span>
@@ -217,7 +219,7 @@ export default function AiMenu({
                 )}
                 {organizeResult.tags.length > 0 && (
                   <div className="flex items-start gap-2">
-                    <span className="text-[10px] text-stone mt-0.5">Tags:</span>
+                    <span className="text-[10px] text-stone mt-0.5">{t("ai.tags")}</span>
                     <div className="flex flex-wrap gap-1">
                       {organizeResult.tags.map((tag) => (
                         <span
@@ -256,7 +258,7 @@ export default function AiMenu({
           {!isProcessing && !previewText && !organizeResult && showStylePicker && (
             <div className="min-w-[160px]">
               <div className="px-3 py-1.5 border-b border-line">
-                <span className="text-[10px] text-stone">Choose style</span>
+                <span className="text-[10px] text-stone">{t("ai.chooseStyle")}</span>
               </div>
               {(["casual", "formal", "professional", "concise"] as RephraseStyle[]).map(
                 (style) => (

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface LockPromptProps {
   onAuthenticated: () => void;
@@ -10,6 +11,7 @@ export default function LockPrompt({
   onAuthenticated,
   onCancel,
 }: LockPromptProps) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<"idle" | "authenticating" | "failed">(
     "idle",
   );
@@ -46,7 +48,7 @@ export default function LockPrompt({
           <path d="M7 11V7a5 5 0 0 1 10 0v4" />
         </svg>
 
-        <p className="text-[14px] font-medium text-ink">Locked Note</p>
+        <p className="text-[14px] font-medium text-ink">{t("lock.lockedNote")}</p>
         <p className="text-[12px] text-stone mt-1 leading-relaxed">
           {status === "failed"
             ? "Authentication failed. Try again."

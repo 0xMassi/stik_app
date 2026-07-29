@@ -13,6 +13,7 @@ import type { StickedNote, StikSettings } from "@/types";
 import { isMarkdownEffectivelyEmpty } from "@/utils/normalizeMarkdownForCopy";
 import { shouldHideCaptureOnBlur } from "@/utils/blurAutoHide";
 import { resolveCaptureFolder } from "@/utils/folderSelection";
+import { useLanguageSync, useTranslation } from "@/hooks/useTranslation";
 
 type WindowType =
   | "postit"
@@ -55,6 +56,8 @@ function getWindowInfo(): { type: WindowType; id?: string; viewing?: boolean } {
 
 export default function App() {
   useTheme();
+  useLanguageSync();
+  const { t } = useTranslation();
   const [currentFolder, setCurrentFolder] = useState("");
   const [stickedNote, setStickedNote] = useState<StickedNote | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -406,7 +409,7 @@ export default function App() {
       return (
         <div className="w-full h-full flex flex-col items-center justify-center bg-bg rounded-[14px] gap-3 p-6">
           <div className="text-coral text-sm font-medium">
-            Failed to load note
+            {t("note.failedToLoad")}
           </div>
           <div className="text-stone text-xs text-center max-w-[280px]">
             {loadError}
@@ -420,7 +423,7 @@ export default function App() {
             }}
             className="mt-2 px-4 py-2 text-xs bg-line hover:bg-line/70 text-ink rounded-lg transition-colors"
           >
-            Close
+            {t("common.close")}
           </button>
         </div>
       );
@@ -429,7 +432,7 @@ export default function App() {
     if (!stickedNote) {
       return (
         <div className="w-full h-full flex items-center justify-center bg-bg rounded-[14px]">
-          <div className="text-stone text-sm">Loading...</div>
+          <div className="text-stone text-sm">{t("common.loading")}</div>
         </div>
       );
     }

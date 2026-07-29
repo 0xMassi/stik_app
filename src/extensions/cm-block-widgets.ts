@@ -11,6 +11,7 @@
  */
 
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
+import { t } from "@/i18n";
 import {
   StateField,
   StateEffect,
@@ -156,7 +157,7 @@ function showTableContextMenu(
 
   const actions: MenuAction[] = [
     {
-      label: "Insert row above",
+      label: t("table.insertRowAbove"),
       disabled: isHeader,
       action: () => {
         rows.splice(Math.max(rowIdx, 0), 0, headers.map(() => ""));
@@ -164,7 +165,7 @@ function showTableContextMenu(
       },
     },
     {
-      label: "Insert row below",
+      label: t("table.insertRowBelow"),
       action: () => {
         const insertAt = isHeader ? 0 : rowIdx + 1;
         rows.splice(insertAt, 0, headers.map(() => ""));
@@ -173,7 +174,7 @@ function showTableContextMenu(
     },
     { label: "", separator: true, action: () => {} },
     {
-      label: "Insert column left",
+      label: t("table.insertColumnLeft"),
       action: () => {
         headers.splice(colIdx, 0, "");
         rows.forEach((row) => row.splice(colIdx, 0, ""));
@@ -181,7 +182,7 @@ function showTableContextMenu(
       },
     },
     {
-      label: "Insert column right",
+      label: t("table.insertColumnRight"),
       action: () => {
         headers.splice(colIdx + 1, 0, "");
         rows.forEach((row) => row.splice(colIdx + 1, 0, ""));
@@ -190,7 +191,7 @@ function showTableContextMenu(
     },
     { label: "", separator: true, action: () => {} },
     {
-      label: "Delete row",
+      label: t("table.deleteRow"),
       disabled: isHeader || rows.length <= 1,
       action: () => {
         rows.splice(rowIdx, 1);
@@ -198,7 +199,7 @@ function showTableContextMenu(
       },
     },
     {
-      label: "Delete column",
+      label: t("table.deleteColumn"),
       disabled: headers.length <= 1,
       action: () => {
         headers.splice(colIdx, 1);
@@ -368,7 +369,7 @@ class TableWidget extends WidgetType {
     // ── Add row button (direct listener — fires before CM6) ────────
     const addRowBtn = document.createElement("button");
     addRowBtn.className = "cm-table-add-row";
-    addRowBtn.title = "Add row below";
+    addRowBtn.title = t("table.addRowBelow");
     addRowBtn.textContent = "+";
     addRowBtn.addEventListener("mousedown", (e) => {
       e.preventDefault();
@@ -405,7 +406,7 @@ class TableWidget extends WidgetType {
     // ── Add column button (direct listener) ────────────────────────
     const addColBtn = document.createElement("button");
     addColBtn.className = "cm-table-add-col";
-    addColBtn.title = "Add column to the right";
+    addColBtn.title = t("table.addColumnRight");
     addColBtn.textContent = "+";
     addColBtn.addEventListener("mousedown", (e) => {
       e.preventDefault();

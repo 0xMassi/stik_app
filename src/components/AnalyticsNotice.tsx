@@ -1,5 +1,6 @@
 import { open } from "@tauri-apps/plugin-shell";
 import { SETTINGS_SOCIAL_LINKS } from "@/utils/settingsSocialLinks";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const GITHUB_URL = "https://github.com/0xMassi/stik_app";
 
@@ -11,6 +12,7 @@ interface AnalyticsNoticeProps {
 }
 
 export default function AnalyticsNotice({ onDismiss }: AnalyticsNoticeProps) {
+  const { t } = useTranslation();
   const handleOpen = async (url: string) => {
     try {
       await open(url);
@@ -24,7 +26,7 @@ export default function AnalyticsNotice({ onDismiss }: AnalyticsNoticeProps) {
       <div className="bg-bg rounded-[14px] w-[380px] shadow-stik flex flex-col overflow-hidden">
         {/* Content */}
         <div className="px-5 pt-5 pb-0">
-          <h2 className="text-[14px] font-semibold text-ink mb-2.5">What's New</h2>
+          <h2 className="text-[14px] font-semibold text-ink mb-2.5">{t("analytics.whatsNew")}</h2>
           <p className="text-[12px] text-stone leading-relaxed">
             We added anonymous analytics to help improve Stik. This only tracks basic usage (app opens, notes created)
             — never your content or personal data.
@@ -39,7 +41,7 @@ export default function AnalyticsNotice({ onDismiss }: AnalyticsNoticeProps) {
 
         {/* Social links */}
         <div className="px-5">
-          <p className="text-[12px] text-stone mb-2.5">If you're enjoying Stik, consider:</p>
+          <p className="text-[12px] text-stone mb-2.5">{t("analytics.ifEnjoying")}</p>
           <div className="flex items-center gap-2">
             <button
               type="button"

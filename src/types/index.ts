@@ -106,6 +106,8 @@ export interface StikSettings {
   note_lock: NoteLockSettings;
   use_directory_as_root?: boolean;
   dictation?: DictationSettings;
+  /// BCP-47 locale tag for the UI language. "" = follow system language.
+  language?: string;
 }
 
 export interface DictationSettings {
