@@ -13,6 +13,7 @@ import {
 } from "@codemirror/autocomplete";
 import { EditorView } from "@codemirror/view";
 import type { CustomTemplate } from "@/types";
+import { t } from "@/i18n";
 
 interface SlashTemplate {
   command: string;
@@ -58,12 +59,12 @@ let customTemplates: SlashTemplate[] = [];
 
 /** Convert user-defined templates into SlashTemplates with {{cursor}} support. */
 export function setCustomTemplates(templates: CustomTemplate[]): void {
-  customTemplates = templates.map((t) => ({
-    command: t.name,
-    badge: "Custom",
+  customTemplates = templates.map((tpl) => ({
+    command: tpl.name,
+    badge: t("slash.custom"),
     boost: -1,
     insert: () => {
-      const resolved = resolvePlaceholders(t.body);
+      const resolved = resolvePlaceholders(tpl.body);
       const idx = resolved.indexOf("{{cursor}}");
       if (idx >= 0) {
         return { text: resolved.replace("{{cursor}}", ""), cursor: idx };
@@ -78,37 +79,37 @@ export function setCustomTemplates(templates: CustomTemplate[]): void {
 const BUILTIN_TEMPLATES: SlashTemplate[] = [
   {
     command: "h1",
-    badge: "Heading",
+    badge: t("slash.heading"),
     boost: 0,
     insert: () => ({ text: "# ", cursor: 2 }),
   },
   {
     command: "h2",
-    badge: "Heading",
+    badge: t("slash.heading"),
     boost: 0,
     insert: () => ({ text: "## ", cursor: 3 }),
   },
   {
     command: "h3",
-    badge: "Heading",
+    badge: t("slash.heading"),
     boost: 0,
     insert: () => ({ text: "### ", cursor: 4 }),
   },
   {
     command: "list",
-    badge: "List",
+    badge: t("slash.list"),
     boost: 0,
     insert: () => ({ text: "- \n- \n- ", cursor: 2 }),
   },
   {
     command: "numbered",
-    badge: "List",
+    badge: t("slash.list"),
     boost: 0,
     insert: () => ({ text: "1. \n2. \n3. ", cursor: 3 }),
   },
   {
     command: "todo",
-    badge: "Tasks",
+    badge: t("slash.tasks"),
     boost: 0,
     insert: () => ({ text: "- [ ] \n- [ ] \n- [ ] ", cursor: 6 }),
   },
@@ -120,7 +121,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "code",
-    badge: "Code",
+    badge: t("slash.code"),
     boost: 0,
     insert: () => ({ text: "```\n\n```", cursor: 4 }),
   },
@@ -155,7 +156,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   // ── Note templates ──────────────────────────────────────────────
   {
     command: "meeting",
-    badge: "Template",
+    badge: t("slash.template"),
     boost: -1,
     insert: () => {
       const text = resolvePlaceholders(
@@ -167,7 +168,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "standup",
-    badge: "Template",
+    badge: t("slash.template"),
     boost: -1,
     insert: () => {
       const text = resolvePlaceholders(
@@ -179,7 +180,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "journal",
-    badge: "Template",
+    badge: t("slash.template"),
     boost: -1,
     insert: () => {
       const text = resolvePlaceholders(
@@ -190,7 +191,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "brainstorm",
-    badge: "Template",
+    badge: t("slash.template"),
     boost: -1,
     insert: () => {
       const text = "# Brainstorm: \n\n## Ideas\n\n- \n\n## Favorites\n\n- \n\n## Next Steps\n\n- ";
@@ -200,7 +201,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "retro",
-    badge: "Template",
+    badge: t("slash.template"),
     boost: -1,
     insert: () => {
       const text = resolvePlaceholders(
@@ -212,7 +213,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "proscons",
-    badge: "Template",
+    badge: t("slash.template"),
     boost: -1,
     insert: () => {
       const text = "# Decision: \n\n## Pros\n\n- \n\n## Cons\n\n- \n\n## Verdict\n\n";
@@ -222,7 +223,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "weekly",
-    badge: "Template",
+    badge: t("slash.template"),
     boost: -1,
     insert: () => {
       const text = resolvePlaceholders(

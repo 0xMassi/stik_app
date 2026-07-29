@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 const BREAK_PLACEHOLDER_RE = /<br\s*\/?>/gi;
 const MARKDOWN_IMAGE_RE = /!\[([^\]]*)\]\(([^)]+)\)/g;
 const MARKDOWN_LINK_RE = /\[([^\]]+)\]\(([^)]+)\)/g;
@@ -25,7 +26,7 @@ export function extractNoteTitle(content: string): string {
       return normalized.slice(0, 120);
     }
   }
-  return "Untitled";
+  return t("common.untitled");
 }
 
 export function normalizeNoteSnippet(value: string): string {

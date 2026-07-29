@@ -51,8 +51,8 @@ export default function LockPrompt({
         <p className="text-[14px] font-medium text-ink">{t("lock.lockedNote")}</p>
         <p className="text-[12px] text-stone mt-1 leading-relaxed">
           {status === "failed"
-            ? "Authentication failed. Try again."
-            : "Authenticate to view this note."}
+            ? t("lock.authFailed")
+            : t("lock.authPrompt")}
         </p>
 
         <div className="flex items-center gap-2 mt-4">
@@ -69,7 +69,7 @@ export default function LockPrompt({
             disabled={status === "authenticating"}
             className="flex-1 px-3 py-2 text-[12px] text-white bg-coral rounded-lg hover:bg-coral/90 transition-colors disabled:opacity-50"
           >
-            {status === "authenticating" ? "Waiting..." : "Unlock"}
+            {status === "authenticating" ? t("common.waiting") : t("common.unlock")}
           </button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { open } from "@tauri-apps/plugin-shell";
 import { SETTINGS_SOCIAL_LINKS } from "@/utils/settingsSocialLinks";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface SettingsFooterLinksProps {
   appVersion: string;
@@ -28,6 +29,7 @@ function iconForLink(id: string) {
 }
 
 export default function SettingsFooterLinks({ appVersion }: SettingsFooterLinksProps) {
+  const { t } = useTranslation();
   const handleOpen = async (href: string) => {
     try {
       await open(href);
@@ -56,10 +58,10 @@ export default function SettingsFooterLinks({ appVersion }: SettingsFooterLinksP
                   ? "px-2 py-1 text-[11px] text-stone hover:text-coral hover:bg-line"
                   : "p-1.5 text-stone hover:text-coral hover:bg-line"
               }`}
-              title={link.label}
-              aria-label={link.ariaLabel}
+              title={t(link.labelKey)}
+              aria-label={t(link.ariaLabelKey)}
             >
-              {icon ?? <span className="text-[11px]">{link.label}</span>}
+              {icon ?? <span className="text-[11px]">{t(link.labelKey)}</span>}
             </button>
           );
         })}

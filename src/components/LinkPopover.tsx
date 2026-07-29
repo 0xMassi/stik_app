@@ -323,7 +323,7 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
             <button
               onClick={handleCopy}
               className="link-popover-btn"
-              title={copied ? "Copied!" : "Copy URL"}
+              title={copied ? t("common.copied") : t("link.copyUrl")}
             >
               {copied ? (
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

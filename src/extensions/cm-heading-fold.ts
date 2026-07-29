@@ -83,7 +83,7 @@ const foldConfig = codeFolding({
     el.className = "cm-heading-fold-placeholder";
     el.textContent = "...";
     el.title = t("heading.unfold");
-    el.setAttribute("aria-label", "Folded content. Click to unfold.");
+    el.setAttribute("aria-label", t("fold.foldedContent"));
     el.addEventListener("click", onclick);
     return el;
   },

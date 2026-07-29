@@ -233,7 +233,7 @@ export default function ShortcutRecorder({
       if (!shortcut) {
         // Show hint if user pressed a key without modifiers
         if (!["Meta", "Control", "Alt", "Shift"].includes(e.key)) {
-          showToast("Hold ⌘, ⌃, ⇧, or ⌥ with a key", "info");
+          showToast(t("settings.shortcut.holdModifier"), "info");
         }
         return;
       }
@@ -242,7 +242,7 @@ export default function ShortcutRecorder({
       if (reservedShortcuts.includes(shortcut)) {
         pendingShortcutRef.current = shortcut;
         hasErrorRef.current = true;
-        showToast("This shortcut is reserved by Stik", "error");
+        showToast(t("settings.shortcut.reserved"), "error");
         setTempShortcut(shortcut);
         return;
       }
@@ -251,7 +251,7 @@ export default function ShortcutRecorder({
       if (existingShortcuts.includes(shortcut) && shortcut !== value) {
         pendingShortcutRef.current = shortcut;
         hasErrorRef.current = true;
-        showToast("This shortcut is already in use", "error");
+        showToast(t("settings.shortcut.inUse"), "error");
         setTempShortcut(shortcut);
         return;
       }
@@ -313,7 +313,7 @@ export default function ShortcutRecorder({
   const displayValue = isRecording
     ? tempShortcut
       ? formatShortcutDisplay(tempShortcut)
-      : "Press keys..."
+      : t("settings.shortcut.pressKeys")
     : formatShortcutDisplay(value);
 
   return (

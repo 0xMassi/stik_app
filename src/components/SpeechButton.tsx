@@ -18,6 +18,7 @@ import { listen } from "@tauri-apps/api/event";
 import type { DictationStatus } from "@/types";
 import DictationSetupModal from "./DictationSetupModal";
 import "@/styles/speech-button.css";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface SpeechButtonProps {
   onPartialText: (text: string, replaceFrom: number) => void;
@@ -58,6 +59,7 @@ const SpeechButton = forwardRef<SpeechButtonRef, SpeechButtonProps>(
     },
     ref,
   ) {
+    const { t } = useTranslation();
     const [state, setState] = useState<DictationState>("idle");
     const [error, setError] = useState<string | null>(null);
     const [setupOpen, setSetupOpen] = useState(false);
@@ -148,7 +150,7 @@ const SpeechButton = forwardRef<SpeechButtonRef, SpeechButtonProps>(
           if (!mountedRef.current) return;
           setState("idle");
           activelyRecordingRef.current = false;
-          setError(event.payload.message || "Dictation failed");
+          setError(event.payload.message || t("dictation.failed"));
         },
       );
 
@@ -274,14 +276,14 @@ const SpeechButton = forwardRef<SpeechButtonRef, SpeechButtonProps>(
               .join(" ")}
             title={
               isRecording
-                ? "Stop dictation"
+                ? t("dictation.stop")
                 : isBusy
                   ? state === "starting"
-                    ? "Starting…"
-                    : "Processing…"
-                  : "Start dictation"
+                    ? t("dictation.starting")
+                    : t("dictation.processing")
+                  : t("dictation.start")
             }
-            aria-label={isRecording ? "Stop dictation" : "Start dictation"}
+            aria-label={isRecording ? t("dictation.stop") : t("dictation.start")}
             aria-pressed={isRecording}
           >
             {isRecording ? <RecordingIcon /> : <MicrophoneIcon />}

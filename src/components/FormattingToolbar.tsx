@@ -162,7 +162,7 @@ export default function FormattingToolbar({
         className={`fmt-btn${active.link ? " fmt-active" : ""}${!active.link && !active.hasSelection ? " fmt-disabled" : ""}`}
         onMouseDown={preventFocus}
         onClick={() => cmd((view) => insertLink(view))}
-        title={active.hasSelection ? "Add link" : "Add link (select text first)"}
+        title={active.hasSelection ? t("format.addLink") : t("format.addLinkHint")}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -231,7 +231,7 @@ export default function FormattingToolbar({
             cmd((view) => toggleInlineFormat(view, "=="));
           }
         }}
-        title={active.hasSelection || active.highlight ? "Highlight" : "Highlight (select text first)"}
+        title={active.hasSelection || active.highlight ? t("format.highlight") : t("format.highlightHint")}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M18.5 1.15c-.53 0-1.04.19-1.43.58l-5.81 5.82 5.65 5.65 5.82-5.81c.77-.78.77-2.04 0-2.83l-2.84-2.83c-.39-.39-.89-.58-1.39-.58zM10.3 8.5l-4.59 4.58c-.89.89-.89 2.34 0 3.24L7.13 22h2.82l-2.07-5.68 4.62-4.62L10.3 8.5zM5 22c0 .55.45 1 1 1h2l-3-3-.01 2z" />

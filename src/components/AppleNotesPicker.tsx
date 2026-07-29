@@ -252,8 +252,8 @@ export default function AppleNotesPicker() {
         ) : filteredNotes.length === 0 ? (
           <div className="p-4 text-center text-stone text-sm">
             {query.trim()
-              ? `No notes matching "${query}"`
-              : "No notes found in Apple Notes"}
+              ? t("appleNotes.noMatch", { query })
+              : t("appleNotes.noneFound")}
           </div>
         ) : (
           filteredNotes.map((note, index) => (
@@ -275,14 +275,14 @@ export default function AppleNotesPicker() {
                 <span className="text-[10px] text-stone font-mono">
                   {formatRelativeDate(note.modified_date)}
                 </span>
-                {note.account_name !== "Local" && (
+                {note.account_name !== t("appleNotes.local") && (
                   <span className="text-[9px] text-stone/60">
                     {note.account_name}
                   </span>
                 )}
               </div>
               <p className="text-[14px] font-medium text-ink leading-relaxed truncate">
-                {note.title || "Untitled"}
+                {note.title || t("common.untitled")}
               </p>
               {note.snippet && (
                 <p className="text-[12px] text-stone leading-relaxed mt-0.5 truncate">
