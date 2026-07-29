@@ -1,5 +1,8 @@
 # Dependencies
-node_modules/
+# No trailing slash: `node_modules/` only matches directories, so a
+# `node_modules` *symlink* (as created by git worktrees sharing an install)
+# slipped past it and got committed.
+node_modules
 
 # Build
 dist/
