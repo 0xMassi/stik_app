@@ -35,6 +35,7 @@ import { getFolderColor } from "@/utils/folderColors";
 import { formatShortcutDisplay } from "./ShortcutRecorder";
 import { loadGoogleFont, loadCustomFont } from "@/utils/fonts";
 import SyncIndicator from "./SyncIndicator";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface PostItProps {
   folder: string;
@@ -105,6 +106,7 @@ export default function PostIt({
   isViewing = false,
   originalPath,
 }: PostItProps) {
+  const { t } = useTranslation();
   const [content, setContent] = useState(initialContent || "");
   const [showPicker, setShowPicker] = useState(false);
   const [suggestedFolder, setSuggestedFolder] = useState<string | null>(null);
@@ -1530,7 +1532,7 @@ export default function PostIt({
               d="M15 26l7 7 15-15"
             />
           </svg>
-          <p className="save-text text-coral font-semibold text-sm">Saved</p>
+          <p className="save-text text-coral font-semibold text-sm">{t("common.saved")}</p>
         </div>
       </div>
     );
@@ -1566,7 +1568,7 @@ export default function PostIt({
                         ? "hover:bg-coral-light text-coral hover:text-coral"
                         : "text-stone/50 cursor-not-allowed"
                     }`}
-                    title="Pin to screen"
+                    title={t("postit.pinToScreen")}
                   >
                     <svg
                       width="14"
@@ -1660,7 +1662,7 @@ export default function PostIt({
                           ? "text-coral bg-coral-light"
                           : "text-stone hover:bg-line hover:text-ink"
                       }`}
-                      title="Actions"
+                      title={t("postit.actions")}
                     >
                       <svg
                         width="14"
@@ -1801,7 +1803,7 @@ export default function PostIt({
                     <button
                       onClick={handleCloseWithoutSaving}
                       className="px-2 py-1 rounded-md hover:bg-line text-stone hover:text-ink transition-colors text-[10px]"
-                      title="Close without saving"
+                      title={t("postit.closeWithoutSaving")}
                     >
                       Close
                     </button>
@@ -1826,7 +1828,7 @@ export default function PostIt({
                   <button
                     onClick={handleSaveAndCloseSticked}
                     className="px-2.5 py-1.5 bg-coral-light text-coral rounded-lg text-[10px] font-semibold hover:bg-coral hover:text-white transition-colors cursor-pointer"
-                    title="Save and close (Esc)"
+                    title={t("postit.saveAndClose")}
                   >
                     esc
                   </button>
@@ -1834,7 +1836,7 @@ export default function PostIt({
                   <button
                     onClick={handleSaveAndClose}
                     className="px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors bg-coral-light text-coral hover:bg-coral hover:text-white cursor-pointer"
-                    title="Save and close (Esc)"
+                    title={t("postit.saveAndClose")}
                   >
                     esc
                   </button>

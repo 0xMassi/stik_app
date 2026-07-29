@@ -10,39 +10,42 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { DictationModelInfo, DictationDownloadProgress } from "@/types";
 import { Dropdown } from "./SettingsContent";
+import { useTranslation } from "@/hooks/useTranslation";
+import type { TranslationKey } from "@/i18n";
 
 interface Props {
   onClose: () => void;
   onReady: (modelId: string, language: string | null) => void;
 }
 
-const LANGUAGES: { code: string | null; label: string }[] = [
-  { code: null, label: "Auto-detect" },
-  { code: "en", label: "English" },
-  { code: "it", label: "Italian" },
-  { code: "es", label: "Spanish" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "pt", label: "Portuguese" },
-  { code: "nl", label: "Dutch" },
-  { code: "ja", label: "Japanese" },
-  { code: "zh", label: "Chinese" },
-  { code: "ko", label: "Korean" },
-  { code: "ru", label: "Russian" },
-  { code: "ar", label: "Arabic" },
-  { code: "hi", label: "Hindi" },
-  { code: "tr", label: "Turkish" },
-  { code: "pl", label: "Polish" },
-  { code: "el", label: "Greek" },
-  { code: "cs", label: "Czech" },
-  { code: "sv", label: "Swedish" },
-  { code: "ro", label: "Romanian" },
-  { code: "uk", label: "Ukrainian" },
+const LANGUAGES: { code: string | null; labelKey: TranslationKey }[] = [
+  { code: null, labelKey: "language.autoDetect" },
+  { code: "en", labelKey: "language.english" },
+  { code: "it", labelKey: "language.italian" },
+  { code: "es", labelKey: "language.spanish" },
+  { code: "fr", labelKey: "language.french" },
+  { code: "de", labelKey: "language.german" },
+  { code: "pt", labelKey: "language.portuguese" },
+  { code: "nl", labelKey: "language.dutch" },
+  { code: "ja", labelKey: "language.japanese" },
+  { code: "zh", labelKey: "language.chinese" },
+  { code: "ko", labelKey: "language.korean" },
+  { code: "ru", labelKey: "language.russian" },
+  { code: "ar", labelKey: "language.arabic" },
+  { code: "hi", labelKey: "language.hindi" },
+  { code: "tr", labelKey: "language.turkish" },
+  { code: "pl", labelKey: "language.polish" },
+  { code: "el", labelKey: "language.greek" },
+  { code: "cs", labelKey: "language.czech" },
+  { code: "sv", labelKey: "language.swedish" },
+  { code: "ro", labelKey: "language.romanian" },
+  { code: "uk", labelKey: "language.ukrainian" },
 ];
 
 type Phase = "choose" | "downloading" | "loading" | "error";
 
 export default function DictationSetupModal({ onClose, onReady }: Props) {
+  const { t } = useTranslation();
   const [models, setModels] = useState<DictationModelInfo[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
@@ -182,10 +185,10 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
                 value={selectedLanguage ?? ""}
                 options={LANGUAGES.map((l) => ({
                   value: l.code ?? "",
-                  label: l.label,
+                  label: t(l.labelKey),
                 }))}
                 onChange={(value) => setSelectedLanguage(value || null)}
-                placeholder="Select language"
+                placeholder={t("dictation.selectLanguage")}
               />
             </div>
 
