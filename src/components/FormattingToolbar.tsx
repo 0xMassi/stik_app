@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { EditorView } from "@codemirror/view";
+import { useTranslation } from "@/hooks/useTranslation";
 import {
   toggleInlineFormat,
   toggleLinePrefix,
@@ -40,6 +41,7 @@ export default function FormattingToolbar({
   getView,
   onFormatStateChange,
 }: FormattingToolbarProps) {
+  const { t } = useTranslation();
   const [active, setActive] = useState<FormatState>(EMPTY_STATE);
   const [headingOpen, setHeadingOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -81,7 +83,7 @@ export default function FormattingToolbar({
           className={`fmt-btn fmt-btn-heading${active.heading ? " fmt-active" : ""}`}
           onMouseDown={preventFocus}
           onClick={() => setHeadingOpen(!headingOpen)}
-          title="Heading"
+          title={t("format.heading")}
         >
           <span className="fmt-heading-label">H{active.heading || ""}</span>
           <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor">
@@ -113,7 +115,7 @@ export default function FormattingToolbar({
         className={`fmt-btn${active.bold ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
         onClick={() => cmd((view) => toggleInlineFormat(view, "**"))}
-        title="Bold"
+        title={t("format.bold")}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" opacity="0" />
@@ -125,7 +127,7 @@ export default function FormattingToolbar({
         className={`fmt-btn${active.italic ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
         onClick={() => cmd((view) => toggleInlineFormat(view, "*"))}
-        title="Italic"
+        title={t("format.italic")}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z" />
@@ -136,7 +138,7 @@ export default function FormattingToolbar({
         className={`fmt-btn${active.strike ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
         onClick={() => cmd((view) => toggleInlineFormat(view, "~~"))}
-        title="Strikethrough"
+        title={t("format.strikethrough")}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M10 19h4v-3h-4v3zM5 4v3h5v3h4V7h5V4H5zM3 14h18v-2H3v2z" />
@@ -147,7 +149,7 @@ export default function FormattingToolbar({
         className={`fmt-btn${active.code ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
         onClick={() => cmd((view) => toggleInlineFormat(view, "`"))}
-        title="Inline code"
+        title={t("format.inlineCode")}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="16 18 22 12 16 6" />
@@ -174,7 +176,7 @@ export default function FormattingToolbar({
         className={`fmt-btn${active.blockquote ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
         onClick={() => cmd((view) => toggleLinePrefix(view, ">"))}
-        title="Blockquote"
+        title={t("format.blockquote")}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z" />
@@ -185,7 +187,7 @@ export default function FormattingToolbar({
         className={`fmt-btn${active.bulletList ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
         onClick={() => cmd((view) => toggleLinePrefix(view, "-"))}
-        title="Bullet list"
+        title={t("format.bulletList")}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z" />
@@ -196,7 +198,7 @@ export default function FormattingToolbar({
         className={`fmt-btn${active.orderedList ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
         onClick={() => cmd((view) => toggleLinePrefix(view, "1."))}
-        title="Ordered list"
+        title={t("format.orderedList")}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z" />
@@ -207,7 +209,7 @@ export default function FormattingToolbar({
         className={`fmt-btn${active.taskList ? " fmt-active" : ""}`}
         onMouseDown={preventFocus}
         onClick={() => cmd((view) => toggleLinePrefix(view, "- [ ]"))}
-        title="Task list"
+        title={t("format.taskList")}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="5" width="6" height="6" rx="1" />

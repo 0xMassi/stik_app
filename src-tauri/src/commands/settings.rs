@@ -184,12 +184,17 @@ pub struct StikSettings {
     pub use_directory_as_root: bool,
     #[serde(default)]
     pub dictation: DictationSettings,
+    /// BCP-47 locale tag for the UI language ("en", "zh-CN").
+    /// Empty string means "follow the system language".
+    #[serde(default)]
+    pub language: String,
 }
 
 impl Default for StikSettings {
     fn default() -> Self {
         Self {
             default_folder: "Inbox".to_string(),
+            language: String::new(),
             shortcut_mappings: vec![
                 ShortcutMapping {
                     shortcut: "CommandOrControl+Shift+S".to_string(),
