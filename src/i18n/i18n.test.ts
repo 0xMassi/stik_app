@@ -32,6 +32,32 @@ describe("locale catalogues", () => {
     expect(drifted).toEqual([]);
   });
 
+  it("has no zh-CN value left identical to English", () => {
+    // Catches strings that were added to the catalogue but never actually
+    // translated. Six theme names sat here reading as English because I had
+    // classified them as proper nouns.
+    const INTENTIONAL = new Set([
+      // key caps, printed in Latin on the physical keyboard
+      "common.enter",
+      "common.esc",
+      "common.opt",
+      "common.tab",
+      // acronym and brand name
+      "settings.tab.ai",
+      "social.discord",
+      "social.x",
+    ]);
+
+    const untranslated = Object.keys(en).filter(
+      (k) =>
+        !INTENTIONAL.has(k) &&
+        zhCN[k as keyof typeof en] === en[k as keyof typeof en] &&
+        /[A-Za-z]{2}/.test(en[k as keyof typeof en]),
+    );
+
+    expect(untranslated).toEqual([]);
+  });
+
   it("registers a catalogue for every advertised locale", () => {
     expect(LOCALES.map((l) => l.id).sort()).toEqual(["en", "zh-CN"]);
   });
