@@ -235,7 +235,8 @@ export default function AppleNotesPicker() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("appleNotes.searchPlaceholder")}
-            className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-stone outline-none"
+            aria-label={t("appleNotes.searchLabel")}
+            className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-stone outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:rounded-md"
           />
           {isLoading && (
             <span className="text-stone text-sm animate-pulse">...</span>
@@ -244,7 +245,7 @@ export default function AppleNotesPicker() {
       </div>
 
       {/* Results */}
-      <div ref={resultsRef} className="flex-1 overflow-y-auto">
+      <div ref={resultsRef} className="flex-1 overflow-y-auto" role="status" aria-live="polite">
         {isLoading ? (
           <div className="p-4 text-center text-stone text-sm">
             {t("appleNotes.loading")}

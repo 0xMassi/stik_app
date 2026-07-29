@@ -1,0 +1,8 @@
+<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shadow -->
+  <path d="M20 28a10 10 0 0 1 10-10h50l36 36v58a10 10 0 0 1-10 10H30a10 10 0 0 1-10-10V28z" fill="#1A1A1A" fill-opacity="0.1"/>
+  <!-- Body -->
+  <path d="M16 22a10 10 0 0 1 10-10h50l36 36v58a10 10 0 0 1-10 10H26a10 10 0 0 1-10-10V22z" fill="#E8705F"/>
+  <!-- Fold -->
+  <path d="M76 12l36 36H86a10 10 0 0 1-10-10V12z" fill="#D6604F"/>
+</svg>

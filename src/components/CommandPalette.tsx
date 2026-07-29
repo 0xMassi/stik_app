@@ -789,10 +789,11 @@ export default function CommandPalette() {
             }}
             placeholder={
               selectedFolder
-                ? `Search in ${selectedFolder}...`
+                ? t("palette.searchInFolder", { folder: selectedFolder })
                 : t("palette.searchAll")
             }
-            className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-stone outline-none"
+            aria-label={t("palette.searchLabel")}
+            className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-stone outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:rounded-md"
           />
           {isSearching && (
             <span className="text-stone text-sm animate-pulse">...</span>

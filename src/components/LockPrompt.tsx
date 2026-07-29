@@ -49,7 +49,11 @@ export default function LockPrompt({
         </svg>
 
         <p className="text-[14px] font-medium text-ink">{t("lock.lockedNote")}</p>
-        <p className="text-[12px] text-stone mt-1 leading-relaxed">
+        <p
+          className="text-[12px] text-stone mt-1 leading-relaxed"
+          role="status"
+          aria-live="polite"
+        >
           {status === "failed"
             ? t("lock.authFailed")
             : t("lock.authPrompt")}

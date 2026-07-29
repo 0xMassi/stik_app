@@ -87,6 +87,10 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
   const [editHref, setEditHref] = useState("");
   const [copied, setCopied] = useState(false);
   const [popoverWidth, setPopoverWidth] = useState(0);
+  // Validation feedback: the save handler used to bail silently on an empty
+  // URL, so the popover just sat there doing nothing.
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const textInputRef = useRef<HTMLInputElement>(null);
   const hrefInputRef = useRef<HTMLInputElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -193,13 +197,23 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
     setIsEditing(true);
   }, [linkInfo]);
 
-  const handleSaveEdit = useCallback(() => {
+  const handleSaveEdit = useCallback(async () => {
     const view = getView();
     if (!view || !linkInfo) return;
 
     const href = editHref.trim() ? normalizeUrl(editHref.trim()) : "";
     const text = editText.trim() || linkInfo.text || href;
-    if (!href || !text) return;
+    if (!href || !text) {
+      setError(t("link.urlRequired"));
+      hrefInputRef.current?.focus();
+      return;
+    }
+
+    setError(null);
+    setIsSaving(true);
+    // Yield once so the disabled/pending state paints before the editor
+    // dispatch, which is synchronous and can be slow on very large documents.
+    await Promise.resolve();
 
     const replacement = `[${text}](${href})`;
     view.dispatch({
@@ -207,8 +221,9 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
     });
 
     setIsEditing(false);
+    setIsSaving(false);
     view.focus();
-  }, [getView, linkInfo, editHref, editText]);
+  }, [getView, linkInfo, editHref, editText, t]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
@@ -243,18 +258,27 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
       {isEditing ? (
         <form
           className="link-popover-edit"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            handleSaveEdit();
+            if (isSaving) return;
+            setIsSaving(true);
+            try {
+              await handleSaveEdit();
+            } finally {
+              setIsSaving(false);
+            }
           }}
           onKeyDown={(e) => {
             consumeEscapeForPopover(e, handleCancelEdit);
           }}
         >
           <div className="link-popover-field">
-            <span className="link-popover-field-label">{t("link.text")}</span>
+            <label className="link-popover-field-label" htmlFor="link-popover-text">
+              {t("link.text")}
+            </label>
             <input
               ref={textInputRef}
+              id="link-popover-text"
               type="text"
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
@@ -273,10 +297,16 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
             />
           </div>
           <div className="link-popover-field">
-            <span className="link-popover-field-label">{t("link.url")}</span>
+            <label className="link-popover-field-label" htmlFor="link-popover-url">
+              {t("link.url")}
+            </label>
             <input
               ref={hrefInputRef}
+              id="link-popover-url"
               type="text"
+              required
+              aria-invalid={error !== null}
+              aria-describedby={error ? "link-popover-error" : undefined}
               value={editHref}
               onChange={(e) => setEditHref(e.target.value)}
               onKeyDown={(e) => {
@@ -287,9 +317,24 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
               spellCheck={false}
             />
           </div>
+          {error && (
+            <p
+              id="link-popover-error"
+              role="alert"
+              className="link-popover-error text-[11px] text-coral"
+            >
+              {error}
+            </p>
+          )}
           <div className="link-popover-edit-actions">
-            <button type="submit" className="link-popover-btn link-popover-save">
-              {t("common.save")}
+            <button
+              type="submit"
+              disabled={isSaving}
+              aria-disabled={isSaving || !editHref.trim()}
+              aria-busy={isSaving}
+              className="link-popover-btn link-popover-save disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSaving ? t("common.saving") : t("common.save")}
             </button>
           </div>
         </form>

@@ -1,0 +1,6 @@
+# Stik is a macOS desktop application. Its HTML is bundled inside the .app and
+# served over Tauri's local asset protocol, so it is never reachable by a
+# crawler. This file records that explicitly rather than leaving the policy
+# ambiguous: nothing here should be indexed.
+User-agent: *
+Disallow: /

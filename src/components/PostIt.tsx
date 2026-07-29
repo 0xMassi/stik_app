@@ -1912,6 +1912,7 @@ export default function PostIt({
                 <input
                   ref={commandInputRef}
                   type="text"
+                  aria-label={t("postit.vimCommandLabel")}
                   value={vimCommand}
                   onChange={(e) => {
                     setVimCommand(e.target.value);
@@ -1929,7 +1930,7 @@ export default function PostIt({
                       dismissCommandBar();
                     }
                   }}
-                  className="flex-1 bg-transparent text-[13px] font-mono text-ink outline-none placeholder:text-stone/50"
+                  className="flex-1 bg-transparent text-[13px] font-mono text-ink outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:rounded-sm placeholder:text-stone/50"
                   placeholder="wq  q!"
                   spellCheck={false}
                   autoComplete="off"

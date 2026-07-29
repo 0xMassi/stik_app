@@ -30,7 +30,8 @@
     "codemirror": "^6.0.0",
     "marked": "^17.0.2",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",

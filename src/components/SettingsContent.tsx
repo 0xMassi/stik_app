@@ -658,9 +658,15 @@ function CustomThemeEditor({
   return (
     <div className="space-y-4 p-4 bg-line/30 rounded-xl border border-line/50">
       <div>
-        <p className="text-[12px] text-stone mb-1.5">{t("settings.theme.name")}</p>
+        <label
+          className="block text-[12px] text-stone mb-1.5"
+          htmlFor="theme-name-input"
+        >
+          {t("settings.theme.name")}
+        </label>
         <input
           ref={nameInputRef}
+          id="theme-name-input"
           type="text"
           value={theme.name}
           onChange={(e) => onChange({ ...theme, name: e.target.value })}
@@ -1323,6 +1329,7 @@ function AppearanceSection({
           </div>
           <input
             type="range"
+            aria-label={t("settings.opacity.title")}
             min={20}
             max={100}
             step={5}
@@ -1544,11 +1551,17 @@ function TemplatesSection({
         {editingIndex !== null ? (
           <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-3">
             <div>
-              <p className="text-[12px] text-stone mb-1.5">{t("settings.template.commandName")}</p>
+              <label
+                className="block text-[12px] text-stone mb-1.5"
+                htmlFor="template-name-input"
+              >
+                {t("settings.template.commandName")}
+              </label>
               <div className="flex items-center gap-2">
                 <span className="text-[13px] text-stone">/</span>
                 <input
                   ref={nameInputRef}
+                  id="template-name-input"
                   type="text"
                   value={editName}
                   onChange={(e) => {
@@ -1566,8 +1579,14 @@ function TemplatesSection({
             </div>
 
             <div>
-              <p className="text-[12px] text-stone mb-1.5">{t("settings.template.body")}</p>
+              <label
+                className="block text-[12px] text-stone mb-1.5"
+                htmlFor="template-body-input"
+              >
+                {t("settings.template.body")}
+              </label>
               <textarea
+                id="template-body-input"
                 value={editBody}
                 onChange={(e) => {
                   setEditBody(e.target.value);
@@ -2353,8 +2372,14 @@ export default function SettingsContent({
 
           {/* Remote URL — primary field */}
           <div>
-            <p className="text-[12px] text-stone mb-1.5">{t("settings.git.remoteUrl")}</p>
+            <label
+              className="block text-[12px] text-stone mb-1.5"
+              htmlFor="git-remote-url-input"
+            >
+              {t("settings.git.remoteUrl")}
+            </label>
             <input
+              id="git-remote-url-input"
               type="text"
               value={settings.git_sharing.remote_url}
               onChange={(e) => updateGitSharing({ remote_url: e.target.value })}
@@ -2491,8 +2516,14 @@ export default function SettingsContent({
 
               <div className="grid grid-cols-[1fr_130px] gap-3">
                 <div>
-                  <p className="text-[12px] text-stone mb-1.5">{t("settings.git.branch")}</p>
+                  <label
+                    className="block text-[12px] text-stone mb-1.5"
+                    htmlFor="git-branch-input"
+                  >
+                    {t("settings.git.branch")}
+                  </label>
                   <input
+                    id="git-branch-input"
                     type="text"
                     value={settings.git_sharing.branch}
                     onChange={(e) =>
@@ -2503,8 +2534,14 @@ export default function SettingsContent({
                   />
                 </div>
                 <div>
-                  <p className="text-[12px] text-stone mb-1.5">{t("settings.git.pullInterval")}</p>
+                  <label
+                    className="block text-[12px] text-stone mb-1.5"
+                    htmlFor="git-pull-interval-input"
+                  >
+                    {t("settings.git.pullInterval")}
+                  </label>
                   <input
+                    id="git-pull-interval-input"
                     type="number"
                     min={60}
                     step={30}
@@ -2966,7 +3003,11 @@ function DictationSettingsPanel({
                         }}
                       />
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-stone">
+                    <div
+                      className="flex items-center justify-between text-[11px] text-stone"
+                      role="status"
+                      aria-live="polite"
+                    >
                       <span>
                         {(() => {
                           const pct = Math.round(downloadProgress * 100);

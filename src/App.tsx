@@ -273,6 +273,17 @@ export default function App() {
           console.error("Failed to open settings:", error);
         }
       }
+
+      // Cmd/Ctrl+K opens the command menu. Stik has always had it on
+      // Cmd+Shift+P; K is what most people reach for first, so accept both.
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        try {
+          await invoke("open_command_palette");
+        } catch (error) {
+          console.error("Failed to open command palette:", error);
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);

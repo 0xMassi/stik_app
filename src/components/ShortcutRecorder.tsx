@@ -334,26 +334,30 @@ export default function ShortcutRecorder({
           <span className={`font-mono ${isRecording && !tempShortcut ? "text-stone animate-pulse" : ""}`}>
             {displayValue}
           </span>
-          {isRecording ? (
-            <span
-              className="text-[9px] text-stone hover:text-coral cursor-pointer transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                pendingShortcutRef.current = null;
-                hasErrorRef.current = false;
-                setIsRecording(false);
-                setTempShortcut(null);
-              }}
-            >
-              
-              {t("common.cancelLower")}
-            </span>
-          ) : (
+          {!isRecording && (
             <span className="text-[9px] text-stone">
               {t("settings.shortcut.clickToRecord")}
             </span>
           )}
         </button>
+
+        {/* Sibling, not a child: a <button> inside a <button> is invalid HTML
+            and the browser drops the inner one from the tab order. */}
+        {isRecording && (
+          <button
+            type="button"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] text-stone hover:text-coral transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral rounded px-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              pendingShortcutRef.current = null;
+              hasErrorRef.current = false;
+              setIsRecording(false);
+              setTempShortcut(null);
+            }}
+          >
+            {t("common.cancelLower")}
+          </button>
+        )}
       </div>
 
       {/* Toast notification */}

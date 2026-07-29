@@ -104,8 +104,9 @@ export default function NoteList({
               value={newNoteTitle}
               onChange={(e) => onSetNewNoteTitle(e.target.value)}
               placeholder={t("palette.noteTitlePlaceholder")}
+              aria-label={t("palette.newNoteLabel")}
               autoFocus
-              className="flex-1 text-[14px] font-medium bg-transparent text-ink placeholder:text-stone outline-none"
+              className="flex-1 text-[14px] font-medium bg-transparent text-ink placeholder:text-stone outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:rounded-sm"
               onKeyDown={(e) => {
                 e.stopPropagation();
                 if (e.key === "Enter") {

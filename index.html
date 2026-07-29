@@ -3,7 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Stik</title>
+    <link rel="icon" type="image/svg+xml" href="/app-icon.svg" />
+    <title>Stik — instant thought capture for macOS</title>
+    <meta
+      name="description"
+      content="Instant thought capture for macOS. Press a shortcut, type your thought, get back to work. Notes are plain markdown files on your machine."
+    />
+    <!-- Stik ships as a desktop app, so these are never crawled. They exist so
+         the webview reports complete document metadata and so any preview of
+         the bundled HTML renders sensibly. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Stik — instant thought capture for macOS" />
+    <meta
+      property="og:description"
+      content="Press a shortcut, type your thought, get back to work. Notes are plain markdown files on your machine."
+    />
+    <meta property="og:image" content="/app-icon.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Stik — instant thought capture for macOS" />
+    <meta
+      name="twitter:description"
+      content="Press a shortcut, type your thought, get back to work. Notes are plain markdown files on your machine."
+    />
+    <meta name="twitter:image" content="/app-icon.svg" />
   </head>
   <body>
     <div id="root"></div>

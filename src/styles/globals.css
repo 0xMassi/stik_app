@@ -126,6 +126,14 @@ body,
   outline: none;
 }
 
+/* The editor suppresses its own outline because the caret and selection are
+   the real focus affordance, but keyboard users still need a visible boundary
+   when the surface itself takes focus. */
+.stik-editor:focus-visible {
+  outline: 2px solid rgb(var(--color-coral));
+  outline-offset: -2px;
+}
+
 .has-formatting-toolbar .cm-editor {
   padding-bottom: 40px;
 }
@@ -464,6 +472,11 @@ body,
   max-width: 100%;
   min-width: 0;
   outline: none;
+}
+
+.link-popover-input:focus-visible {
+  outline: 2px solid rgb(var(--color-coral));
+  outline-offset: 1px;
 }
 
 .link-popover-edit-actions {

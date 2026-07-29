@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Stik is a macOS desktop app; its HTML is bundled in the .app and served
+     over Tauri's local asset protocol, so there is nothing crawlable. This
+     file exists to make that policy explicit alongside robots.txt, which
+     disallows everything. -->
+<urlset xmlns="http://www.w3.org/1999/sitemap/0.9" />

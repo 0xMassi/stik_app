@@ -85,33 +85,35 @@ export default function FolderSidebar({
 
           return (
             <div key={folder.name}>
-              <button
-                onClick={() => onSelectFolder(folder.name)}
-                className={`w-full px-3 py-2 flex items-center gap-2 text-left text-[12px] transition-colors ${
-                  isSelected
-                    ? focused
-                      ? "bg-coral text-white"
-                      : "bg-coral/10 text-coral"
-                    : "text-ink hover:bg-line/50"
-                }`}
-              >
-                <span
-                  className="text-[8px]"
-                  style={{
-                    color:
-                      isSelected && focused
-                        ? "rgba(255,255,255,0.8)"
-                        : color.dot,
-                  }}
+              {/* While renaming, the row is a plain container: an <input> nested
+                  inside a <button> is invalid HTML, and the click/key handlers
+                  here existed only to stop the button swallowing input events. */}
+              {isCurrentlyRenaming ? (
+                <div
+                  className={`w-full px-3 py-2 flex items-center gap-2 text-left text-[12px] ${
+                    isSelected
+                      ? focused
+                        ? "bg-coral text-white"
+                        : "bg-coral/10 text-coral"
+                      : "text-ink"
+                  }`}
                 >
-                  ●
-                </span>
-                {isCurrentlyRenaming ? (
+                  <span
+                    className="text-[8px]"
+                    style={{
+                      color:
+                        isSelected && focused
+                          ? "rgba(255,255,255,0.8)"
+                          : color.dot,
+                    }}
+                  >
+                    ●
+                  </span>
                   <input
                     type="text"
                     value={renameValue}
+                    aria-label={t("palette.renameFolderLabel")}
                     onChange={(e) => onSetRenameValue(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => {
                       e.stopPropagation();
                       if (e.key === "Enter") {
@@ -123,14 +125,34 @@ export default function FolderSidebar({
                       }
                     }}
                     autoFocus
-                    className="flex-1 text-[12px] font-medium bg-white/20 rounded px-1.5 py-0.5 outline-none min-w-0"
+                    className="flex-1 text-[12px] font-medium bg-white/20 rounded px-1.5 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-coral min-w-0"
                   />
-                ) : (
+                </div>
+              ) : (
+                <button
+                  onClick={() => onSelectFolder(folder.name)}
+                  className={`w-full px-3 py-2 flex items-center gap-2 text-left text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-coral ${
+                    isSelected
+                      ? focused
+                        ? "bg-coral text-white"
+                        : "bg-coral/10 text-coral"
+                      : "text-ink hover:bg-line/50"
+                  }`}
+                >
+                  <span
+                    className="text-[8px]"
+                    style={{
+                      color:
+                        isSelected && focused
+                          ? "rgba(255,255,255,0.8)"
+                          : color.dot,
+                    }}
+                  >
+                    ●
+                  </span>
                   <span className="flex-1 font-medium truncate">
                     {folder.name}
                   </span>
-                )}
-                {!isCurrentlyRenaming && (
                   <span
                     className={`text-[10px] px-1.5 py-0.5 rounded ${
                       isSelected
@@ -142,8 +164,8 @@ export default function FolderSidebar({
                   >
                     {folder.note_count}
                   </span>
-                )}
-              </button>
+                </button>
+              )}
 
               {/* Color picker strip during rename */}
               {isCurrentlyRenaming && (
@@ -185,8 +207,9 @@ export default function FolderSidebar({
               value={newFolderName}
               onChange={(e) => onSetNewFolderName(e.target.value)}
               placeholder={t("palette.folderNamePlaceholder")}
+              aria-label={t("palette.newFolderLabel")}
               autoFocus
-              className="flex-1 text-[12px] font-medium bg-transparent text-ink placeholder:text-stone outline-none min-w-0"
+              className="flex-1 text-[12px] font-medium bg-transparent text-ink placeholder:text-stone outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:rounded-sm min-w-0"
               onKeyDown={(e) => {
                 e.stopPropagation();
                 if (e.key === "Enter") {

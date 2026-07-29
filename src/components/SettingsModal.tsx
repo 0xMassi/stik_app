@@ -548,7 +548,8 @@ export default function SettingsModal({
             <button
               type="button"
               onClick={handleClose}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-ink hover:bg-line/50 transition-colors"
+              aria-label={t("common.closeDialog")}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-ink hover:bg-line/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
             >
               <svg
                 width="14"
@@ -618,7 +619,8 @@ export default function SettingsModal({
             <button
               type="button"
               onClick={handleClose}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-ink hover:bg-line/50 transition-colors"
+              aria-label={t("common.closeDialog")}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-ink hover:bg-line/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
             >
               <svg
                 width="14"
