@@ -191,7 +191,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
             </div>
 
             <div className="mb-3">
-              <label className="block text-[11px] text-stone mb-1">Model</label>
+              <label className="block text-[11px] text-stone mb-1">{t("dictation.model")}</label>
               <div className="space-y-1.5">
                 {models.map((m) => (
                   <label
@@ -246,7 +246,8 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
                 disabled={!selectedModelId}
                 className="px-3 py-1.5 text-[11px] bg-coral text-white rounded-lg hover:bg-coral/90 disabled:opacity-50"
               >
-                Download &amp; use
+                
+                {t("dictation.downloadAndUse")}
               </button>
             </div>
           </>
@@ -254,7 +255,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
 
         {phase === "downloading" && (
           <div className="py-4">
-            <p className="text-[13px] text-ink mb-2">Downloading model…</p>
+            <p className="text-[13px] text-ink mb-2">{t("dictation.downloadingModel")}</p>
             <div className="w-full h-2 bg-line/30 rounded-full overflow-hidden mb-2">
               <div
                 className="h-full bg-coral transition-all"
@@ -291,7 +292,8 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
         {phase === "loading" && (
           <div className="py-6 text-center">
             <p className="text-[13px] text-ink">
-              Compiling model for the Neural Engine… {loadElapsed}s
+              
+              {t("dictation.compilingModel")} {loadElapsed}s
             </p>
             <p className="text-[11px] text-stone mt-2 leading-snug max-w-[360px] mx-auto">
               {selectedModel && selectedModel.size_mb >= 500
@@ -303,7 +305,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
 
         {phase === "error" && (
           <div className="py-4">
-            <p className="text-[13px] text-coral mb-2">Something went wrong</p>
+            <p className="text-[13px] text-coral mb-2">{t("common.somethingWentWrong")}</p>
             <p className="text-[11px] text-stone mb-4 break-words">
               {errorMsg ?? t("common.unknownError")}
             </p>

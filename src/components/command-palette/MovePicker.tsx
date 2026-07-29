@@ -116,13 +116,15 @@ export default function MovePicker({
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">
               ↑↓
             </kbd>{" "}
-            navigate
+            
+            {t("palette.navigate")}
           </span>
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">
               {t("common.esc")}
             </kbd>{" "}
-            cancel
+            
+            {t("common.cancelLower")}
           </span>
         </div>
       </div>

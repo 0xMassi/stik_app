@@ -31,8 +31,7 @@ export default function AnalyticsNotice({ onDismiss }: AnalyticsNoticeProps) {
             {t("analytics.explain")}
           </p>
           <p className="text-[12px] text-stone leading-relaxed mt-2.5">
-            You can disable this anytime in{" "}
-            <span className="text-ink font-medium">Settings &gt; Privacy</span>.
+            {t("settings.analytics.disableHint")}
           </p>
         </div>
 
