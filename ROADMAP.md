@@ -108,7 +108,9 @@ and cloud sync ship together as 1.0.
 - [ ] E2E envelope: Argon2id, per-note keys, recovery key. Zero-knowledge, so
       no password reset exists by design
 - [ ] Sync engine with version vectors and conflict copies
-- [ ] €4.99/mo — Apple takes 15% under the Small Business Program
+- [ ] €4.99/mo or €49.99/yr — Apple takes 15% under the Small Business Program.
+      Infra on Hetzner is ~€17–38/mo, so break-even is ~10 subscribers; see
+      [MOBILE_PLAN.md](MOBILE_PLAN.md) for the full math
 - [ ] IAP on both stores, Stripe on desktop
 - [ ] Behind a feature flag from day one, so an unfinished backend never
       blocks shipping app binaries

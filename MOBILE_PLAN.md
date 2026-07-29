@@ -95,8 +95,98 @@ Google is comparable. Desktop can bill directly through Stripe. Ship
 per-platform IAP first — external-link entitlements are jurisdiction-dependent
 and not worth blocking 1.0 on.
 
-Storage cost for markdown is negligible. The real cost is support load and the
-auth/billing surface.
+See the unit economics below — storage is not the constraint.
+
+## Unit economics on Hetzner
+
+Prices as of July 2026, ex-VAT.
+[Object Storage](https://www.hetzner.com/storage/object-storage/) is €4.99/mo
+including 1 TB of storage and 1 TB of egress (additional storage €5.99/TB);
+[cloud servers](https://www.hetzner.com/pressroom/new-cx-plans/) were CX22
+€4.49 and CPX11 €5.49 with 20 TB traffic included.
+
+**Caveat: Hetzner raised prices twice in 2026** — roughly 20–30% in April, then
+[up to 3.1× on cloud servers in June](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/).
+Everything below is also computed at that worst case. Re-verify at order time.
+
+### Storage per user
+
+Markdown at ~2 KB per note, ×1.05 for AEAD overhead (24-byte nonce, 16-byte
+MAC, wrapped per-note key), ×3 for retained versions and conflict copies:
+
+| user | notes | stored |
+|---|---|---|
+| light | 200 | 1.2 MB |
+| median | 1,000 | 6.2 MB |
+| heavy | 10,000 | 61.5 MB |
+| extreme | 50,000 | 307.6 MB |
+
+At a generous 10 MB average, the €4.99 base tier holds **~105,000 users**. At
+100 MB average it still holds ~10,500.
+
+### Egress
+
+A sync pulls changed notes. Fifty changed notes a day is ~2.9 MB/user/month, so
+the included 1 TB covers **~350,000 users**. Full-restore events are rare and
+tens of MB.
+
+**Neither storage nor bandwidth is a cost driver at any plausible scale.**
+
+### Infrastructure floor
+
+| item | €/mo | worst case |
+|---|---|---|
+| Object Storage (1 TB + 1 TB egress) | 4.99 | 4.99 |
+| app server (CPX11) | 5.49 | 17.02 |
+| db server (CX22) | 4.49 | 13.92 |
+| snapshots + backup bucket | 2.00 | 2.00 |
+| **total** | **16.97** | **37.93** |
+
+### Net per subscriber
+
+| plan | gross | Apple/Google 15% | Stripe (1.5% + €0.25) |
+|---|---|---|---|
+| monthly | €4.99 | €4.24 | €4.67 |
+| yearly | €49.99 | €42.49 (€3.54/mo) | €48.99 (€4.08/mo) |
+
+Yearly options, against €59.88 at monthly rates:
+
+| price | discount | effective/mo | net/mo after Apple |
+|---|---|---|---|
+| €49.99 | 17% | €4.17 | €3.54 |
+| €47.99 | 20% | €4.00 | €3.40 |
+| €44.99 | 25% | €3.75 | €3.19 |
+
+**€49.99/yr is the recommendation** — it reads as "two months free", and it is
+the same shape as Obsidian Sync ($4/mo vs $40/yr), which is the comparison
+people will make.
+
+### Break-even and margin
+
+Even at worst-case Hetzner pricing: **9 monthly subscribers, or 11 yearly.**
+
+| subscribers | stored | revenue/mo | infra/mo | margin |
+|---|---|---|---|---|
+| 100 | 1.0 GB | €354 | ~€39 | 89% |
+| 1,000 | 9.8 GB | €3,541 | ~€44 | 99% |
+| 10,000 | 97.7 GB | €35,410 | ~€98 | 99.7% |
+
+### What actually costs money
+
+Infrastructure is rounding error. The real costs, in order:
+
+1. **Store commission.** 15% is €0.75/subscriber/month — at 1,000 users that is
+   ~17× the entire infra bill. This is the largest line item by far, which is
+   why web signup via Stripe is worth revisiting once 1.0 has shipped.
+2. **Support, concentrated on lost recovery keys.** Zero-knowledge means an
+   unrecoverable loss is a permanent, unfixable, angry ticket. Backups do not
+   help — we cannot decrypt them either. This needs deliberate onboarding
+   friction, not a dismissible dialog.
+3. **Compliance.** GDPR, a DPA, and EU data residency. Hetzner being EU-based
+   helps here rather than hurting.
+4. **Your time** — the only genuinely scarce input.
+
+The pricing is not the risk. A sync bug that loses notes is.
 
 ## Getting all of it into one 1.0
 
