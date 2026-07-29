@@ -1044,7 +1044,7 @@ function AppearanceSection({
           {BUILTIN_THEMES.map((theme) => (
             <ThemePreviewCard
               key={theme.id}
-              name={theme.name}
+              name={t(theme.nameKey)}
               colors={theme.colors}
               isDark={theme.isDark}
               isActive={activeTheme === theme.id}

@@ -13,11 +13,11 @@ import {
 } from "@codemirror/autocomplete";
 import { EditorView } from "@codemirror/view";
 import type { CustomTemplate } from "@/types";
-import { t } from "@/i18n";
+import { t, type TranslationKey } from "@/i18n";
 
 interface SlashTemplate {
   command: string;
-  badge: string;
+  badgeKey: TranslationKey;
   boost: number;
   insert: () => { text: string; cursor: number | [number, number] };
 }
@@ -61,7 +61,7 @@ let customTemplates: SlashTemplate[] = [];
 export function setCustomTemplates(templates: CustomTemplate[]): void {
   customTemplates = templates.map((tpl) => ({
     command: tpl.name,
-    badge: t("slash.custom"),
+    badgeKey: "slash.custom",
     boost: -1,
     insert: () => {
       const resolved = resolvePlaceholders(tpl.body);
@@ -79,61 +79,61 @@ export function setCustomTemplates(templates: CustomTemplate[]): void {
 const BUILTIN_TEMPLATES: SlashTemplate[] = [
   {
     command: "h1",
-    badge: t("slash.heading"),
+    badgeKey: "slash.heading",
     boost: 0,
     insert: () => ({ text: "# ", cursor: 2 }),
   },
   {
     command: "h2",
-    badge: t("slash.heading"),
+    badgeKey: "slash.heading",
     boost: 0,
     insert: () => ({ text: "## ", cursor: 3 }),
   },
   {
     command: "h3",
-    badge: t("slash.heading"),
+    badgeKey: "slash.heading",
     boost: 0,
     insert: () => ({ text: "### ", cursor: 4 }),
   },
   {
     command: "list",
-    badge: t("slash.list"),
+    badgeKey: "slash.list",
     boost: 0,
     insert: () => ({ text: "- \n- \n- ", cursor: 2 }),
   },
   {
     command: "numbered",
-    badge: t("slash.list"),
+    badgeKey: "slash.list",
     boost: 0,
     insert: () => ({ text: "1. \n2. \n3. ", cursor: 3 }),
   },
   {
     command: "todo",
-    badge: t("slash.tasks"),
+    badgeKey: "slash.tasks",
     boost: 0,
     insert: () => ({ text: "- [ ] \n- [ ] \n- [ ] ", cursor: 6 }),
   },
   {
     command: "divider",
-    badge: "---",
+    badgeKey: "slash.divider",
     boost: 0,
     insert: () => ({ text: "---\n", cursor: 4 }),
   },
   {
     command: "code",
-    badge: t("slash.code"),
+    badgeKey: "slash.code",
     boost: 0,
     insert: () => ({ text: "```\n\n```", cursor: 4 }),
   },
   {
     command: "quote",
-    badge: "Quote",
+    badgeKey: "slash.quote",
     boost: 0,
     insert: () => ({ text: "> ", cursor: 2 }),
   },
   {
     command: "table",
-    badge: "Table",
+    badgeKey: "slash.table",
     boost: 0,
     insert: () => ({
       text: "| Column 1 | Column 2 |\n| --- | --- |\n|  |  |\n\n",
@@ -142,13 +142,13 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "link",
-    badge: "Link",
+    badgeKey: "slash.link",
     boost: 0,
     insert: () => ({ text: "[text](url)", cursor: [1, 5] }),
   },
   {
     command: "image",
-    badge: "Image",
+    badgeKey: "slash.image",
     boost: 0,
     insert: () => ({ text: "![alt](url)", cursor: [2, 5] }),
   },
@@ -156,7 +156,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   // ── Note templates ──────────────────────────────────────────────
   {
     command: "meeting",
-    badge: t("slash.template"),
+    badgeKey: "slash.template",
     boost: -1,
     insert: () => {
       const text = resolvePlaceholders(
@@ -168,7 +168,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "standup",
-    badge: t("slash.template"),
+    badgeKey: "slash.template",
     boost: -1,
     insert: () => {
       const text = resolvePlaceholders(
@@ -180,7 +180,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "journal",
-    badge: t("slash.template"),
+    badgeKey: "slash.template",
     boost: -1,
     insert: () => {
       const text = resolvePlaceholders(
@@ -191,7 +191,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "brainstorm",
-    badge: t("slash.template"),
+    badgeKey: "slash.template",
     boost: -1,
     insert: () => {
       const text = "# Brainstorm: \n\n## Ideas\n\n- \n\n## Favorites\n\n- \n\n## Next Steps\n\n- ";
@@ -201,7 +201,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "retro",
-    badge: t("slash.template"),
+    badgeKey: "slash.template",
     boost: -1,
     insert: () => {
       const text = resolvePlaceholders(
@@ -213,7 +213,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "proscons",
-    badge: t("slash.template"),
+    badgeKey: "slash.template",
     boost: -1,
     insert: () => {
       const text = "# Decision: \n\n## Pros\n\n- \n\n## Cons\n\n- \n\n## Verdict\n\n";
@@ -223,7 +223,7 @@ const BUILTIN_TEMPLATES: SlashTemplate[] = [
   },
   {
     command: "weekly",
-    badge: t("slash.template"),
+    badgeKey: "slash.template",
     boost: -1,
     insert: () => {
       const text = resolvePlaceholders(
@@ -260,12 +260,12 @@ export function slashCommandCompletionSource(
   );
   if (!filtered.length) return null;
 
-  const options: Completion[] = filtered.map((t) => ({
-    label: `/${t.command}`,
-    detail: t.badge,
-    boost: t.boost,
+  const options: Completion[] = filtered.map((tpl) => ({
+    label: `/${tpl.command}`,
+    detail: t(tpl.badgeKey),
+    boost: tpl.boost,
     apply: (view: EditorView, _completion: Completion, from: number, to: number) => {
-      const { text, cursor } = t.insert();
+      const { text, cursor } = tpl.insert();
       const changes = { from, to, insert: text };
 
       if (Array.isArray(cursor)) {

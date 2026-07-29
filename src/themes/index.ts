@@ -1,17 +1,20 @@
 import type { ThemeColors, CustomThemeDefinition } from "@/types";
 import { rgbToHex } from "@/utils/color";
-import { t } from "@/i18n";
+import type { TranslationKey } from "@/i18n";
 
 export interface BuiltinTheme {
   id: string;
-  name: string;
+  /// A key, not a string: this array is a module-level const, so a t() call
+  /// here would be evaluated once at import — before the user's locale has
+  /// loaded — and the name would stay English forever.
+  nameKey: TranslationKey;
   isDark: boolean;
   colors: ThemeColors;
 }
 
 const light: BuiltinTheme = {
   id: "light",
-  name: t("theme.light"),
+  nameKey: "theme.light",
   isDark: false,
   colors: {
     bg: "255 252 249",
@@ -27,7 +30,7 @@ const light: BuiltinTheme = {
 
 const dark: BuiltinTheme = {
   id: "dark",
-  name: t("theme.dark"),
+  nameKey: "theme.dark",
   isDark: true,
   colors: {
     bg: "28 25 23",
@@ -43,7 +46,7 @@ const dark: BuiltinTheme = {
 
 const sepia: BuiltinTheme = {
   id: "sepia",
-  name: t("theme.sepia"),
+  nameKey: "theme.sepia",
   isDark: false,
   colors: {
     bg: "245 235 220",
@@ -59,7 +62,7 @@ const sepia: BuiltinTheme = {
 
 const nord: BuiltinTheme = {
   id: "nord",
-  name: "Nord",
+  nameKey: "theme.nord",
   isDark: true,
   colors: {
     bg: "46 52 64",
@@ -75,7 +78,7 @@ const nord: BuiltinTheme = {
 
 const rosePine: BuiltinTheme = {
   id: "rose-pine",
-  name: "Rose Pine",
+  nameKey: "theme.rosePine",
   isDark: true,
   colors: {
     bg: "25 23 36",
@@ -91,7 +94,7 @@ const rosePine: BuiltinTheme = {
 
 const solarizedLight: BuiltinTheme = {
   id: "solarized-light",
-  name: "Solarized Light",
+  nameKey: "theme.solarizedLight",
   isDark: false,
   colors: {
     bg: "253 246 227",
@@ -107,7 +110,7 @@ const solarizedLight: BuiltinTheme = {
 
 const solarizedDark: BuiltinTheme = {
   id: "solarized-dark",
-  name: "Solarized Dark",
+  nameKey: "theme.solarizedDark",
   isDark: true,
   colors: {
     bg: "0 43 54",
@@ -123,7 +126,7 @@ const solarizedDark: BuiltinTheme = {
 
 const dracula: BuiltinTheme = {
   id: "dracula",
-  name: "Dracula",
+  nameKey: "theme.dracula",
   isDark: true,
   colors: {
     bg: "40 42 54",
@@ -139,7 +142,7 @@ const dracula: BuiltinTheme = {
 
 const tokyoNight: BuiltinTheme = {
   id: "tokyo-night",
-  name: "Tokyo Night",
+  nameKey: "theme.tokyoNight",
   isDark: true,
   colors: {
     bg: "26 27 38",
