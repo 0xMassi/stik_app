@@ -14,6 +14,7 @@ import type {
 } from "@/types";
 import { createCoalescedTaskRunner } from "@/utils/coalescedTaskRunner";
 import { useTranslation } from "@/hooks/useTranslation";
+import { channelLabel } from "@/utils/appChannel";
 import type { TranslationKey } from "@/i18n";
 import {
   SETTINGS_MODAL_MAX_WIDTH,
@@ -248,6 +249,7 @@ export default function SettingsModal({
   const [isSyncingGitNow, setIsSyncingGitNow] = useState(false);
   const [isOpeningGitRemote, setIsOpeningGitRemote] = useState(false);
   const [appVersion, setAppVersion] = useState("");
+  const betaLabel = channelLabel(appVersion);
 
   const waitForPaint = () =>
     new Promise<void>((resolve) => {
@@ -534,6 +536,14 @@ export default function SettingsModal({
               <h2 className="text-[15px] font-semibold text-ink">
                 {t("settings.title")}
               </h2>
+              {betaLabel && (
+                <span
+                  className="px-1.5 py-0.5 rounded-md bg-coral/15 text-coral text-[9px] font-bold tracking-wide"
+                  title={`${t("settings.betaBuild")} — v${appVersion}`}
+                >
+                  {betaLabel}
+                </span>
+              )}
             </div>
             <button
               type="button"
@@ -596,6 +606,14 @@ export default function SettingsModal({
               <h2 className="text-[15px] font-semibold text-ink">
                 {t("settings.title")}
               </h2>
+              {betaLabel && (
+                <span
+                  className="px-1.5 py-0.5 rounded-md bg-coral/15 text-coral text-[9px] font-bold tracking-wide"
+                  title={`${t("settings.betaBuild")} — v${appVersion}`}
+                >
+                  {betaLabel}
+                </span>
+              )}
             </div>
             <button
               type="button"

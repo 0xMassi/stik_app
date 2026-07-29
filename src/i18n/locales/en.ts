@@ -33,6 +33,7 @@ export const en = {
 
   // ── Settings — navigation ─────────────────────────────────────────
   "settings.title": "Settings",
+  "settings.betaBuild": "Beta build — not the stable release",
   "settings.tab.appearance": "Appearance",
   "settings.tab.shortcuts": "Shortcuts",
   "settings.tab.folders": "Folders",
