@@ -6,8 +6,8 @@ name: Beta Build
 # sidecar layout.
 #
 # Deliberately NOT a release:
-#   - no `updater` bundle, so `latest.json` is never written and users on the
-#     stable channel are never offered a beta
+#   - createUpdaterArtifacts disabled, so no updater tarball is produced and
+#     `latest.json` is never written; stable users are never offered a beta
 #   - no Homebrew tap update
 #   - published as a GitHub *prerelease*, so it never shows as "Latest"
 #
@@ -76,6 +76,14 @@ jobs:
           d["productName"] = "Stik Beta"
           d["identifier"] = "com.stik.app.beta"
           d["version"] = os.environ["BETA_VERSION"]
+          # `--bundles app` does NOT suppress the updater tarball: bundle
+          # .createUpdaterArtifacts is "v1Compatible", which emits
+          # `Stik Beta.app.tar.gz (updater)` anyway and then fails the build
+          # with "A public key has been found, but no private key" because we
+          # deliberately withhold TAURI_SIGNING_PRIVATE_KEY from beta. Turning
+          # it off is what actually delivers the "no updater artifacts" the
+          # beta channel promises.
+          d.setdefault("bundle", {})["createUpdaterArtifacts"] = False
           # The updater plugin fails to *initialize* if plugins.updater is
           # absent ("invalid type: null, expected struct Config"), which kills
           # the app at startup — so the config has to stay. Instead point it at
