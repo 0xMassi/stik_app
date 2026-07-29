@@ -36,6 +36,7 @@ export const zhCN: Translations = {
 
   // ── Settings — navigation ─────────────────────────────────────────
   "settings.title": "设置",
+  "settings.betaBuild": "Beta 版本 — 并非稳定发布版",
   "settings.tab.appearance": "外观",
   "settings.tab.shortcuts": "快捷键",
   "settings.tab.folders": "文件夹",
