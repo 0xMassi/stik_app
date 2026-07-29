@@ -17,6 +17,11 @@ on:
   push:
     branches: [develop]
   workflow_dispatch:
+    inputs:
+      notarize:
+        description: "Notarize with Apple (needs a current Developer Program agreement)"
+        type: boolean
+        default: true
 
 concurrency:
   group: beta-${{ github.ref }}
@@ -106,7 +111,12 @@ jobs:
       - name: Remove bun to prevent tauri-action misdetection
         run: brew uninstall --ignore-dependencies bun || true
 
+      # Two mutually exclusive build steps rather than one with conditional
+      # env vars: tauri decides to notarize based on APPLE_ID being *present*,
+      # and an empty-string secret still counts as present. Omitting the keys
+      # entirely is the only reliable way to skip it.
       - name: Build signed + notarized app (aarch64)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.notarize }}
         uses: tauri-apps/tauri-action@v0
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -120,6 +130,26 @@ jobs:
           tauriScript: npm run tauri
           # No tagName: tauri-action builds only. The prerelease is created
           # below, so beta artifacts never enter the stable release flow.
+          args: --target aarch64-apple-darwin --bundles app
+
+      # Escape hatch. Apple returns
+      #   403 "A required agreement is missing or has expired"
+      # whenever the Developer Program License Agreement needs re-accepting,
+      # which blocks notarization for the whole team until the Account Holder
+      # signs it. That is account paperwork, not a code problem — this path
+      # still produces a properly *signed* build so beta testing isn't held
+      # hostage to it. Gatekeeper will ask for a right-click -> Open once.
+      - name: Build signed app, skipping notarization (aarch64)
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.notarize }}
+        uses: tauri-apps/tauri-action@v0
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+        with:
+          tauriScript: npm run tauri
           args: --target aarch64-apple-darwin --bundles app
 
       - name: Package DMG
@@ -147,11 +177,19 @@ jobs:
       - name: Write release notes
         env:
           SHA: ${{ steps.meta.outputs.sha }}
+          NOTARIZED: ${{ github.event_name != 'workflow_dispatch' || inputs.notarize }}
         run: |
           set -euo pipefail
           {
             echo "Beta build from \`develop\` @ \`${SHA}\`."
             echo
+            if [ "$NOTARIZED" != "true" ]; then
+              echo "> 🔓 **Signed but _not_ notarized.** Built with notarization"
+              echo "> skipped, so Gatekeeper will refuse the first launch. Right-click"
+              echo "> the app → **Open** → **Open**, or run:"
+              echo "> \`xattr -dr com.apple.quarantine \"/Applications/Stik Beta.app\"\`"
+              echo
+            fi
             echo "Installs as **Stik Beta** (\`com.stik.app.beta\`) alongside your stable Stik."
             echo
             echo "> ⚠️ **Shares your real data.** Notes (\`~/Documents/Stik\`) and"
