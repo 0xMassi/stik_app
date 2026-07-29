@@ -225,6 +225,8 @@ export const en = {
   "table.addRowBelow": "Add row below",
   "table.addColumnRight": "Add column to the right",
   "heading.unfold": "Unfold",
+  "heading.unfoldSection": "Unfold section",
+  "heading.foldSection": "Fold section",
 
   // ── AI menu ───────────────────────────────────────────────────────
   "ai.assistant": "AI Assistant",

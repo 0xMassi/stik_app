@@ -227,6 +227,8 @@ export const zhCN: Translations = {
   "table.addRowBelow": "在下方添加行",
   "table.addColumnRight": "在右侧添加列",
   "heading.unfold": "展开",
+  "heading.unfoldSection": "展开此节",
+  "heading.foldSection": "折叠此节",
 
   // ── AI menu ───────────────────────────────────────────────────────
   "ai.assistant": "AI 助手",

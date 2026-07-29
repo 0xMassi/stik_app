@@ -27,6 +27,7 @@ import {
   unfoldEffect,
   foldedRanges,
 } from "@codemirror/language";
+import { t } from "@/i18n";
 
 // ── Heading detection ───────────────────────────────────────────────
 
@@ -81,7 +82,7 @@ const foldConfig = codeFolding({
     const el = document.createElement("span");
     el.className = "cm-heading-fold-placeholder";
     el.textContent = "...";
-    el.title = "Unfold";
+    el.title = t("heading.unfold");
     el.setAttribute("aria-label", "Folded content. Click to unfold.");
     el.addEventListener("click", onclick);
     return el;
@@ -103,7 +104,7 @@ class ChevronWidget extends WidgetType {
     const span = document.createElement("span");
     span.className = "cm-heading-chevron";
     if (this.folded) span.classList.add("cm-heading-chevron-folded");
-    span.setAttribute("aria-label", this.folded ? "Unfold section" : "Fold section");
+    span.setAttribute("aria-label", t(this.folded ? "heading.unfoldSection" : "heading.foldSection"));
     span.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10"><path d="M3 1.5L7 5L3 8.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     return span;
   }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface ShortcutRecorderProps {
   value: string;
@@ -183,6 +184,7 @@ export default function ShortcutRecorder({
   reservedShortcuts = [],
   existingShortcuts = [],
 }: ShortcutRecorderProps) {
+  const { t } = useTranslation();
   const [isRecording, setIsRecording] = useState(false);
   const [tempShortcut, setTempShortcut] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "info" | "error" | "success" } | null>(null);
@@ -346,7 +348,9 @@ export default function ShortcutRecorder({
               cancel
             </span>
           ) : (
-            <span className="text-[9px] text-stone">Click to record</span>
+            <span className="text-[9px] text-stone">
+              {t("settings.shortcut.clickToRecord")}
+            </span>
           )}
         </button>
       </div>

@@ -5,6 +5,7 @@ import {
   normalizeNoteSnippet,
 } from "@/utils/notePresentation";
 import { getFolderColor } from "@/utils/folderColors";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface NoteListProps {
   results: SearchResult[];
@@ -60,6 +61,7 @@ export default function NoteList({
   selectedFolder,
   folders,
 }: NoteListProps) {
+  const { t } = useTranslation();
   const hasQuery = query.trim().length > 0;
 
   if (
@@ -99,7 +101,7 @@ export default function NoteList({
               type="text"
               value={newNoteTitle}
               onChange={(e) => onSetNewNoteTitle(e.target.value)}
-              placeholder="Note title..."
+              placeholder={t("palette.noteTitlePlaceholder")}
               autoFocus
               className="flex-1 text-[14px] font-medium bg-transparent text-ink placeholder:text-stone outline-none"
               onKeyDown={(e) => {

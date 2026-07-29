@@ -1,5 +1,6 @@
 import type { FolderStats } from "@/types";
 import { FOLDER_COLORS, FOLDER_COLOR_KEYS, getFolderColor } from "@/utils/folderColors";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface FolderSidebarProps {
   folderStats: FolderStats[];
@@ -46,6 +47,7 @@ export default function FolderSidebar({
   onCancelRename,
   position = "left",
 }: FolderSidebarProps) {
+  const { t } = useTranslation();
   const borderClass = position === "left" ? "border-r" : "border-l";
 
   return (
@@ -62,7 +64,7 @@ export default function FolderSidebar({
               : "text-ink hover:bg-line/50"
           }`}
         >
-          <span className="flex-1">All Folders</span>
+          <span className="flex-1">{t("palette.allFolders")}</span>
           <span
             className={`text-[10px] px-1.5 py-0.5 rounded ${
               selectedFolder === null
@@ -182,7 +184,7 @@ export default function FolderSidebar({
               type="text"
               value={newFolderName}
               onChange={(e) => onSetNewFolderName(e.target.value)}
-              placeholder="Folder name..."
+              placeholder={t("palette.folderNamePlaceholder")}
               autoFocus
               className="flex-1 text-[12px] font-medium bg-transparent text-ink placeholder:text-stone outline-none min-w-0"
               onKeyDown={(e) => {
