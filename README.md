@@ -78,25 +78,43 @@ brew upgrade --cask stik
 
 From v0.3.3 onwards, Stik includes a built-in auto-updater that silently downloads new versions in the background. Updates apply on next app restart.
 
+### Beta builds
+
+Every push to `develop` produces a signed build, published under [Releases](https://github.com/0xMassi/stik_app/releases) as a prerelease. It installs as **Stik Beta** beside your stable copy, and Settings shows a BETA pill next to the title so you always know which one you're in.
+
+A beta reads the same notes and settings as the stable app. Before you test anything destructive, send it somewhere harmless: Settings, Folders, Notes directory.
+
+Stable users never see these builds. Beta releases ship no updater artifacts and leave the update feed alone.
+
 ## Features
 
-**Capture** -- Global shortcuts summon a floating post-it from anywhere. Type, close, done. Notes are saved as markdown in `~/Documents/Stik/`.
+**Capture.** A global shortcut summons a floating post-it over whatever you're doing. Type, close, done. Every note lands in `~/Documents/Stik/` as markdown.
 
-**Organize** -- Folders (Inbox, Work, Ideas, or your own). Move notes with a keystroke. Search everything instantly.
+**Voice.** `Cmd+Shift+D` transcribes speech straight into the note you're editing. `Cmd+Shift+V` opens a fresh post-it already listening. WhisperKit runs the model on the Neural Engine, so the audio never leaves your Mac.
 
-**Pin** -- Keep important notes floating on your desktop as sticky notes.
+**Clip.** `Cmd+Shift+C` takes whatever text you've selected in Safari, Terminal, VS Code, or any standard text field and appends it to a Clips note. No copy, no paste, no window switching.
 
-**Rich Editor** -- Source-mode markdown with syntax highlighting, `==highlighting==`, `[[wiki-links]]` to other notes, collapsible headings, image paste/drop, task lists, interactive tables, and a link popover for quick editing. Type `/` for slash commands -- instant templates for meetings, standups, journals, tables, and more. Create your own custom templates in Settings. Optional Vim mode.
+**Organize.** Folders you name. Move a note with one keystroke. Search everything from the command palette.
 
-**On-Device AI** -- Semantic search, smart folder suggestions, and note embeddings. Powered by Apple's NaturalLanguage framework. Everything runs locally -- no cloud, no API keys, no data leaves your Mac.
+**Pin.** Park a note on your desktop as a floating sticky.
 
-**Share** -- Copy notes as rich text, markdown, or image. Sync folders via git with background auto-sync.
+**Rich editor.** Source-mode markdown with syntax highlighting, `==highlights==`, `[[wiki-links]]`, collapsible headings, image paste and drop, task lists, and editable tables. Type `/` for slash commands. Write your own templates in Settings. Vim mode if you want it.
 
-**Import** -- Browse and import notes from Apple Notes directly into Stik. No export/import files needed.
+**Lock.** Encrypt a note with AES-256 and open it with Touch ID or your device password. Set an idle timeout, or relock everything when the Mac sleeps.
 
-**Themes** -- System, Light, or Dark mode. Switches live, respects macOS appearance.
+**On-device AI.** Semantic search, folder suggestions, and note embeddings through Apple's NaturalLanguage framework. No cloud, no API keys, nothing sent anywhere.
 
-**Remember** -- Capture streak tracks your daily note-taking habit. "On This Day" resurfaces notes from past years.
+**Language.** English and Simplified Chinese (简体中文). Switch under Settings, Appearance, and every open window follows without a restart.
+
+**Sync.** Turn on iCloud Drive in Settings and your notes reach your other Macs. Dropbox and Syncthing work too: point Stik at any folder they already watch.
+
+**Share.** Copy a note as rich text, markdown, or an image. Push a folder to a git remote and Stik keeps it synced in the background.
+
+**Import.** Pull notes out of Apple Notes from inside Stik. Nothing to export first.
+
+**Themes.** System, Light, Dark, or your own colors. Follows macOS appearance as it changes.
+
+**Remember.** A capture streak counts your daily habit. "On This Day" brings back notes from past years.
 
 ## Keyboard Shortcuts
 
@@ -105,9 +123,13 @@ All shortcuts are customizable in Settings.
 | Shortcut | Action |
 |----------|--------|
 | `Cmd+Shift+S` | Capture a new note |
-| `Cmd+Shift+P` | Command Palette (search + folders) |
-| `Cmd+Shift+M` | Command Palette (alt shortcut) |
+| `Cmd+Shift+D` | Start or stop dictation in the current note |
+| `Cmd+Shift+V` | New post-it, dictating from the start |
+| `Cmd+Shift+C` | Append the selected text from any app to Clips |
+| `Cmd+Shift+P` | Command palette (search + folders) |
+| `Cmd+Shift+M` | Command palette (alt shortcut) |
 | `Cmd+Shift+L` | Reopen last note |
+| `Cmd+.` | Zen mode |
 | `Cmd+Shift+,` | Open settings |
 
 ## Your Data, Your Machine
@@ -159,7 +181,13 @@ cd src-tauri && cargo fmt
 
 # Type check frontend
 npm run build
+
+# Run tests
+npm test
+cd src-tauri && cargo test
 ```
+
+**Translations.** Every string lives in [`src/i18n/locales/`](src/i18n/locales/). Copy `en.ts`, translate the values, and add your locale to `LOCALES` in `src/i18n/index.ts`. The catalogue is typed against English, so a missing key breaks the build instead of shipping a blank label. Corrections to `zh-CN.ts` are welcome too.
 
 ## Ideas Board
 
