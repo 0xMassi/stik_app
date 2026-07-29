@@ -20,6 +20,9 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    include: ["src/**/*.test.ts"],
+    // .tsx as well as .ts — component tests were silently excluded by the
+    // narrower pattern and never ran.
+    include: ["src/**/*.test.{ts,tsx}"],
+    setupFiles: ["./src/test-setup.ts"],
   },
 });

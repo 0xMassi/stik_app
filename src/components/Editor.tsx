@@ -12,7 +12,7 @@ import {
   useRef,
   useCallback,
 } from "react";
-import { EditorState } from "@codemirror/state";
+import { Compartment, EditorState } from "@codemirror/state";
 import {
   EditorView,
   drawSelection,
@@ -70,7 +70,7 @@ import { createVimCommandCallbacks } from "@/utils/vimCommandBridge";
 import FormattingToolbar from "@/components/FormattingToolbar";
 import LinkPopover from "@/components/LinkPopover";
 import type { SearchResult } from "@/types";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export { type VimMode } from "@/extensions/cm-vim";
 
@@ -104,6 +104,12 @@ export interface EditorRef {
   getFormatState: () => FormatState;
 }
 
+/// The placeholder lives in its own compartment: the editor is created once
+/// with `[]` deps, so a plain `placeholder(...)` extension freezes whatever
+/// string was current at mount. Switching language then left the old text in
+/// place until the window was recreated.
+const placeholderCompartment = new Compartment();
+
 const Editor = forwardRef<EditorRef, EditorProps>(
   (
     {
@@ -123,6 +129,11 @@ const Editor = forwardRef<EditorRef, EditorProps>(
     },
     ref
   ) => {
+    // Subscribing to the locale is what makes this component re-render when
+    // the language changes; the module-level `t` alone would not.
+    const { t: translate } = useTranslation();
+    const placeholderText = placeholder || translate("editor.startTyping");
+
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const formatStateRef = useRef<FormatState>({
@@ -515,7 +526,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         // @replit/codemirror-vim makes native ::selection transparent.
         // drawSelection renders .cm-selectionBackground instead.
         drawSelection(),
-        cmPlaceholder(placeholder || t("editor.startTyping")),
+        placeholderCompartment.of(cmPlaceholder(placeholderText)),
         search(),
         richCopyHandler,
         imageHandlers,
@@ -582,6 +593,19 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
     // ^ Intentionally empty deps: CM view is created once per mount.
+
+    // Swap the placeholder in place when it changes — which it does on every
+    // language switch. Without this the editor keeps the string it was built
+    // with, so changing language left the old placeholder until restart.
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      view.dispatch({
+        effects: placeholderCompartment.reconfigure(
+          cmPlaceholder(placeholderText),
+        ),
+      });
+    }, [placeholderText]);
     // Parent uses key={vimEnabled} to force remount when vim toggled.
 
     // Tauri native drag-drop fallback (WebKit dataTransfer can be empty for OS-level drops)
