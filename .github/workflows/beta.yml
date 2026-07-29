@@ -1,0 +1,180 @@
+name: Beta Build
+
+# Produces a real, signed, notarized .app you can download and run — the thing
+# `tauri dev` can't give you, because dev builds aren't signed and so never
+# exercise TCC permissions (mic, Accessibility), Gatekeeper, or the bundled
+# sidecar layout.
+#
+# Deliberately NOT a release:
+#   - no `updater` bundle, so `latest.json` is never written and users on the
+#     stable channel are never offered a beta
+#   - no Homebrew tap update
+#   - published as a GitHub *prerelease*, so it never shows as "Latest"
+#
+# Installs as a separate app ("Stik Beta", com.stik.app.beta) so it sits
+# alongside your stable install instead of replacing it.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: beta-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  beta:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Compute beta version
+        id: meta
+        run: |
+          BASE=$(node -p "require('./package.json').version")
+          echo "version=${BASE}-beta.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "tag=beta-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Rebrand as Stik Beta
+        # A distinct productName + identifier is what lets the beta install
+        # next to stable. This does NOT separate your data: notes
+        # (~/Documents/Stik) and settings (~/.stik) are resolved in code, not
+        # from the bundle id, so the beta reads and writes the same files.
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib
+          p = pathlib.Path("src-tauri/tauri.conf.json")
+          d = json.loads(p.read_text())
+          d["productName"] = "Stik Beta"
+          d["identifier"] = "com.stik.app.beta"
+          d["version"] = os.environ["BETA_VERSION"]
+          # The updater plugin fails to *initialize* if plugins.updater is
+          # absent ("invalid type: null, expected struct Config"), which kills
+          # the app at startup — so the config has to stay. Instead point it at
+          # a dead endpoint: the plugin loads, the check 404s, and App.tsx's
+          # try/catch swallows it. A beta therefore never resolves an update,
+          # and never sees the stable channel's latest.json.
+          upd = d.setdefault("plugins", {}).get("updater")
+          if upd is not None:
+              upd["endpoints"] = [
+                  "https://github.com/0xMassi/stik_app/releases/download/beta-no-updates/latest.json"
+              ]
+          p.write_text(json.dumps(d, indent=2))
+          print(d["productName"], d["identifier"], d["version"])
+          PY
+        env:
+          BETA_VERSION: ${{ steps.meta.outputs.version }}
+
+      - name: Build DarwinKit sidecar (aarch64)
+        run: |
+          cd src-tauri/darwinkit
+          mkdir -p ../binaries
+          swift build -c release --arch arm64
+          cp .build/arm64-apple-macosx/release/darwinkit ../binaries/darwinkit-aarch64-apple-darwin
+          file ../binaries/darwinkit-aarch64-apple-darwin
+
+      - name: Install protobuf compiler
+        # prost-build shells out to protoc; without it the Rust build fails.
+        run: brew install protobuf
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Remove bun to prevent tauri-action misdetection
+        run: brew uninstall --ignore-dependencies bun || true
+
+      - name: Build signed + notarized app (aarch64)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+        with:
+          tauriScript: npm run tauri
+          # No tagName: tauri-action builds only. The prerelease is created
+          # below, so beta artifacts never enter the stable release flow.
+          args: --target aarch64-apple-darwin --bundles app
+
+      - name: Package DMG
+        # Same reason as release.yml: tauri-bundler's bundle_dmg.sh AppleScript
+        # step flakes on the ephemeral runner, so use hdiutil directly.
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          APP="src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Stik Beta.app"
+          DMG="${RUNNER_TEMP}/Stik-Beta_${VERSION}_aarch64.dmg"
+
+          if [ ! -d "$APP" ]; then
+            echo "::error::Expected .app not found at $APP"
+            ls -la "$(dirname "$APP")" || true
+            exit 1
+          fi
+
+          hdiutil create -volname "Stik Beta" -srcfolder "$APP" -ov -format UDZO "$DMG"
+          codesign --sign "$APPLE_SIGNING_IDENTITY" --timestamp "$DMG"
+          codesign --verify --verbose=2 "$DMG"
+          echo "DMG_PATH=$DMG" >> "$GITHUB_ENV"
+
+      - name: Write release notes
+        env:
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Beta build from \`develop\` @ \`${SHA}\`."
+            echo
+            echo "Installs as **Stik Beta** (\`com.stik.app.beta\`) alongside your stable Stik."
+            echo
+            echo "> ⚠️ **Shares your real data.** Notes (\`~/Documents/Stik\`) and"
+            echo "> settings (\`~/.stik\`) are resolved in code, not from the bundle"
+            echo "> id, so this build uses the same files as stable. Point it at a"
+            echo "> scratch folder in **Settings → Folders → Notes directory** before"
+            echo "> testing anything destructive."
+            echo
+            echo "Ships no updater artifacts and does not touch \`latest.json\` or the"
+            echo "Homebrew tap, so stable users are never offered this build."
+            echo
+            echo "**Latest commit:** $(git log -1 --pretty=format:'%s')"
+          } > "${RUNNER_TEMP}/notes.md"
+
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" "$DMG_PATH" \
+            --prerelease \
+            --title "Stik Beta ${VERSION}" \
+            --notes-file "${RUNNER_TEMP}/notes.md"
+          echo "::notice::Published $TAG — download the DMG from the release page"
