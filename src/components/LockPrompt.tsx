@@ -61,7 +61,7 @@ export default function LockPrompt({
             onClick={onCancel}
             className="flex-1 px-3 py-2 text-[12px] text-stone border border-line rounded-lg hover:bg-line transition-colors"
           >
-            Cancel
+            {t("common.cancelAction")}
           </button>
           <button
             type="button"
