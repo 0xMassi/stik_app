@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getFolderColor } from "@/utils/folderColors";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface FolderPickerProps {
   query: string;
@@ -15,6 +16,7 @@ export default function FolderPicker({
   onClose,
   folderColors = {},
 }: FolderPickerProps) {
+  const { t } = useTranslation();
   const [folders, setFolders] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -86,7 +88,7 @@ export default function FolderPicker({
               <span className="flex-1 text-[13px] font-medium">{folder}</span>
               {i === selectedIndex && (
                 <kbd className="text-[9px] px-1.5 py-0.5 bg-white/20 rounded text-white/90 font-mono">
-                  enter
+                  {t("common.enter")}
                 </kbd>
               )}
             </button>
@@ -94,7 +96,7 @@ export default function FolderPicker({
         </div>
       ) : (
         <div className="px-3 py-4 text-center text-[12px] text-stone">
-          No folders found
+          {t("palette.noFoldersFound")}
         </div>
       )}
     </div>

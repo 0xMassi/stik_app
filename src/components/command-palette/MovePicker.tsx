@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { SearchResult } from "@/types";
 import { getFolderColor } from "@/utils/folderColors";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface MovePickerProps {
   note: SearchResult;
@@ -17,6 +18,7 @@ export default function MovePicker({
   onMove,
   onCancel,
 }: MovePickerProps) {
+  const { t } = useTranslation();
   const [selectedIndex, setSelectedIndex] = useState(() => {
     const idx = folders.findIndex((f) => f !== note.folder);
     return idx >= 0 ? idx : 0;
@@ -52,7 +54,7 @@ export default function MovePicker({
       <div className="bg-bg rounded-xl border border-line shadow-stik w-[min(90vw,320px)] flex flex-col overflow-hidden max-h-[70vh]">
         <div className="px-4 py-3 border-b border-line">
           <h2 className="text-sm font-semibold text-ink">
-            Move note to folder
+            {t("palette.moveNoteToFolder")}
           </h2>
           <p className="text-[11px] text-stone mt-1 truncate">
             {note.snippet?.slice(0, 50)}...
@@ -97,12 +99,12 @@ export default function MovePicker({
                 <span className="flex-1 text-[13px] font-medium">{folder}</span>
                 {isCurrent && (
                   <span className="text-[9px] px-1.5 py-0.5 bg-line rounded text-stone">
-                    current
+                    {t("common.current")}
                   </span>
                 )}
                 {isSelected && !isCurrent && (
                   <kbd className="text-[9px] px-1.5 py-0.5 bg-white/20 rounded text-white/90 font-mono">
-                    enter
+                    {t("common.enter")}
                   </kbd>
                 )}
               </button>
@@ -118,7 +120,7 @@ export default function MovePicker({
           </span>
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">
-              esc
+              {t("common.esc")}
             </kbd>{" "}
             cancel
           </span>

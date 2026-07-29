@@ -876,7 +876,7 @@ export default function CommandPalette() {
         <div className="flex items-center gap-3">
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">tab</kbd>{" "}
-            switch pane
+            {t("palette.switchPane")}
           </span>
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">↑↓</kbd>{" "}

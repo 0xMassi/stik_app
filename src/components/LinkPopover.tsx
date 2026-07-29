@@ -289,7 +289,7 @@ export default function LinkPopover({ getView }: LinkPopoverProps) {
           </div>
           <div className="link-popover-edit-actions">
             <button type="submit" className="link-popover-btn link-popover-save">
-              Save
+              {t("common.save")}
             </button>
           </div>
         </form>

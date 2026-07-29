@@ -167,19 +167,17 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3">
       <div className="w-full max-w-[440px] max-h-[92vh] overflow-y-auto rounded-2xl bg-bg p-4 shadow-2xl border border-line">
         <h2 className="text-[14px] font-semibold text-ink mb-1">
-          Set up dictation
+          {t("dictation.setupTitle")}
         </h2>
         <p className="text-[11px] text-stone leading-snug mb-3">
-          Stik uses <span className="text-ink font-medium">Whisper</span> for
-          on-device speech-to-text. Pick a language and a model size — it
-          downloads once and stays on your Mac.
+          {t("dictation.whisperIntro")}
         </p>
 
         {phase === "choose" && (
           <>
             <div className="mb-3">
               <label className="block text-[11px] text-stone mb-1">
-                Language
+                {t("settings.language.title")}
               </label>
               <Dropdown
                 value={selectedLanguage ?? ""}
@@ -225,7 +223,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
                       </p>
                       {m.downloaded && (
                         <p className="text-[10px] text-coral mt-0.5">
-                          Already downloaded
+                          {t("dictation.alreadyDownloaded")}
                         </p>
                       )}
                     </div>
@@ -240,7 +238,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
                 onClick={onClose}
                 className="px-3 py-1.5 text-[11px] text-stone hover:text-ink rounded-lg"
               >
-                Cancel
+                {t("common.cancelAction")}
               </button>
               <button
                 type="button"
@@ -284,7 +282,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
                 onClick={cancelDownload}
                 className="px-4 py-2 text-[12px] text-stone hover:text-coral rounded-lg"
               >
-                Cancel
+                {t("common.cancelAction")}
               </button>
             </div>
           </div>
@@ -315,14 +313,14 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
                 onClick={onClose}
                 className="px-4 py-2 text-[12px] text-stone hover:text-ink rounded-lg"
               >
-                Close
+                {t("common.close")}
               </button>
               <button
                 type="button"
                 onClick={() => setPhase("choose")}
                 className="px-4 py-2 text-[12px] bg-coral text-white rounded-lg hover:bg-coral/90"
               >
-                Try again
+                {t("common.tryAgain")}
               </button>
             </div>
           </div>
