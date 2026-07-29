@@ -164,8 +164,8 @@ export default function AppleNotesPicker() {
           {t("appleNotes.fullDiskRequired")}
         </h2>
         <p className="text-[12px] text-stone text-center mb-4 max-w-[340px] leading-relaxed">
-          {t("appleNotes.fullDiskExplain")}
-          Click below to open System Settings, then press <strong className="text-ink">+</strong> and add Stik from your Applications folder.
+          {t("appleNotes.fullDiskExplain")}{" "}
+          {t("appleNotes.fullDiskSteps")}
         </p>
         <button
           onClick={() => invoke("open_full_disk_access_settings")}
@@ -304,18 +304,21 @@ export default function AppleNotesPicker() {
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">
               ↑↓
             </kbd>{" "}
-            navigate
+            
+            {t("palette.navigate")}
           </span>
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">
               ↵
             </kbd>{" "}
-            import
+            
+            {t("palette.import")}
           </span>
         </div>
         <span>
           <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">{t("common.esc")}</kbd>{" "}
-          close
+          
+          {t("palette.close")}
         </span>
       </div>
     </div>

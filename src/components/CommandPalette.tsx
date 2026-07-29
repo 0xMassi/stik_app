@@ -880,27 +880,33 @@ export default function CommandPalette() {
           </span>
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">↑↓</kbd>{" "}
-            navigate
+            
+            {t("palette.navigate")}
           </span>
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">↵</kbd>{" "}
-            open
+            
+            {t("palette.open")}
           </span>
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">⌫</kbd>{" "}
-            delete
+            
+            {t("palette.delete")}
           </span>
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">⌘M</kbd>{" "}
-            move
+            
+            {t("palette.move")}
           </span>
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">⌘N</kbd>{" "}
-            new
+            
+            {t("palette.new")}
           </span>
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">⌘L</kbd>{" "}
-            lock
+            
+            {t("palette.lock")}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -919,7 +925,8 @@ export default function CommandPalette() {
           </button>
           <span>
             <kbd className="px-1.5 py-0.5 bg-line rounded text-[9px]">esc</kbd>{" "}
-            close
+            
+            {t("palette.close")}
           </span>
         </div>
       </div>

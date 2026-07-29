@@ -1967,11 +1967,11 @@ export default function PostIt({
                   </span>
                 ) : isSticked && !isPinned && !isViewing ? (
                   <span className="text-stone">
-                    <span className="text-amber-500">○</span> unpinned
+                    <span className="text-amber-500">○</span>  {t("postit.unpinned")}
                   </span>
                 ) : (
                   <span className="text-stone">
-                    <span className="text-coral">✦</span> markdown supported
+                    <span className="text-coral">✦</span>  {t("postit.markdownSupported")}
                   </span>
                 )}
                 {(onOpenSettings || isSticked) && (

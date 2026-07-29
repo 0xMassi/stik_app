@@ -1,18 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import ts from "typescript";
+import { readdirSync, statSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-/// Guard against untranslated UI text creeping back in.
+/// Guard against untranslated UI text.
 ///
-/// Two earlier sweeps each missed a whole category — the first only looked at
-/// JSX text nodes, the second only at quoted string literals — and both times
-/// the catalogues looked complete while the app still rendered English. This
-/// test walks the component tree the way a reviewer would and fails on bare
-/// prose sitting between JSX tags.
-///
-/// It is intentionally narrow: it checks JSX *text nodes* only. Quoted
-/// literals are far noisier (command names, CSS, keyboard codes) and are left
-/// to review.
+/// Three earlier sweeps each missed a different shape, because each matched on
+/// line layout: JSX-only, then string-literals-only, then prose-only lines
+/// (which skipped `<span>Create custom theme</span>`, since that line also
+/// holds tags). This walks the real TypeScript AST instead, so wrapping and
+/// formatting are irrelevant — a JSX text node is a JSX text node.
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -23,9 +20,13 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/// A line that is pure prose: no JSX syntax, no code punctuation.
-const CODE_CHARS = /[{}<>=;()[\]`$]|=>/;
-const PROSE = /^[A-Za-z][A-Za-z0-9 ,.'’"()%/:!?—–-]*$/;
+/// Genuinely untranslatable: keyboard nomenclature, units, path fragments,
+/// folder examples, and the vim command reference.
+const ALLOWED = new Set([
+  "AI", "MB", "opt", "tab", "esc", "/command", "/Stik/",
+  "Inbox/", "Work/", "Ideas/", 'git -C "', '" push',
+  "-- NORMAL --", "-- VISUAL --", "-- VISUAL LINE --", "-- INSERT --", "·", "&middot;",
+]);
 
 interface Finding {
   file: string;
@@ -33,39 +34,47 @@ interface Finding {
   text: string;
 }
 
-function findUntranslated(file: string): Finding[] {
-  const lines = readFileSync(file, "utf8").split("\n");
+function scan(file: string): Finding[] {
+  const source = ts.createSourceFile(
+    file,
+    readFileSync(file, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
   const found: Finding[] = [];
+  const lineOf = (n: ts.Node) =>
+    source.getLineAndCharacterOfPosition(n.getStart(source)).line + 1;
 
-  lines.forEach((raw, idx) => {
-    const text = raw.trim();
-    if (!text || text.length < 3) return;
-    if (/^(\/\/|\*|\/\*|import)/.test(text)) return;
-    if (CODE_CHARS.test(text)) return;
-    // object properties and function parameters
-    if (text.endsWith(",") || /^\w+\s*:/.test(text)) return;
-    // bare lowercase identifiers
-    if (/^\w+$/.test(text) && text[0] === text[0].toLowerCase()) return;
-    if (!PROSE.test(text)) return;
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxText(node)) {
+      const text = node.text.trim().replace(/\s+/g, " ");
+      if (
+        text.length > 0 &&
+        /[A-Za-z]{2}/.test(text) &&
+        !ALLOWED.has(text) &&
+        !text.startsWith("—")
+      ) {
+        found.push({ file, line: lineOf(node), text });
+      }
 
-    // A JSX text node closes a tag above it or opens one below.
-    const prev = idx > 0 ? lines[idx - 1].trim() : "";
-    const next = idx + 1 < lines.length ? lines[idx + 1].trim() : "";
-    if (!prev.endsWith(">") && !next.startsWith("<")) return;
+      // A t("…") call left in raw JSX text renders the call itself to the
+      // user. That shipped once; it must not ship again.
+      if (/\bt\(\s*"/.test(node.text)) {
+        found.push({ file, line: lineOf(node), text: `LITERAL t() IN TEXT: ${text}` });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
 
-    found.push({ file, line: idx + 1, text });
-  });
-
+  visit(source);
   return found;
 }
 
 describe("no untranslated UI text", () => {
-  it("has no bare prose in JSX text nodes", () => {
-    const findings = walk("src").flatMap(findUntranslated);
-
-    // Readable failure: list every offender with its location so the fix is
-    // mechanical rather than a hunt.
-    const report = findings
+  it("routes every JSX text node through t()", () => {
+    const report = walk("src")
+      .flatMap(scan)
       .map((f) => `${f.file}:${f.line}  ${f.text}`)
       .join("\n");
 

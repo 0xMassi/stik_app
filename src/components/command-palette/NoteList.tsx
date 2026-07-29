@@ -72,7 +72,9 @@ export default function NoteList({
   ) {
     return (
       <div className="flex-1 flex items-center justify-center p-4">
-        <span className="text-stone text-sm">No notes found for "{query}"</span>
+        <span className="text-stone text-sm">
+          {t("palette.noNotesFor", { query })}
+        </span>
       </div>
     );
   }
@@ -117,7 +119,8 @@ export default function NoteList({
             />
           </div>
           <div className="mt-1 ml-6 text-[10px] text-stone">
-            in <span className="text-coral font-medium">{targetFolder}</span> —{" "}
+            {t("palette.inFolder")}{" "}
+            <span className="text-coral font-medium">{targetFolder}</span> —{" "}
             {t("palette.createHint")}
           </div>
         </div>
@@ -240,7 +243,9 @@ export default function NoteList({
                     {formatRelativeDate(result.created)}
                   </span>
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-coral/10 text-coral">
-                    {Math.round(result.similarity * 100)}% match
+                    {t("palette.matchPercent", {
+                      percent: Math.round(result.similarity * 100),
+                    })}
                   </span>
                 </div>
                 {shouldShowSnippet && (

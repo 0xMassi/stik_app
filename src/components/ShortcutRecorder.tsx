@@ -345,7 +345,8 @@ export default function ShortcutRecorder({
                 setTempShortcut(null);
               }}
             >
-              cancel
+              
+              {t("common.cancelLower")}
             </span>
           ) : (
             <span className="text-[9px] text-stone">

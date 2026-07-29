@@ -480,10 +480,10 @@ function PrivacySection({
               {t("settings.analytics.weCollect")}
             </p>
             <ul className="text-[12px] text-stone leading-relaxed space-y-1">
-              <li>App opens (daily active usage)</li>
-              <li>Device type (macOS version, CPU architecture)</li>
-              <li>Screen resolution and app version</li>
-              <li>Anonymous device identifier</li>
+              <li>{t("settings.analytics.collectAppOpens")}</li>
+              <li>{t("settings.analytics.collectDevice")}</li>
+              <li>{t("settings.analytics.collectScreen")}</li>
+              <li>{t("settings.analytics.collectId")}</li>
             </ul>
           </div>
           <div>
@@ -491,16 +491,16 @@ function PrivacySection({
               {t("settings.analytics.neverCollect")}
             </p>
             <ul className="text-[12px] text-stone leading-relaxed space-y-1">
-              <li>Your notes, titles, or folder names</li>
-              <li>File paths or personal information</li>
-              <li>Anything that could identify you</li>
+              <li>{t("settings.analytics.neverNotes")}</li>
+              <li>{t("settings.analytics.neverPaths")}</li>
+              <li>{t("settings.analytics.neverIdentify")}</li>
             </ul>
           </div>
         </div>
 
         {deviceId && (
           <div className="p-4 bg-line/30 rounded-xl border border-line/50">
-            <p className="text-[12px] text-stone mb-2">Your device ID</p>
+            <p className="text-[12px] text-stone mb-2">{t("settings.analytics.yourDeviceId")}</p>
             <div className="flex items-center gap-2">
               <code className="flex-1 px-2.5 py-2 text-[11px] rounded-lg bg-bg border border-line text-ink font-mono truncate">
                 {deviceId}
@@ -658,7 +658,7 @@ function CustomThemeEditor({
   return (
     <div className="space-y-4 p-4 bg-line/30 rounded-xl border border-line/50">
       <div>
-        <p className="text-[12px] text-stone mb-1.5">Theme name</p>
+        <p className="text-[12px] text-stone mb-1.5">{t("settings.theme.name")}</p>
         <input
           ref={nameInputRef}
           type="text"
@@ -671,7 +671,7 @@ function CustomThemeEditor({
       </div>
 
       <label className="flex items-center justify-between gap-3">
-        <span className="text-[12px] text-stone">Dark theme</span>
+        <span className="text-[12px] text-stone">{t("settings.theme.dark")}</span>
         <button
           type="button"
           onClick={() => onChange({ ...theme, is_dark: !theme.is_dark })}
@@ -688,7 +688,7 @@ function CustomThemeEditor({
       </label>
 
       <div>
-        <p className="text-[12px] text-stone mb-2">Colors</p>
+        <p className="text-[12px] text-stone mb-2">{t("settings.theme.colors")}</p>
         <div className="grid grid-cols-2 gap-2">
           {COLOR_TOKEN_LABELS.map(
             ({ key, labelKey, optional, default: defaultRgb }) => {
@@ -738,7 +738,8 @@ function CustomThemeEditor({
             className="text-[11px] leading-relaxed"
             style={{ color: `rgb(${theme.colors.stone})` }}
           >
-            This is how your theme will look.{" "}
+            
+            {t("settings.theme.previewHint")}{" "}
             <span style={{ color: `rgb(${theme.colors.accent})` }}>
               {t("settings.theme.accentColor")}
             </span>{" "}
@@ -1157,7 +1158,7 @@ function AppearanceSection({
               className="flex-1 px-4 py-3 text-[13px] text-coral hover:bg-coral-light rounded-xl transition-colors flex items-center justify-center gap-2 border border-dashed border-coral/30 hover:border-coral/50"
             >
               <span className="text-lg">+</span>
-              <span>Create custom theme</span>
+              <span>{t("settings.theme.create")}</span>
             </button>
             <button
               type="button"
@@ -1178,7 +1179,7 @@ function AppearanceSection({
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span>Import</span>
+              <span>{t("common.import")}</span>
             </button>
           </div>
         )}
@@ -1186,7 +1187,7 @@ function AppearanceSection({
         {/* ── Font Picker ── */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[12px] text-stone font-medium">Editor Font</p>
+            <p className="text-[12px] text-stone font-medium">{t("settings.font.editorFont")}</p>
             <button
               type="button"
               onClick={handleImportFont}
@@ -1206,7 +1207,8 @@ function AppearanceSection({
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              Import font…
+              
+              {t("settings.font.importEllipsis")}
             </button>
           </div>
 
@@ -1476,8 +1478,7 @@ function TemplatesSection({
     <>
       <div className="space-y-4">
         <p className="text-[12px] text-stone">
-          Create reusable note templates accessible via{" "}
-          <span className="text-ink font-medium">/command</span> in the editor.
+          {t("settings.template.intro")}
         </p>
 
         {/* Existing templates */}
@@ -1543,7 +1544,7 @@ function TemplatesSection({
         {editingIndex !== null ? (
           <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-3">
             <div>
-              <p className="text-[12px] text-stone mb-1.5">Command name</p>
+              <p className="text-[12px] text-stone mb-1.5">{t("settings.template.commandName")}</p>
               <div className="flex items-center gap-2">
                 <span className="text-[13px] text-stone">/</span>
                 <input
@@ -1565,7 +1566,7 @@ function TemplatesSection({
             </div>
 
             <div>
-              <p className="text-[12px] text-stone mb-1.5">Template body</p>
+              <p className="text-[12px] text-stone mb-1.5">{t("settings.template.body")}</p>
               <textarea
                 value={editBody}
                 onChange={(e) => {
@@ -1633,15 +1634,13 @@ function TemplatesSection({
             className="w-full px-4 py-3 text-[13px] text-coral hover:bg-coral-light rounded-xl transition-colors flex items-center justify-center gap-2 border border-dashed border-coral/30 hover:border-coral/50"
           >
             <span className="text-lg">+</span>
-            <span>Add template</span>
+            <span>{t("settings.template.add")}</span>
           </button>
         )}
 
         <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl">
           <p className="text-[12px] text-stone leading-relaxed">
-            Type <span className="text-ink font-medium">/</span> at the start of
-            a line in the editor to see all templates. Custom templates appear
-            with a t("settings.template.custom") badge.
+            {t("settings.template.badgeHint")}
           </p>
         </div>
       </div>
@@ -1828,11 +1827,11 @@ export default function SettingsContent({
             className="mt-4 w-full px-4 py-3 text-[13px] text-coral hover:bg-coral-light rounded-xl transition-colors flex items-center justify-center gap-2 border border-dashed border-coral/30 hover:border-coral/50"
           >
             <span className="text-lg">+</span>
-            <span>Add shortcut</span>
+            <span>{t("settings.shortcut.add")}</span>
           </button>
 
           <div className="mt-6">
-            <p className="text-[12px] text-stone mb-3">System shortcuts</p>
+            <p className="text-[12px] text-stone mb-3">{t("settings.shortcut.system")}</p>
             <div className="space-y-2">
               {SYSTEM_SHORTCUT_ACTIONS.map((action) => {
                 const currentShortcut =
@@ -1940,7 +1939,7 @@ export default function SettingsContent({
           {/* iCloud Drive sync */}
           <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
             <div>
-              <p className="text-[13px] text-ink font-medium">iCloud Drive</p>
+              <p className="text-[13px] text-ink font-medium">{t("settings.icloud.title")}</p>
               <p className="mt-1 text-[12px] text-stone leading-relaxed">
                 {t("settings.icloud.describe")}
               </p>
@@ -2003,7 +2002,7 @@ export default function SettingsContent({
           {/* Notes directory (hidden when iCloud is active) */}
           {!settings.icloud?.enabled && (
             <div>
-              <p className="text-[12px] text-stone mb-1.5">Notes directory</p>
+              <p className="text-[12px] text-stone mb-1.5">{t("settings.notesDirectory")}</p>
               <div className="flex items-center gap-2">
                 <div className="flex-1 px-3 py-2.5 bg-bg border border-line rounded-lg text-[13px] font-mono truncate text-ink">
                   {notesDir}
@@ -2070,7 +2069,7 @@ export default function SettingsContent({
           )}
 
           <div>
-            <p className="text-[12px] text-stone mb-1.5">Default folder</p>
+            <p className="text-[12px] text-stone mb-1.5">{t("settings.defaultFolder")}</p>
             <div className="max-w-[360px]">
               <Dropdown
                 value={settings.default_folder}
@@ -2095,14 +2094,14 @@ export default function SettingsContent({
                     ? t("settings.notesDirectory.allFolders")
                     : settings.git_sharing.shared_folder || "Inbox"}
                 </span>{" "}
-                synced via Git.{" "}
+                {t("settings.git.syncedViaGit")}{" "}
                 {onTabChange && (
                   <button
                     type="button"
                     onClick={() => onTabChange("git")}
                     className="text-coral hover:underline"
                   >
-                    Settings &gt; Git
+                    {t("settings.git.openGitTab")}
                   </button>
                 )}
               </p>
@@ -2121,7 +2120,7 @@ export default function SettingsContent({
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
             <div>
-              <p className="text-[13px] text-ink font-medium">Font size</p>
+              <p className="text-[13px] text-ink font-medium">{t("settings.fontSize")}</p>
               <p className="mt-1 text-[12px] text-stone leading-relaxed">
                 {t("settings.fontSize.describe")}
               </p>
@@ -2161,7 +2160,7 @@ export default function SettingsContent({
 
           <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
             <div>
-              <p className="text-[13px] text-ink font-medium">Vim mode</p>
+              <p className="text-[13px] text-ink font-medium">{t("settings.vimMode")}</p>
               <p className="mt-1 text-[12px] text-stone leading-relaxed">
                 {t("settings.vimMode.describe")}
               </p>
@@ -2211,7 +2210,7 @@ export default function SettingsContent({
 
           <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
             <div>
-              <p className="text-[13px] text-ink font-medium">Hide Dock icon</p>
+              <p className="text-[13px] text-ink font-medium">{t("settings.hideDockIcon")}</p>
               <p className="mt-1 text-[12px] text-stone leading-relaxed">
                 {t("settings.hideDockIcon.describe")}
               </p>
@@ -2268,37 +2267,37 @@ export default function SettingsContent({
           </label>
 
           <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-2">
-            <p className="text-[13px] text-ink font-medium">Quick reference</p>
+            <p className="text-[13px] text-ink font-medium">{t("settings.vim.quickReference")}</p>
             <div className="text-[12px] text-stone leading-relaxed space-y-1">
               <p>
-                <span className="text-ink font-medium">Movement</span> — h j k
+                <span className="text-ink font-medium">{t("settings.vim.movement")}</span> — h j k
                 l, w b (word), 0 $ (line), gg G (document)
               </p>
               <p>
-                <span className="text-ink font-medium">Insert</span> — i
+                <span className="text-ink font-medium">{t("settings.vim.insert")}</span> — i
                 (before), a (after), A (end of line), o O (new line)
               </p>
               <p>
-                <span className="text-ink font-medium">Edit</span> — x dd cc cw
+                <span className="text-ink font-medium">{t("settings.vim.edit")}</span> — x dd cc cw
                 C, yy p, diw ciw, ci/di + &quot; &apos; ( {"{"}
               </p>
               <p>
-                <span className="text-ink font-medium">Visual</span> — v
+                <span className="text-ink font-medium">{t("settings.vim.visual")}</span> — v
                 (chars), V (lines), d x (delete), y (yank), c (change)
               </p>
               <p>
-                <span className="text-ink font-medium">Undo</span> — u, Ctrl+r
+                <span className="text-ink font-medium">{t("settings.vim.undo")}</span> — u, Ctrl+r
                 (redo), . (repeat)
               </p>
               <p>
-                <span className="text-ink font-medium">Commands</span> — :wq
+                <span className="text-ink font-medium">{t("settings.vim.commands")}</span> — :wq
                 (save &amp; close), :q! (discard &amp; close)
               </p>
             </div>
           </div>
 
           <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl space-y-1">
-            <p className="text-[12px] font-semibold text-ink">How to close</p>
+            <p className="text-[12px] font-semibold text-ink">{t("settings.vim.howToClose")}</p>
             <p className="text-[12px] text-stone leading-relaxed">
               {t("settings.vim.commandBar")}
             </p>
@@ -2354,7 +2353,7 @@ export default function SettingsContent({
 
           {/* Remote URL — primary field */}
           <div>
-            <p className="text-[12px] text-stone mb-1.5">Remote URL</p>
+            <p className="text-[12px] text-stone mb-1.5">{t("settings.git.remoteUrl")}</p>
             <input
               type="text"
               value={settings.git_sharing.remote_url}
@@ -2367,7 +2366,7 @@ export default function SettingsContent({
           {/* Shared folder — only for folder_root layout */}
           {settings.git_sharing.repository_layout === "folder_root" ? (
             <div>
-              <p className="text-[12px] text-stone mb-1.5">Shared folder</p>
+              <p className="text-[12px] text-stone mb-1.5">{t("settings.git.sharedFolder")}</p>
               <Dropdown
                 value={settings.git_sharing.shared_folder}
                 options={folders.map((f) => ({ value: f, label: f }))}
@@ -2394,7 +2393,7 @@ export default function SettingsContent({
               {isPreparingGitRepo ? (
                 <span className="inline-flex items-center gap-1.5">
                   <span className="animate-spin">↻</span>
-                  <span>Linking...</span>
+                  <span>{t("common.linking")}</span>
                 </span>
               ) : (
                 t("settings.git.linkRepo")
@@ -2409,7 +2408,7 @@ export default function SettingsContent({
               {isSyncingGitNow ? (
                 <span className="inline-flex items-center gap-1.5">
                   <span className="animate-spin">↻</span>
-                  <span>Syncing...</span>
+                  <span>{t("common.syncing")}</span>
                 </span>
               ) : (
                 t("settings.git.syncNow")
@@ -2430,7 +2429,8 @@ export default function SettingsContent({
           {/* Status */}
           <div className="text-[12px] text-stone leading-relaxed space-y-0.5">
             <p>
-              Status:{" "}
+              
+              {t("settings.git.status")}{" "}
               <span className="text-ink font-medium">
                 {gitSyncStatus?.repo_initialized
                   ? t("settings.git.linked")
@@ -2439,13 +2439,15 @@ export default function SettingsContent({
             </p>
             {gitSyncStatus?.last_sync_at && (
               <p>
-                Last sync:{" "}
+                
+                {t("settings.git.lastSync")}{" "}
                 {new Date(gitSyncStatus.last_sync_at).toLocaleString()}
               </p>
             )}
             {gitSyncStatus?.last_error && (
               <p className="text-coral">
-                Last error: {gitSyncStatus.last_error}
+                
+                {t("settings.git.lastError")} {gitSyncStatus.last_error}
               </p>
             )}
             <p>{t("settings.git.autoSyncNote")}</p>
@@ -2458,7 +2460,7 @@ export default function SettingsContent({
             className="flex items-center gap-1 text-[12px] text-stone hover:text-ink transition-colors"
           >
             <span>{showGitAdvanced ? "▾" : "▸"}</span>
-            <span>Advanced</span>
+            <span>{t("settings.git.advanced")}</span>
           </button>
 
           {showGitAdvanced && (
@@ -2489,7 +2491,7 @@ export default function SettingsContent({
 
               <div className="grid grid-cols-[1fr_130px] gap-3">
                 <div>
-                  <p className="text-[12px] text-stone mb-1.5">Branch</p>
+                  <p className="text-[12px] text-stone mb-1.5">{t("settings.git.branch")}</p>
                   <input
                     type="text"
                     value={settings.git_sharing.branch}
@@ -2501,7 +2503,7 @@ export default function SettingsContent({
                   />
                 </div>
                 <div>
-                  <p className="text-[12px] text-stone mb-1.5">Pull interval</p>
+                  <p className="text-[12px] text-stone mb-1.5">{t("settings.git.pullInterval")}</p>
                   <input
                     type="number"
                     min={60}
@@ -2578,7 +2580,7 @@ export default function SettingsContent({
           </label>
 
           <div className="p-4 bg-line/30 rounded-xl border border-line/50 space-y-2">
-            <p className="text-[13px] text-ink font-medium">How it works</p>
+            <p className="text-[13px] text-ink font-medium">{t("settings.ai.howItWorks")}</p>
             <ul className="text-[12px] text-stone leading-relaxed space-y-1.5">
               <li>
                 <span className="text-ink font-medium">
@@ -2602,7 +2604,7 @@ export default function SettingsContent({
           </div>
 
           <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl space-y-1">
-            <p className="text-[12px] font-semibold text-ink">Privacy</p>
+            <p className="text-[12px] font-semibold text-ink">{t("settings.ai.privacy")}</p>
             <p className="text-[12px] text-stone leading-relaxed">
               {t("settings.ai.privacyNote")}
             </p>
@@ -2888,7 +2890,7 @@ function DictationSettingsPanel({
   return (
     <div className="space-y-4">
       <div className="p-4 bg-line/30 rounded-xl border border-line/50">
-        <p className="text-[13px] text-ink font-medium">On-device dictation</p>
+        <p className="text-[13px] text-ink font-medium">{t("dictation.onDevice")}</p>
         <p className="mt-1 text-[12px] text-stone leading-relaxed">
           {t("dictation.whisperLocal")}
         </p>
@@ -2923,7 +2925,7 @@ function DictationSettingsPanel({
 
       {/* Model manager */}
       <div>
-        <label className="block text-[12px] text-stone mb-1.5">Models</label>
+        <label className="block text-[12px] text-stone mb-1.5">{t("dictation.models")}</label>
         <div className="space-y-2">
           {models.map((m) => {
             const isActive = status?.active_model === m.id;
@@ -2999,7 +3001,8 @@ function DictationSettingsPanel({
                             disabled
                             className="px-3 py-1 text-[11px] bg-coral/60 text-white rounded-md cursor-wait"
                           >
-                            Loading… {loadElapsed}s
+                            
+                            {t("common.loadingEllipsis")} {loadElapsed}s
                           </button>
                         ) : (
                           <button

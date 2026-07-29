@@ -224,7 +224,8 @@ export default function FolderSidebar({
             onClick={() => onSetNewFolderName("")}
             className="text-[10px] text-stone hover:text-coral transition-colors"
           >
-            + New Folder
+            
+            {t("palette.newFolder")}
           </button>
         </div>
       )}
