@@ -1,0 +1,51 @@
+version: 2
+
+# Without this file GitHub only opens *security* PRs, so routine versions drift
+# until an advisory forces a large jump. Everything here is grouped so a week's
+# updates arrive as one reviewable PR per ecosystem rather than a dozen.
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      codemirror:
+        patterns: ["@codemirror/*", "codemirror", "@replit/codemirror-vim"]
+      tauri:
+        # The Tauri npm packages must stay on the same major/minor as the Rust
+        # `tauri` crate or tauri-cli refuses to build, so they move together.
+        patterns: ["@tauri-apps/*"]
+      dev-dependencies:
+        dependency-type: development
+        exclude-patterns: ["@tauri-apps/*"]
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+
+  - package-ecosystem: cargo
+    directory: "/src-tauri"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      tauri:
+        patterns: ["tauri", "tauri-*"]
+      cargo-minor-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"
