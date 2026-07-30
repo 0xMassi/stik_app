@@ -85,11 +85,45 @@ Stik ships when a phase is useful, not when it is complete. Items are moved to
 
 ### Phase 8 — Mobile & Sync (v1.0)
 
-- [ ] iOS companion app (capture + read, via iCloud initially) — in progress
-- [ ] E2E encrypted cloud sync (optional, paid)
-- [ ] Cross-device conflict resolution
-- [ ] Zero-knowledge architecture
-- [ ] Android companion — see [Discussion #68](https://github.com/0xMassi/stik_app/discussions/68)
+Planned in detail in [MOBILE_PLAN.md](MOBILE_PLAN.md). Desktop, iOS, Android
+and cloud sync ship together as 1.0.
+
+**One React Native app for both platforms**
+- [ ] `@stik/tokens` — design tokens extracted from `src/themes`, consumed by
+      desktop, the editor bundle, and NativeWind
+- [ ] Expo bare project with NativeWind + react-native-reusables (the
+      shadcn/ui port for React Native)
+- [ ] Filename contract ported to TypeScript, tested for parity with `notes.rs`
+- [ ] Capture screen, note list, folder navigation
+- [ ] Existing CodeMirror `WebEditor` bundle hosted in a WebView
+
+**Platform surfaces**
+- [ ] iPhone Action button — Swift native module reusing the scaffold's
+      `QuickCaptureIntent`; App Intents are Swift on any stack
+- [ ] iOS iCloud Drive module; Android Storage Access Framework module
+- [ ] Android share target and quick-settings tile
+
+**Stik Cloud — the critical path, roughly 3x the app work**
+- [ ] Auth and account
+- [ ] E2E envelope: Argon2id, per-note keys, recovery key. Zero-knowledge, so
+      no password reset exists by design
+- [ ] Sync engine with version vectors and conflict copies
+- [ ] €4.99/mo or €49.99/yr — Apple takes 15% under the Small Business Program.
+      Infra on Hetzner is ~€17–38/mo, so break-even is ~10 subscribers; see
+      [MOBILE_PLAN.md](MOBILE_PLAN.md) for the full math
+- [ ] IAP on both stores, Stripe on desktop
+- [ ] Behind a feature flag from day one, so an unfinished backend never
+      blocks shipping app binaries
+
+---
+
+## Guiding Principles
+
+- **Local-first** — Your notes are markdown files on your machine. No cloud required.
+- **Privacy by design** — All AI features run on-device via Apple frameworks. Nothing leaves your Mac.
+- **Open source** — Every line of code is auditable. MIT licensed.
+- **Free forever** — The full app is free and open source. Optional paid sync for those who want it. No lock-in, ever.
+- **Fast and simple** — Sub-second capture. Keyboard-driven. Stay out of the way.
 
 ---
 
@@ -100,10 +134,10 @@ phase is deliberately unglamorous: it exists so 1.0 can be trusted.
 
 ### Blocking for 0.9
 
-- [ ] **CI on pull requests.** `release.yml` only fires on `v*` tags, so nothing
-      runs `cargo test` / `npm test` on a PR or on a push to `main`. Every
-      Dependabot PR merges with "no checks reported" and regressions are only
-      caught by hand. This is the single highest-value fix in the repo.
+- [x] **CI on pull requests.** Landed in #85: `ci.yml` runs the frontend
+      typecheck/build/vitest and `cargo test` on every PR and on pushes to
+      `main` and `develop`. `fmt` and `clippy` report as an advisory job until
+      the pre-existing debt is cleared.
 - [ ] **`.github/dependabot.yml`.** Only *security* updates arrive today
       (GitHub's default). Routine version updates are never proposed, so the
       dependency tree drifts until an advisory forces a jump.
@@ -169,14 +203,4 @@ Current: 100 frontend tests, 62 Rust tests — but concentrated in pure helpers.
 
 ---
 
-## Guiding Principles
-
-- **Local-first** — Your notes are markdown files on your machine. No cloud required.
-- **Privacy by design** — All AI features run on-device via Apple frameworks. Nothing leaves your Mac.
-- **Open source** — Every line of code is auditable. MIT licensed.
-- **Free forever** — The full app is free and open source. Optional paid sync for those who want it. No lock-in, ever.
-- **Fast and simple** — Sub-second capture. Keyboard-driven. Stay out of the way.
-
----
-
-*Last updated: July 29, 2026*
+*Last updated: July 30, 2026*
