@@ -468,8 +468,10 @@ Housekeeping that Phase 0 inherits, as of July 30, 2026:
 - Local `main` sits 4 commits behind `origin/main` and holds one unpushed
   commit — `4c0f015`, the cm-a11y VoiceOver work, 3 files. Rebase and push it
   first, or it collides with the i18n fixes that landed as #81–#84.
-- Four branches unmerged: `develop`, `fix/shadscan`,
-  `fix/placeholder-locale`, and this one.
+- `develop` fast-forwards onto `main` and already contains all four commits
+  from `fix/shadscan`, `fix/placeholder-locale` and the Cmd+K fix, so one merge
+  clears three branches. It touches `src/App.tsx`, which is currently dirty in
+  the working tree, so the WIP has to be committed or stashed first.
 - Uncommitted work in the tree: `src/components/EditorWindow.tsx` untracked,
   plus 9 modified files across `src-tauri/` and `src/`.
 - Version is still 0.8.0. The v0.9 hardening set never landed.
@@ -484,14 +486,19 @@ Zero open PRs and zero open issues, so nothing is queued behind review.
 ## Sequenced work
 
 **Phase 0 — desktop foundations** *(gates everything; see the section above)*
-- PR CI running `npm test` and `cargo test`, before anything else
-- Stable per-note ID surviving moves and folder renames; `rename_folder` repairs
-  both indices
-- One authority for `created`, with a timezone
-- Atomic note writes (tmp+rename) and self-write suppression in the watcher
-- Bulk-import mode: watcher suppressed, embedding deferred and gated
-- Decide the synced set, and what happens when `git_share` is also enabled
-- Trash and note history, so a sync bug is survivable
+- [x] PR CI running `npm test` and `cargo test` — #85. `fmt`/`clippy` advisory
+      until one `cargo fmt --all` pass lands
+- [x] Atomic note writes (tmp+rename), with a reader-thread regression test
+- [x] Self-write suppression, so the watcher stops re-handling our own saves
+- [x] Watcher embedding gated on `ai_features_enabled` and skipped on a matching
+      content hash — the restore-drill stall
+- [x] `lock_note` purges the note's plaintext-derived embedding
+- [ ] **Stable per-note ID** surviving moves and folder renames; `rename_folder`
+      repairs both indices. Blocking, and needs open question 8 answered first
+- [ ] One authority for `created`, with a timezone (open question 9)
+- [ ] Decide the synced set, and what happens when `git_share` is also enabled
+      (open question 10)
+- [ ] Trash and note history, so a sync bug is survivable (open question 7)
 
 **Phase 1 — foundations (parallel with Phase 4)**
 - `@stik/tokens` extracted from `src/themes/index.ts`
