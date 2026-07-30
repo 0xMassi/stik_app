@@ -2096,6 +2096,28 @@ export default function SettingsContent({
           )}
 
           <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.simple_filenames ?? false}
+                onChange={(e) =>
+                  onSettingsChange({
+                    ...settings,
+                    simple_filenames: e.target.checked,
+                  })
+                }
+                className="rounded border-line"
+              />
+              <span className="text-[12px] text-ink">
+                {t("settings.simpleFilenames")}
+              </span>
+            </label>
+            <p className="mt-1.5 text-[12px] text-stone leading-relaxed">
+              {t("settings.simpleFilenames.note")}
+            </p>
+          </div>
+
+          <div>
             <p className="text-[12px] text-stone mb-1.5">{t("settings.defaultFolder")}</p>
             <div className="max-w-[360px]">
               <Dropdown

@@ -1,7 +1,7 @@
 use base64::Engine;
-use chrono::Local;
+use chrono::{DateTime, Local, NaiveDate};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use super::analytics;
@@ -68,13 +68,78 @@ fn generate_slug(content: &str) -> String {
     }
 }
 
-/// Generate timestamp-based filename with UUID suffix to prevent collisions
-fn generate_filename(content: &str) -> String {
-    let now = Local::now();
-    let timestamp = now.format("%Y%m%d-%H%M%S").to_string();
+/// Build the on-disk name for a new note.
+///
+/// The default `YYYYMMDD-HHMMSS-<slug>-<uuid>.md` sorts chronologically in any
+/// file browser, can never collide, and carries the capture date that stats and
+/// On This Day read straight off the name.
+///
+/// With `simple_filenames` the note is just `<slug>.md`, which reads far better
+/// in Finder and Obsidian. The trade is that the name no longer carries a date,
+/// so those features fall back to the file's modification time, and a unique
+/// name has to be claimed rather than generated.
+fn generate_filename(content: &str, folder_path: &Path) -> String {
     let slug = generate_slug(content);
+
+    if simple_filenames_enabled() {
+        return claim_simple_filename(&slug, folder_path);
+    }
+
+    let timestamp = Local::now().format("%Y%m%d-%H%M%S").to_string();
     let suffix = &uuid::Uuid::new_v4().to_string()[..4];
     format!("{}-{}-{}.md", timestamp, slug, suffix)
+}
+
+fn simple_filenames_enabled() -> bool {
+    super::settings::load_settings_from_file()
+        .map(|s| s.simple_filenames)
+        .unwrap_or(false)
+}
+
+/// `note.md`, then `note-2.md`, `note-3.md`…
+///
+/// Creates the file as it goes rather than merely testing for absence: two
+/// captures in the same instant would both see the name free and the second
+/// would silently overwrite the first. `create_new` is atomic, so exactly one
+/// caller can win a given name.
+fn claim_simple_filename(slug: &str, folder_path: &Path) -> String {
+    for n in 1..=999 {
+        let candidate = if n == 1 {
+            format!("{}.md", slug)
+        } else {
+            format!("{}-{}.md", slug, n)
+        };
+
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(folder_path.join(&candidate))
+        {
+            Ok(_) => return candidate,
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            // Anything else (permissions, missing dir) is the real write's
+            // problem to report, with a better message than we could give.
+            Err(_) => return candidate,
+        }
+    }
+
+    format!("{}-{}.md", slug, &uuid::Uuid::new_v4().to_string()[..4])
+}
+
+/// The note's capture date: the filename prefix when it has one, otherwise the
+/// file's modification time. Simple filenames carry no date, so the filesystem
+/// is the only source for them.
+pub fn note_date(path: &Path, filename: &str) -> Option<NaiveDate> {
+    if let Some(segment) = filename.split('-').next() {
+        if segment.len() == 8 {
+            if let Ok(date) = NaiveDate::parse_from_str(segment, "%Y%m%d") {
+                return Some(date);
+            }
+        }
+    }
+
+    let modified = std::fs::metadata(path).ok()?.modified().ok()?;
+    Some(DateTime::<Local>::from(modified).date_naive())
 }
 
 fn is_break_placeholder_line(line: &str) -> bool {
@@ -112,7 +177,7 @@ pub fn save_note_inner(folder: String, content: String) -> Result<NoteSaved, Str
     super::storage::ensure_dir(&folder_path.to_string_lossy())?;
 
     // Generate filename and write
-    let filename = generate_filename(&content);
+    let filename = generate_filename(&content, &folder_path);
     let file_path = folder_path.join(&filename);
 
     super::storage::write_file(&file_path.to_string_lossy(), &content)?;
@@ -633,7 +698,81 @@ pub fn save_note_image_from_path(
 
 #[cfg(test)]
 mod tests {
-    use super::is_effectively_empty_markdown;
+    use super::{claim_simple_filename, is_effectively_empty_markdown, note_date};
+    use chrono::{Local, NaiveDate};
+
+    fn temp_folder(label: &str) -> std::path::PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock should be monotonic")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("stik-fname-{label}-{nanos}"));
+        std::fs::create_dir_all(&dir).expect("temp dir should be creatable");
+        dir
+    }
+
+    #[test]
+    fn simple_names_disambiguate_by_counting_up() {
+        let dir = temp_folder("collide");
+
+        assert_eq!(
+            claim_simple_filename("meeting-notes", &dir),
+            "meeting-notes.md"
+        );
+        assert_eq!(
+            claim_simple_filename("meeting-notes", &dir),
+            "meeting-notes-2.md"
+        );
+        assert_eq!(
+            claim_simple_filename("meeting-notes", &dir),
+            "meeting-notes-3.md"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn claiming_a_name_reserves_it_so_a_racing_save_cannot_overwrite() {
+        // Guards against check-then-write: two captures in the same instant
+        // would both see the name free, and the second would clobber the first.
+        let dir = temp_folder("reserve");
+        let first = claim_simple_filename("note", &dir);
+        assert!(
+            dir.join(&first).exists(),
+            "claimed name should exist on disk"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn note_date_reads_the_filename_prefix_without_touching_disk() {
+        let date = note_date(
+            std::path::Path::new("/nonexistent/20260413-160431-hello-0e29.md"),
+            "20260413-160431-hello-0e29.md",
+        );
+        assert_eq!(date, NaiveDate::from_ymd_opt(2026, 4, 13));
+    }
+
+    #[test]
+    fn note_date_falls_back_to_mtime_for_a_simple_filename() {
+        let dir = temp_folder("mtime");
+        let file = dir.join("meeting-notes.md");
+        std::fs::write(&file, "hi").unwrap();
+
+        let date = note_date(&file, "meeting-notes.md").expect("mtime should resolve");
+        assert_eq!(date, Local::now().date_naive());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn note_date_is_none_without_a_prefix_or_a_file() {
+        assert_eq!(
+            note_date(std::path::Path::new("/nonexistent/x.md"), "x.md"),
+            None
+        );
+    }
 
     #[test]
     fn placeholder_breaks_only_are_treated_as_empty() {

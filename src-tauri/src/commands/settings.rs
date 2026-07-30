@@ -183,6 +183,11 @@ pub struct StikSettings {
     pub note_lock: NoteLockSettings,
     #[serde(default)]
     pub use_directory_as_root: bool,
+    /// Save notes as `<slug>.md` instead of `YYYYMMDD-HHMMSS-<slug>-<uuid>.md`.
+    /// Nicer in Finder; costs the date-in-name that stats and On This Day read,
+    /// which then fall back to the file's modification time.
+    #[serde(default)]
+    pub simple_filenames: bool,
     #[serde(default)]
     pub dictation: DictationSettings,
     /// BCP-47 locale tag for the UI language ("en", "zh-CN").
@@ -245,6 +250,7 @@ impl Default for StikSettings {
             icloud: ICloudSettings::default(),
             note_lock: NoteLockSettings::default(),
             use_directory_as_root: false,
+            simple_filenames: false,
             dictation: DictationSettings::default(),
         }
     }
