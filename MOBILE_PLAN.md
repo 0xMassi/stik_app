@@ -1,6 +1,7 @@
 # Stik Mobile & Sync — plan
 
-> Status: draft for review. Nothing built yet.
+> Status: revised after a pass over the actual code. Nothing built yet.
+> Several claims in the first draft were wrong; those sections say so inline.
 > Last updated: July 30, 2026
 
 **Target:** one React Native app for iOS and Android, visually aligned with
@@ -33,7 +34,7 @@ Maestro flows — the same intent, different instrument.
 ## Design alignment
 
 Desktop themes live in `src/themes/index.ts` as space-separated RGB triples
-(`bg: "255 252 249"`) consumed through CSS variables. Ten built-in themes.
+(`bg: "255 252 249"`) consumed through CSS variables. Nine built-in themes.
 
 Extract them once into a shared `@stik/tokens` package emitting both:
 - CSS variables for desktop and the WebView editor
@@ -52,9 +53,19 @@ bundle already consumes the CSS-variable form, so it needs no change.
   UI.
 - **`Models/NoteFilename.swift` is the reference** for the TypeScript port of
   `YYYYMMDD-HHMMSS-<slug>-<4char-uuid>.md`. Round-tripping with desktop
-  depends on matching `generate_filename` in `notes.rs` exactly.
-- **`WebEditor/`** is lifted wholesale.
+  depends on matching `generate_filename` in `notes.rs:72` exactly.
+- **`Services/CloudContainer.swift` is the storage answer** — though not the
+  entitlements sitting next to it. Its `setCustomLocation` takes a user-picked
+  folder and holds a security-scoped bookmark. See "Storage" below for why that
+  matters more than the ubiquity container does.
 - **`Design/StikColors.swift`** confirms the token values already ported once.
+
+**`WebEditor/` cannot be lifted wholesale — it is already a stale fork.** It
+carries 9 CodeMirror modules. Desktop `src/extensions/` has those same 9 plus
+`cm-a11y.ts`, `cm-bidi.ts`, `cm-vim.ts` and `cm-block-widgets.ts`, and it keeps
+gaining more. Copying the directory again only resets the drift clock. Give it
+the same treatment as the tokens: one `@stik/editor` package that desktop and
+the WebView both build from.
 
 What is discarded: the SwiftUI views and view models. Roughly 20 of 28 files.
 
@@ -68,10 +79,33 @@ devices and reachable from Spotlight, Shortcuts, and the Lock Screen.
 **Android** — a share-target intent (`ACTION_SEND` for text) plus a
 quick-settings tile, both Kotlin, both thin.
 
-**Storage** — local-first, same filename contract as desktop. iOS reads and
-writes the iCloud Drive `Stik/` folder through a native module (the ubiquity
-container path desktop already uses). Android uses the Storage Access
-Framework so an existing synced folder works with no account.
+**Storage** — local-first, same filename contract as desktop. The iCloud route
+in the first draft was wrong, and the correction is worth spelling out because
+it changes the iOS work.
+
+Desktop does **not** use a ubiquity container. `storage.rs` resolves iCloud to
+the generic iCloud Drive folder,
+`~/Library/Mobile Documents/com~apple~CloudDocs/Stik`, and the comment there
+explains the choice: a dedicated container needs
+`com.apple.developer.icloud-container-identifiers` and a provisioning profile,
+which stopped ad-hoc signed builds from launching in v0.7.7.
+
+The iOS scaffold's entitlements do the opposite. They declare
+`iCloud.com.0xmassi.stik` as a ubiquity container with
+`NSUbiquitousContainerName = Stik`. That is a separate backing store, so notes
+written by desktop never appear in it — and since the container publishes its
+document scope, it surfaces in iCloud Drive under the same display name desktop
+already creates. Two folders called "Stik", one of them permanently empty.
+
+iOS also has no API for arbitrary `com~apple~CloudDocs` paths. The only
+supported way into desktop's folder is `UIDocumentPickerViewController` plus a
+security-scoped bookmark, which `CloudContainer.setCustomLocation` already
+implements.
+
+So: **drop the iCloud entitlements and make user-picked-folder-plus-bookmark the
+primary path on iOS.** Android's Storage Access Framework has the same shape, so
+both platforms end up sharing one mental model and one onboarding screen, and
+neither depends on a provisioning profile.
 
 ## Stik Cloud
 
@@ -87,6 +121,29 @@ case. Last-write-wins silently destroys work, and per-note CRDTs are heavy for
 markdown. Plan: per-note version vectors, and on divergence write a conflict
 copy beside the original — the same thing Obsidian does, and users understand
 it.
+
+**Deletions.** There is no trash and no note history anywhere in
+`src-tauri/src/commands/` — deleting a note unlinks the file, and
+`versioning.rs` is JSON schema migration for settings, not note history. Absent
+tombstones, "deleted on the phone" and "not yet downloaded to the phone" look
+identical from the server, which is precisely how sync engines end up deleting
+everything. Tombstones with a retention window are required. A desktop trash
+should land **before** sync rather than after: this plan names a note-losing
+sync bug as the top risk, then proposes nothing that makes such a bug
+survivable.
+
+**Locked notes cannot sync today, and can already be lost.** `note_lock.rs`
+encrypts with a random 32-byte key at `~/.stik/note-key`; Touch ID is only the
+access gate, and the key is not derived from anything. It is device-local, and
+`~/.stik` sits outside the notes folder, so it never travels. A locked note is
+undecryptable on any other machine right now, and losing the Mac loses it
+permanently — a live desktop risk, not a mobile one. Pick one before Phase 4:
+derive the lock key from the passphrase-derived master key, move to a per-note
+passphrase, or exclude locked notes from sync and say so plainly in the UI.
+
+**Attachments.** `notes.rs` writes images to `<Folder>/.assets/<uuid>.<ext>`,
+so sync carries binaries and not only markdown. This moves the cost model more
+than anything else in this document — see the note under the storage table.
 
 **Billing.** €4.99/month. Apple takes 15% under the
 [Small Business Program](https://developer.apple.com/app-store/small-business-program/)
@@ -112,7 +169,8 @@ Everything below is also computed at that worst case. Re-verify at order time.
 ### Storage per user
 
 Markdown at ~2 KB per note, ×1.05 for AEAD overhead (24-byte nonce, 16-byte
-MAC, wrapped per-note key), ×3 for retained versions and conflict copies:
+MAC, wrapped per-note key), ×3 for retained versions and conflict copies. The
+×3 assumes the version history proposed above, since none exists today:
 
 | user | notes | stored |
 |---|---|---|
@@ -123,6 +181,15 @@ MAC, wrapped per-note key), ×3 for retained versions and conflict copies:
 
 At a generous 10 MB average, the €4.99 base tier holds **~105,000 users**. At
 100 MB average it still holds ~10,500.
+
+**Attachments break every number above, and they are the only thing that can.**
+One phone photo at 2–5 MB outweighs a thousand notes. Someone who pastes 200
+screenshots stores an order of magnitude more than the "extreme" row, and
+end-to-end encryption leaves the server unable to tell a note from a 100 MB
+video. Text is free. Binaries are the whole cost model. Two things are needed
+before anyone is billed: a per-account quota enforced server-side against
+ciphertext size, and a decision on whether attachments sync at all below the
+paid tier.
 
 ### Egress
 
@@ -188,6 +255,27 @@ Infrastructure is rounding error. The real costs, in order:
 
 The pricing is not the risk. A sync bug that loses notes is.
 
+## Store and legal requirements
+
+None of this is hard. All of it blocks submission, and none of it appeared in
+the first draft.
+
+| requirement | why | where |
+|---|---|---|
+| In-app account deletion | App Store 5.1.1(v), mandatory once accounts exist | both apps |
+| `ITSAppUsesNonExemptEncryption`, French encryption declaration, US BIS self-classification | the app ships crypto | iOS submission |
+| `PrivacyInfo.xcprivacy` and a privacy policy URL | required for the app and every third-party SDK | iOS — the repo has neither today |
+| Play data safety form, Play Console account (US$25 once), release keystore | Android parity | Android |
+| Server-side receipt validation, StoreKit 2 and Play Billing | the entitlement has to be checked somewhere trustworthy | Track C |
+| Store price tiers for €4.99 and €49.99 in every currency sold | Apple picks the tiers, you do not | Track C |
+
+The subscription check needs an account identity tied to the purchase while the
+content stays unreadable. That combination is fine — entitlement and encryption
+are separate concerns — but it wants designing rather than discovering.
+
+Track C also cannot start without two decisions the draft never made: what the
+app server runs, and whether auth is hand-rolled or hosted.
+
 ## Getting all of it into one 1.0
 
 Three tracks run in parallel; only one is on the critical path.
@@ -215,6 +303,26 @@ The honest risk in shipping everything together is that the encrypted sync is
 the part that must not be rushed — it is the one component where a bug loses
 user data permanently and unrecoverably. The flag plus the cut line is how the
 single-release goal survives contact with that.
+
+## Before Phase 1 starts
+
+Repo state on July 30, 2026:
+
+- Local `main` sits 4 commits behind `origin/main` and holds one unpushed
+  commit — `4c0f015`, the cm-a11y VoiceOver work, 3 files. Rebase and push it
+  first, or it collides with the i18n fixes that landed as #81–#84.
+- Four branches unmerged: `develop`, `fix/shadscan`,
+  `fix/placeholder-locale`, and this one.
+- Uncommitted work in the tree: `src/components/EditorWindow.tsx` untracked,
+  plus 9 modified files across `src-tauri/` and `src/`.
+- Version is still 0.8.0. The v0.9 hardening set never landed.
+- **The Apple Developer Program agreement is expired.** It blocks notarization,
+  which blocks the v1.0 tag, TestFlight, and every EAS iOS build. Only the
+  Account Holder can clear it at developer.apple.com → Membership →
+  Agreements, and it is the single item here that depends on someone outside
+  the repo.
+
+Zero open PRs and zero open issues, so nothing is queued behind review.
 
 ## Sequenced work
 
@@ -247,10 +355,17 @@ single-release goal survives contact with that.
 
 ## Open questions
 
-1. €4.99 monthly, or yearly at a discount?
+1. ~~€4.99 monthly, or yearly at a discount?~~ Both — €4.99/mo alongside
+   €49.99/yr, per the economics above. Confirm the yearly figure and this one
+   is closed.
 2. Free tier: does no-account sync (iCloud on iOS, SAF on Android) stay
    permanently, or become a trial?
-3. One repo or two? A monorepo shares `@stik/tokens` and the editor bundle
+3. One repo or two? A monorepo shares `@stik/tokens` and the editor package
    cheaply; a separate repo keeps mobile release cycles independent.
 4. Is the Phase 4 cut line above acceptable as the fallback for holding the
    single-1.0 goal?
+5. Locked notes: derive the key from the master key, switch to a per-note
+   passphrase, or exclude them from sync?
+6. Do attachments sync, and what is the per-account quota?
+7. Does desktop get trash and version history before sync ships, or does sync
+   go out without a safety net?
