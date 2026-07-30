@@ -434,6 +434,8 @@ export const en = {
   "common.browse": "Browse",
   "common.reset": "Reset",
   "settings.notesDirectory.asRoot": "Use directory as root (skip Stik subfolder)",
+  "settings.simpleFilenames": "Simple filenames",
+  "settings.simpleFilenames.note": "Save notes as \"meeting-notes.md\" instead of \"20260730-125367-meeting-notes-ab12.md\". Existing notes keep their names. Without the date in the filename, streaks and On This Day read the file's modification date instead.",
   "settings.defaultFolder.describe": "Opens when using tray menu or if no folder is specified.",
   "settings.textDirection.title": "Text direction",
   "settings.textDirection.describe": "Set text direction for the editor. Auto detects per line — ideal for Arabic, Hebrew, and mixed-language notes.",

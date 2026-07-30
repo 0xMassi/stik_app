@@ -436,6 +436,8 @@ export const zhCN: Translations = {
   "common.browse": "浏览",
   "common.reset": "重置",
   "settings.notesDirectory.asRoot": "将该目录用作根目录（跳过 Stik 子文件夹）",
+  "settings.simpleFilenames": "简洁文件名",
+  "settings.simpleFilenames.note": "将笔记保存为“meeting-notes.md”，而不是“20260730-125367-meeting-notes-ab12.md”。已有笔记的名称保持不变。文件名中没有日期时，连续记录天数和“往年今日”将改用文件的修改日期。",
   "settings.defaultFolder.describe": "使用菜单栏菜单或未指定文件夹时打开。",
   "settings.textDirection.title": "文字方向",
   "settings.textDirection.describe": "设置编辑器的文字方向。“自动”会逐行检测——适合阿拉伯语、希伯来语和多语言混排的笔记。",

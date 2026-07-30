@@ -119,7 +119,8 @@ fn collect_candidates(today: NaiveDate) -> Result<Vec<OnThisDayCandidate>, Strin
                     None => continue,
                 };
 
-                let Some(date) = parse_date_from_filename(filename) else {
+                // Simple filenames carry no date, so fall back to mtime.
+                let Some(date) = super::notes::note_date(&path, filename) else {
                     continue;
                 };
 
@@ -146,14 +147,6 @@ fn select_best_candidate(candidates: &[OnThisDayCandidate]) -> Option<OnThisDayC
         .iter()
         .cloned()
         .max_by_key(|candidate| candidate.date)
-}
-
-fn parse_date_from_filename(filename: &str) -> Option<NaiveDate> {
-    let date_segment = filename.split('-').next()?;
-    if date_segment.len() != 8 {
-        return None;
-    }
-    NaiveDate::parse_from_str(date_segment, "%Y%m%d").ok()
 }
 
 fn build_preview(content: &str) -> String {
@@ -221,7 +214,10 @@ mod tests {
 
     #[test]
     fn parses_date_from_filename_prefix() {
-        let date = parse_date_from_filename("20240206-101530-my-note.md");
+        let date = super::super::notes::note_date(
+            std::path::Path::new("/nonexistent/20240206-101530-my-note.md"),
+            "20240206-101530-my-note.md",
+        );
         assert_eq!(date, NaiveDate::from_ymd_opt(2024, 2, 6));
     }
 
