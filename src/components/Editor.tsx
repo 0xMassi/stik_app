@@ -17,7 +17,6 @@ import {
   EditorView,
   drawSelection,
   keymap,
-  placeholder as cmPlaceholder,
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab, insertNewline } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
@@ -56,6 +55,7 @@ import { highlightExtension } from "@/extensions/cm-highlight";
 import { taskCheckboxPlugin, taskCheckboxHandler } from "@/extensions/cm-task-toggle";
 import { hideMarkersPlugin, autoCloseMarkup } from "@/extensions/cm-hide-markers";
 import { headingFoldPlugin } from "@/extensions/cm-heading-fold";
+import { accessibleEditor } from "@/extensions/cm-a11y";
 import { filenameToSlug } from "@/utils/wikiLink";
 import { normalizeUrl } from "@/utils/normalizeUrl";
 import { isImageUrl } from "@/utils/isImageUrl";
@@ -219,6 +219,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
                   view.dispatch({
                     changes: { from: head + 2, insert: "\n" },
                     selection: { anchor: head + 2 + 1 },
+                    userEvent: "input",
                   });
                   return true;
                 }
@@ -526,7 +527,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         // @replit/codemirror-vim makes native ::selection transparent.
         // drawSelection renders .cm-selectionBackground instead.
         drawSelection(),
-        placeholderCompartment.of(cmPlaceholder(placeholderText)),
+        placeholderCompartment.of(accessibleEditor(placeholderText)),
         search(),
         richCopyHandler,
         imageHandlers,
@@ -602,7 +603,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       if (!view) return;
       view.dispatch({
         effects: placeholderCompartment.reconfigure(
-          cmPlaceholder(placeholderText),
+          accessibleEditor(placeholderText),
         ),
       });
     }, [placeholderText]);
