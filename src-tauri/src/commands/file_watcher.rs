@@ -100,20 +100,48 @@ fn run(app: AppHandle, root: PathBuf) {
 /// Shared handler: update NoteIndex, EmbeddingIndex, emit frontend event.
 /// Used by both the local file watcher and iCloud notification handler.
 pub fn handle_changes(app: &AppHandle, paths: &[String]) {
-    let index = app.state::<NoteIndex>();
-    index.notify_external_change(paths);
+    // Our own saves already updated the index, so re-handling them would
+    // re-embed and re-broadcast every keystroke the app itself wrote.
+    let external: Vec<String> = paths
+        .iter()
+        .filter(|p| !storage::take_self_write(p))
+        .cloned()
+        .collect();
 
-    let emb = app.state::<EmbeddingIndex>();
-    for path_str in paths {
-        if let Ok(content) = storage::read_file(path_str) {
-            if !notes::is_effectively_empty_markdown(&content) {
-                if let Some(embedding) = embeddings::embed_content(&content) {
-                    emb.add_entry(path_str, embedding);
-                }
+    if external.is_empty() {
+        return;
+    }
+
+    let index = app.state::<NoteIndex>();
+    index.notify_external_change(&external);
+
+    // Embedding costs two blocking sidecar round trips per note, so it is gated
+    // on the AI setting (as the save path is) and skipped when the content hash
+    // already matches. Without both, landing a large batch of files — an import,
+    // an iCloud download, a restore — serialises thousands of RPCs here.
+    if super::settings::load_settings_from_file()
+        .map(|s| s.ai_features_enabled)
+        .unwrap_or(false)
+    {
+        let emb = app.state::<EmbeddingIndex>();
+        let mut embedded = 0;
+        for path_str in &external {
+            let Ok(content) = storage::read_file(path_str) else {
+                continue;
+            };
+            if notes::is_effectively_empty_markdown(&content) || emb.is_current(path_str, &content)
+            {
+                continue;
+            }
+            if let Some(embedding) = embeddings::embed_content(&content) {
+                emb.add_entry(path_str, embedding);
+                embedded += 1;
             }
         }
+        if embedded > 0 {
+            let _ = emb.save();
+        }
     }
-    let _ = emb.save();
 
-    let _ = app.emit("files-changed", paths);
+    let _ = app.emit("files-changed", &external);
 }
