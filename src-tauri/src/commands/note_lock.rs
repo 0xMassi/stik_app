@@ -254,6 +254,7 @@ pub fn lock_session() -> Result<(), String> {
 pub fn lock_note(
     path: String,
     index: tauri::State<'_, super::index::NoteIndex>,
+    embeddings: tauri::State<'_, super::embeddings::EmbeddingIndex>,
 ) -> Result<(), String> {
     let content = storage::read_file(&path)?;
 
@@ -269,6 +270,12 @@ pub fn lock_note(
 
     // Re-index so the UI sees the updated locked state
     index.add(&path, &folder);
+
+    // The embedding is derived from plaintext, so keeping it would leave a
+    // readable shadow of a locked note in ~/.stik/embeddings.json. build_embeddings
+    // already skips locked notes; this closes the same hole on the way in.
+    embeddings.remove_entry(&path);
+    let _ = embeddings.save();
 
     Ok(())
 }

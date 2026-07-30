@@ -149,6 +149,12 @@ impl EmbeddingIndex {
     }
 
     /// Get the content hash for a path (to check if re-embedding is needed).
+    /// True if the stored embedding already matches this content. Lets callers
+    /// skip a sidecar round trip for a note that has not actually changed.
+    pub fn is_current(&self, path: &str, content: &str) -> bool {
+        self.get_hash(path).as_deref() == Some(content_hash(content).as_str())
+    }
+
     pub fn get_hash(&self, path: &str) -> Option<String> {
         let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         entries.get(path).map(|e| e.content_hash.clone())
