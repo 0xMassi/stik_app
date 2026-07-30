@@ -31,7 +31,6 @@ import {
   FONTS,
   loadGoogleFont,
   loadCustomFont,
-  fontNameFromPath,
 } from "@/utils/fonts";
 
 function remoteToWebUrl(remoteUrl: string): string | null {
@@ -848,20 +847,29 @@ function AppearanceSection({
     });
     if (!selected) return;
 
-    const name = fontNameFromPath(selected);
-    // Avoid duplicates (same path)
-    if (customFonts.some((f) => f.path === selected)) {
+    // Copy into ~/.stik/fonts first: the picked file may sit anywhere, and a
+    // font referenced in place stops working the moment the user moves it.
+    let entry: CustomFontEntry;
+    try {
+      entry = await invoke<CustomFontEntry>("import_font_file", { path: selected });
+    } catch (error) {
+      setToast(typeof error === "string" ? error : t("settings.font.loadFailed"));
+      return;
+    }
+
+    const { name } = entry;
+    if (customFonts.some((f) => f.path === entry.path)) {
       setToast(`Font "${name}" is already imported`);
       return;
     }
 
-    const ok = await loadCustomFont(name, selected);
+    const ok = await loadCustomFont(name, entry.path);
     if (!ok) {
       setToast(t("settings.font.loadFailed"));
       return;
     }
 
-    const updated = [...customFonts, { name, path: selected }];
+    const updated = [...customFonts, entry];
     onSettingsChange({ ...settings, custom_fonts: updated });
     setToast(`Font "${name}" imported`);
   };

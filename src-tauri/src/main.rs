@@ -493,6 +493,8 @@ fn main() {
             settings::save_viewing_window_geometry,
             settings::save_capture_window_size,
             settings::import_theme_file,
+            settings::import_font_file,
+            settings::load_font_data,
             settings::export_theme_file,
             darwinkit::darwinkit_status,
             darwinkit::darwinkit_call,

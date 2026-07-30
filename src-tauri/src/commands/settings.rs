@@ -1,8 +1,9 @@
 use super::{git_share, versioning};
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShortcutMapping {
@@ -582,5 +583,160 @@ mod tests {
         assert_eq!(parse_color_value("#112233"), Some("17 34 51".to_string()));
         assert_eq!(parse_color_value("10 20 30"), Some("10 20 30".to_string()));
         assert_eq!(parse_color_value("not-a-color"), None);
+    }
+}
+
+// ── Custom Fonts ─────────────────────────────────────────────────
+//
+// Imported fonts are copied into ~/.stik/fonts rather than referenced where the
+// user found them. A path under Downloads breaks as soon as the file moves, and
+// the asset protocol's scope does not reach outside the notes folder anyway.
+// The bytes go back to the webview as a data: URL, which avoids the asset
+// protocol and its per-platform URL scheme entirely.
+
+const FONT_EXTENSIONS: [&str; 4] = ["ttf", "otf", "woff", "woff2"];
+
+fn font_mime(ext: &str) -> &'static str {
+    match ext {
+        "otf" => "font/otf",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        _ => "font/ttf",
+    }
+}
+
+fn fonts_dir() -> Result<PathBuf, String> {
+    let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
+    let dir = home.join(".stik").join("fonts");
+    fs::create_dir_all(&dir).map_err(|e| format!("Failed to create fonts directory: {}", e))?;
+    Ok(dir)
+}
+
+/// Derive the CSS family name from a font file's basename.
+/// Mirrors the previous frontend behaviour so names do not change.
+pub fn font_family_name(file_name: &str) -> String {
+    let stem = file_name
+        .rsplit_once('.')
+        .map(|(s, _)| s)
+        .unwrap_or(file_name);
+    stem.replace(['-', '_'], " ")
+}
+
+fn font_extension(path: &Path) -> Result<String, String> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+        .ok_or("Font file has no extension")?;
+    if !FONT_EXTENSIONS.contains(&ext.as_str()) {
+        return Err(format!(
+            "Unsupported font format '.{}'. Use .ttf, .otf, .woff or .woff2",
+            ext
+        ));
+    }
+    Ok(ext)
+}
+
+#[tauri::command]
+pub fn import_font_file(path: String) -> Result<CustomFontEntry, String> {
+    let source = Path::new(&path);
+    font_extension(source)?;
+
+    let file_name = source
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or("Font file has no name")?;
+
+    let destination = fonts_dir()?.join(file_name);
+    if source != destination {
+        fs::copy(source, &destination)
+            .map_err(|e| format!("Failed to copy font into ~/.stik/fonts: {}", e))?;
+    }
+
+    Ok(CustomFontEntry {
+        name: font_family_name(file_name),
+        path: destination.to_string_lossy().to_string(),
+    })
+}
+
+/// Read an imported font and return it as a `data:` URL for the FontFace API.
+#[tauri::command]
+pub fn load_font_data(path: String) -> Result<String, String> {
+    let file = Path::new(&path);
+    let ext = font_extension(file)?;
+
+    // This hands raw file bytes to the webview, so it must never read outside
+    // the fonts directory — canonicalize both sides so `..` cannot escape.
+    let canonical = file
+        .canonicalize()
+        .map_err(|e| format!("Font file not found: {}", e))?;
+    let dir = fonts_dir()?
+        .canonicalize()
+        .map_err(|e| format!("Fonts directory unavailable: {}", e))?;
+    if !canonical.starts_with(&dir) {
+        return Err("Fonts can only be loaded from ~/.stik/fonts".to_string());
+    }
+
+    let bytes = fs::read(&canonical).map_err(|e| format!("Failed to read font: {}", e))?;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+    Ok(format!("data:{};base64,{}", font_mime(&ext), encoded))
+}
+
+#[cfg(test)]
+mod font_tests {
+    use super::*;
+
+    #[test]
+    fn family_name_strips_extension_and_separators() {
+        assert_eq!(
+            font_family_name("JetBrains-Mono_Regular.ttf"),
+            "JetBrains Mono Regular"
+        );
+        assert_eq!(font_family_name("Inter.woff2"), "Inter");
+    }
+
+    #[test]
+    fn family_name_survives_a_name_with_no_extension() {
+        assert_eq!(font_family_name("PlainName"), "PlainName");
+    }
+
+    #[test]
+    fn font_extension_accepts_every_supported_format() {
+        for ext in FONT_EXTENSIONS {
+            let name = format!("Some-Font.{}", ext);
+            assert_eq!(font_extension(Path::new(&name)).unwrap(), ext);
+        }
+    }
+
+    #[test]
+    fn font_extension_is_case_insensitive() {
+        assert_eq!(font_extension(Path::new("Some.TTF")).unwrap(), "ttf");
+    }
+
+    #[test]
+    fn font_extension_rejects_a_non_font() {
+        // The picker filters, but the path also arrives from settings.json.
+        assert!(font_extension(Path::new("secrets.env")).is_err());
+        assert!(font_extension(Path::new("noextension")).is_err());
+    }
+
+    #[test]
+    fn load_font_data_refuses_paths_outside_the_fonts_directory() {
+        // Guards the arbitrary-read primitive: a font extension alone is not
+        // enough, the file has to live in ~/.stik/fonts.
+        // No extension at all.
+        let err = load_font_data("/etc/passwd".to_string()).unwrap_err();
+        assert!(err.contains("no extension"), "got: {err}");
+
+        // A real extension, but not a font one.
+        let err = load_font_data("/etc/hosts.env".to_string()).unwrap_err();
+        assert!(err.contains("Unsupported font format"), "got: {err}");
+
+        // Font extension, but outside ~/.stik/fonts — the case that matters.
+        let outside = std::env::temp_dir().join("stik-outside-fonts-dir.ttf");
+        fs::write(&outside, b"not really a font").unwrap();
+        let err = load_font_data(outside.to_string_lossy().to_string()).unwrap_err();
+        assert!(err.contains("~/.stik/fonts"), "got: {err}");
+        let _ = fs::remove_file(&outside);
     }
 }
