@@ -183,6 +183,10 @@ pub struct StikSettings {
     pub note_lock: NoteLockSettings,
     #[serde(default)]
     pub use_directory_as_root: bool,
+    /// Whether the capture window was last left in Zen mode. Persisted so the
+    /// mode survives a restart rather than resetting every launch.
+    #[serde(default)]
+    pub zen_mode_enabled: bool,
     /// Save notes as `<slug>.md` instead of `YYYYMMDD-HHMMSS-<slug>-<uuid>.md`.
     /// Nicer in Finder; costs the date-in-name that stats and On This Day read,
     /// which then fall back to the file's modification time.
@@ -250,6 +254,7 @@ impl Default for StikSettings {
             icloud: ICloudSettings::default(),
             note_lock: NoteLockSettings::default(),
             use_directory_as_root: false,
+            zen_mode_enabled: false,
             simple_filenames: false,
             dictation: DictationSettings::default(),
         }
@@ -551,7 +556,40 @@ pub fn export_theme_file(
 
 #[cfg(test)]
 mod tests {
-    use super::{normalize_loaded_settings, parse_color_value, ShortcutMapping, StikSettings};
+    use super::{
+        default_system_shortcuts, normalize_loaded_settings, normalize_system_shortcuts,
+        parse_color_value, ShortcutMapping, StikSettings,
+    };
+    use std::collections::HashMap;
+
+    #[test]
+    fn a_cleared_system_shortcut_survives_normalization() {
+        // Clearing is stored as an empty string. `or_insert_with` must leave it
+        // alone — if the default were restored, the Clear button (#92) would
+        // silently undo itself on the next settings load.
+        let mut shortcuts = default_system_shortcuts();
+        shortcuts.insert("voice_note".to_string(), String::new());
+
+        normalize_system_shortcuts(&mut shortcuts);
+
+        assert_eq!(shortcuts.get("voice_note").map(String::as_str), Some(""));
+        assert_eq!(
+            shortcuts.get("search").map(String::as_str),
+            Some("Cmd+Shift+P")
+        );
+    }
+
+    #[test]
+    fn a_missing_system_shortcut_still_gets_its_default() {
+        // Distinct from cleared: absent means "never set", not "unset by hand".
+        let mut shortcuts: HashMap<String, String> = HashMap::new();
+        normalize_system_shortcuts(&mut shortcuts);
+
+        assert_eq!(
+            shortcuts.get("voice_note").map(String::as_str),
+            Some("Cmd+Shift+V")
+        );
+    }
 
     #[test]
     fn normalization_reenables_all_disabled_shortcuts() {

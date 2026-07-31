@@ -120,6 +120,8 @@ export const zhCN: Translations = {
   "settings.shortcut.remove": "移除快捷键",
   "settings.shortcut.system": "系统快捷键",
   "settings.shortcut.resetDefault": "恢复默认",
+  "settings.shortcut.clear": "清除快捷键",
+  "settings.shortcut.notSet": "未设置",
   "settings.shortcut.clickToRecord": "点按以录制",
 
   // ── Settings — window / system ────────────────────────────────────

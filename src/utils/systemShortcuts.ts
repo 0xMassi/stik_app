@@ -33,9 +33,23 @@ export const SYSTEM_SHORTCUT_LABEL_KEYS: Record<SystemAction, TranslationKey> = 
   clip_capture: "shortcut.clipCapture",
 };
 
+/**
+ * Settings deliberately cannot be cleared.
+ *
+ * The tray icon and the Dock icon can both be hidden, so if the Settings
+ * shortcut were also unset there would be no way left to reach Settings and
+ * undo any of it. Every other action has a menu or is simply optional.
+ */
+export const UNCLEARABLE_ACTIONS: readonly SystemAction[] = ["settings"];
+
+export function isClearableAction(action: SystemAction): boolean {
+  return !UNCLEARABLE_ACTIONS.includes(action);
+}
+
 /** Get all system shortcut values for use as reserved list */
 export function getSystemShortcutValues(
   systemShortcuts: Record<string, string>,
 ): string[] {
-  return Object.values(systemShortcuts);
+  // Cleared shortcuts are the empty string; they reserve nothing.
+  return Object.values(systemShortcuts).filter((value) => value !== "");
 }

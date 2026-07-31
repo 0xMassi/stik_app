@@ -288,6 +288,7 @@ export default function PostIt({
           (s.text_direction as "auto" | "ltr" | "rtl") || "auto",
         );
         setIcloudEnabled(s.icloud?.enabled ?? false);
+        setZenMode(s.zen_mode_enabled ?? false);
         setDictationActiveModel(s.dictation?.active_model ?? null);
         setDictationLanguage(s.dictation?.active_language ?? null);
       })
@@ -656,9 +657,29 @@ export default function PostIt({
     handleSaveAndClose,
   ]);
 
+  // Toggling Zen also writes it to settings so the mode survives a restart
+  // (#93). Persisting is best-effort: failing to save must never block the
+  // toggle the user just asked for.
+  const toggleZenMode = useCallback(() => {
+    setZenMode((prev) => {
+      const next = !prev;
+      invoke<StikSettings>("get_settings")
+        .then((s) =>
+          invoke("save_settings", {
+            settings: { ...s, zen_mode_enabled: next },
+          }),
+        )
+        .catch(() => {});
+      return next;
+    });
+  }, []);
+
   // Zen mode shortcut (reads from settings, defaults to Cmd+.)
   useEffect(() => {
-    const shortcutStr = systemShortcuts.zen_mode || "Cmd+Period";
+    // `??` not `||`: an empty string means the user cleared this shortcut
+    // deliberately (#92), so nothing should be bound at all.
+    const shortcutStr = systemShortcuts.zen_mode ?? "Cmd+Period";
+    if (!shortcutStr) return;
     const handleZenToggle = (e: KeyboardEvent) => {
       const parts = shortcutStr.split("+");
       const key = parts[parts.length - 1];
@@ -680,15 +701,17 @@ export default function PostIt({
       if (eventKey.toLowerCase() !== key.toLowerCase()) return;
 
       e.preventDefault();
-      setZenMode((prev) => !prev);
+      toggleZenMode();
     };
     window.addEventListener("keydown", handleZenToggle);
     return () => window.removeEventListener("keydown", handleZenToggle);
-  }, [systemShortcuts.zen_mode]);
+  }, [systemShortcuts.zen_mode, toggleZenMode]);
 
   // Dictation shortcut (reads from settings, defaults to Cmd+Shift+D)
   useEffect(() => {
-    const shortcutStr = systemShortcuts.dictation || "Cmd+Shift+D";
+        // Cleared means unbound, same as zen mode above (#92).
+    const shortcutStr = systemShortcuts.dictation ?? "Cmd+Shift+D";
+    if (!shortcutStr) return;
     const handleDictation = (e: KeyboardEvent) => {
       const parts = shortcutStr.split("+");
       const key = parts[parts.length - 1];
@@ -1862,7 +1885,14 @@ export default function PostIt({
               key={`${vimEnabled ? "vim" : "novim"}-${textDirection}`}
               ref={editorRef}
               onChange={handleContentChange}
-              placeholder={isSticked ? t("postit.stickedPlaceholder") : t("postit.typePlaceholder")}
+              placeholder={
+                // Zen mode is meant to be empty — the hint is chrome (#94).
+                zenMode
+                  ? ""
+                  : isSticked
+                    ? t("postit.stickedPlaceholder")
+                    : t("postit.typePlaceholder")
+              }
               initialContent={resolvedInitialContent || initialContent}
               vimEnabled={vimEnabled}
               showFormatToolbar={zenMode ? false : formatToolbar}

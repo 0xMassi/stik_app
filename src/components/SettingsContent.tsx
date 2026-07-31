@@ -21,6 +21,7 @@ import {
   SYSTEM_SHORTCUT_ACTIONS,
   SYSTEM_SHORTCUT_DEFAULTS,
   SYSTEM_SHORTCUT_LABEL_KEYS,
+  isClearableAction,
   type SystemAction,
 } from "@/utils/systemShortcuts";
 import { hexToRgb, rgbToHex } from "@/utils/color";
@@ -1902,6 +1903,38 @@ export default function SettingsContent({
                         existingShortcuts={folderShortcuts}
                       />
                     </div>
+                    {currentShortcut !== "" &&
+                      isClearableAction(action as SystemAction) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSettingsChange({
+                              ...settings,
+                              system_shortcuts: {
+                                ...settings.system_shortcuts,
+                                [action]: "",
+                              },
+                            })
+                          }
+                          className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-coral-light text-stone hover:text-coral transition-colors"
+                          title={t("settings.shortcut.clear")}
+                          aria-label={t("settings.shortcut.clear")}
+                        >
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                          </svg>
+                        </button>
+                      )}
                     {!isDefault && (
                       <button
                         type="button"
