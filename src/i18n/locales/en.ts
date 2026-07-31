@@ -117,6 +117,8 @@ export const en = {
   "settings.shortcut.remove": "Remove shortcut",
   "settings.shortcut.system": "System shortcuts",
   "settings.shortcut.resetDefault": "Reset to default",
+  "settings.shortcut.clear": "Clear shortcut",
+  "settings.shortcut.notSet": "Not set",
   "settings.shortcut.clickToRecord": "Click to record",
 
   // ── Settings — window / system ────────────────────────────────────

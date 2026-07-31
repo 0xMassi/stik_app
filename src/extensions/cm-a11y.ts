@@ -69,12 +69,17 @@ const announceEdits = EditorState.transactionExtender.of((tr) => {
  * longer re-reads it on every pause. The field instead gets a stable accessible
  * name via aria-label, announced once when focus enters.
  */
-export function accessibleEditor(placeholderText: string): Extension {
+export function accessibleEditor(
+  placeholderText: string,
+  accessibleName: string = placeholderText,
+): Extension {
   const placeholderEl = document.createElement("span");
   placeholderEl.textContent = placeholderText;
   return [
     cmPlaceholder(placeholderEl),
-    EditorView.contentAttributes.of({ "aria-label": placeholderText }),
+    // Kept separate from the visible text: Zen mode draws no placeholder but
+    // the field still has to announce itself to a screen reader.
+    EditorView.contentAttributes.of({ "aria-label": accessibleName }),
     announceEdits,
   ];
 }

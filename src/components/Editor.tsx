@@ -132,7 +132,11 @@ const Editor = forwardRef<EditorRef, EditorProps>(
     // Subscribing to the locale is what makes this component re-render when
     // the language changes; the module-level `t` alone would not.
     const { t: translate } = useTranslation();
-    const placeholderText = placeholder || translate("editor.startTyping");
+    // `??` rather than `||`: an explicitly empty placeholder means draw
+    // nothing (Zen mode), where undefined means "use the default".
+    const placeholderText = placeholder ?? translate("editor.startTyping");
+    // Never empty — this is the editor's accessible name, not its hint.
+    const accessibleName = placeholderText || translate("editor.startTyping");
 
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
@@ -527,7 +531,9 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         // @replit/codemirror-vim makes native ::selection transparent.
         // drawSelection renders .cm-selectionBackground instead.
         drawSelection(),
-        placeholderCompartment.of(accessibleEditor(placeholderText)),
+        placeholderCompartment.of(
+          accessibleEditor(placeholderText, accessibleName),
+        ),
         search(),
         richCopyHandler,
         imageHandlers,
@@ -603,10 +609,10 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       if (!view) return;
       view.dispatch({
         effects: placeholderCompartment.reconfigure(
-          accessibleEditor(placeholderText),
+          accessibleEditor(placeholderText, accessibleName),
         ),
       });
-    }, [placeholderText]);
+    }, [placeholderText, accessibleName]);
     // Parent uses key={vimEnabled} to force remount when vim toggled.
 
     // Tauri native drag-drop fallback (WebKit dataTransfer can be empty for OS-level drops)

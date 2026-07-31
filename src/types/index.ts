@@ -105,6 +105,7 @@ export interface StikSettings {
   icloud: ICloudSettings;
   note_lock: NoteLockSettings;
   use_directory_as_root?: boolean;
+  zen_mode_enabled?: boolean;
   simple_filenames?: boolean;
   dictation?: DictationSettings;
   /// BCP-47 locale tag for the UI language. "" = follow system language.

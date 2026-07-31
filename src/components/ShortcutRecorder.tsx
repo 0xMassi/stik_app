@@ -314,7 +314,9 @@ export default function ShortcutRecorder({
     ? tempShortcut
       ? formatShortcutDisplay(tempShortcut)
       : t("settings.shortcut.pressKeys")
-    : formatShortcutDisplay(value);
+    : value === ""
+      ? t("settings.shortcut.notSet")
+      : formatShortcutDisplay(value);
 
   return (
     <>
