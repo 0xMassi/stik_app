@@ -499,7 +499,7 @@ body,
 }
 
 .link-popover-save:hover {
-  background: rgba(232, 112, 95, 0.1);
+  background: rgba(var(--color-coral), 0.1);
 }
 
 /* ── Formatting Toolbar ── */

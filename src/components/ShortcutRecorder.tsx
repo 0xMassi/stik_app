@@ -329,7 +329,7 @@ export default function ShortcutRecorder({
           }}
           className={`w-full px-3 py-2.5 rounded-lg text-[13px] text-left flex items-center justify-between transition-all ${
             isRecording
-              ? "bg-coral/10 border-2 border-coral text-coral"
+              ? "bg-coral-light border-2 border-coral text-coral"
               : "bg-bg border border-line text-ink hover:border-coral/50"
           }`}
         >

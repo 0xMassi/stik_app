@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { matchesEitherPrimary } from "@/utils/matchShortcut";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -265,7 +266,7 @@ export default function App() {
     if (windowInfo.type !== "postit") return;
 
     const handleKeyDown = async (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === ",") {
+      if (matchesEitherPrimary("Cmd+Shift+Comma", e)) {
         e.preventDefault();
         try {
           await invoke("open_settings");
