@@ -1632,7 +1632,7 @@ export default function PostIt({
                       onFolderChange(suggestedFolder);
                       setSuggestedFolder(null);
                     }}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-pill text-[10px] font-medium bg-coral/10 text-coral hover:bg-coral/20 transition-colors"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-pill text-[10px] font-medium bg-coral-light text-coral hover:bg-coral/20 transition-colors"
                   >
                     <span>→</span>
                     <span>{suggestedFolder}?</span>

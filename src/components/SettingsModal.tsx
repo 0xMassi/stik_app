@@ -469,7 +469,7 @@ export default function SettingsModal({
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium rounded-lg transition-colors whitespace-nowrap ${
                 isActive
-                  ? "text-coral bg-coral/10"
+                  ? "text-coral bg-coral-light"
                   : "text-stone hover:text-ink hover:bg-line/50"
               }`}
             >
@@ -538,7 +538,7 @@ export default function SettingsModal({
               </h2>
               {betaLabel && (
                 <span
-                  className="px-1.5 py-0.5 rounded-md bg-coral/15 text-coral text-[9px] font-bold tracking-wide"
+                  className="px-1.5 py-0.5 rounded-md bg-coral-light text-coral text-[9px] font-bold tracking-wide"
                   title={`${t("settings.betaBuild")} — v${appVersion}`}
                 >
                   {betaLabel}
@@ -609,7 +609,7 @@ export default function SettingsModal({
               </h2>
               {betaLabel && (
                 <span
-                  className="px-1.5 py-0.5 rounded-md bg-coral/15 text-coral text-[9px] font-bold tracking-wide"
+                  className="px-1.5 py-0.5 rounded-md bg-coral-light text-coral text-[9px] font-bold tracking-wide"
                   title={`${t("settings.betaBuild")} — v${appVersion}`}
                 >
                   {betaLabel}

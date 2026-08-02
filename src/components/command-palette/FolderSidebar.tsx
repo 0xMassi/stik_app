@@ -60,7 +60,7 @@ export default function FolderSidebar({
             selectedFolder === null
               ? focused
                 ? "bg-coral text-white"
-                : "bg-coral/10 text-coral"
+                : "bg-coral-light text-coral"
               : "text-ink hover:bg-line/50"
           }`}
         >
@@ -94,7 +94,7 @@ export default function FolderSidebar({
                     isSelected
                       ? focused
                         ? "bg-coral text-white"
-                        : "bg-coral/10 text-coral"
+                        : "bg-coral-light text-coral"
                       : "text-ink"
                   }`}
                 >
@@ -135,7 +135,7 @@ export default function FolderSidebar({
                     isSelected
                       ? focused
                         ? "bg-coral text-white"
-                        : "bg-coral/10 text-coral"
+                        : "bg-coral-light text-coral"
                       : "text-ink hover:bg-line/50"
                   }`}
                 >
@@ -200,7 +200,7 @@ export default function FolderSidebar({
       {/* Create folder input */}
       {isCreating ? (
         <div className="border-t border-line">
-          <div className="px-3 py-2 flex items-center gap-2 bg-coral/10">
+          <div className="px-3 py-2 flex items-center gap-2 bg-coral-light">
             <span className="text-coral text-[10px]">+</span>
             <input
               type="text"

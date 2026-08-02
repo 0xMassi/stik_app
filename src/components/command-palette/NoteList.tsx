@@ -243,7 +243,7 @@ export default function NoteList({
                   <span className="text-[10px] text-stone font-mono">
                     {formatRelativeDate(result.created)}
                   </span>
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-coral/10 text-coral">
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-coral-light text-coral">
                     {t("palette.matchPercent", {
                       percent: Math.round(result.similarity * 100),
                     })}

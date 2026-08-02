@@ -2628,7 +2628,7 @@ export default function SettingsContent({
           )}
 
           {/* GitHub credentials tip */}
-          <div className="p-3 bg-coral-light/35 border border-coral/20 rounded-xl space-y-1">
+          <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl space-y-1">
             <p className="text-[12px] font-semibold text-ink">
               {t("settings.git.accountSetup")}
             </p>
