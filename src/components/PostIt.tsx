@@ -23,6 +23,7 @@ import {
   normalizeMarkdownForCopy,
 } from "@/utils/normalizeMarkdownForCopy";
 import { shouldSaveOnGlobalEscape } from "@/utils/captureEscape";
+import { matchesShortcut } from "@/utils/matchShortcut";
 import { isCaptureSlashQuery } from "@/utils/slashQuery";
 import { markdownToPlainText } from "@/utils/markdownToHtml";
 import { shouldOpenVimCommandBar } from "@/utils/vimCommandKey";
@@ -681,24 +682,7 @@ export default function PostIt({
     const shortcutStr = systemShortcuts.zen_mode ?? "Cmd+Period";
     if (!shortcutStr) return;
     const handleZenToggle = (e: KeyboardEvent) => {
-      const parts = shortcutStr.split("+");
-      const key = parts[parts.length - 1];
-      const needsMeta = parts.some(
-        (p) => p === "Cmd" || p === "Command" || p === "Meta",
-      );
-      const needsShift = parts.some((p) => p === "Shift");
-      const needsAlt = parts.some((p) => p === "Alt" || p === "Option");
-      const needsCtrl = parts.some((p) => p === "Ctrl" || p === "Control");
-
-      if (needsMeta !== e.metaKey) return;
-      if (needsShift !== e.shiftKey) return;
-      if (needsAlt !== e.altKey) return;
-      if (needsCtrl !== e.ctrlKey) return;
-
-      // Match the key portion
-      const eventKey =
-        e.key === "." ? "Period" : e.key === "," ? "Comma" : e.key;
-      if (eventKey.toLowerCase() !== key.toLowerCase()) return;
+      if (!matchesShortcut(shortcutStr, e)) return;
 
       e.preventDefault();
       toggleZenMode();
@@ -709,27 +693,11 @@ export default function PostIt({
 
   // Dictation shortcut (reads from settings, defaults to Cmd+Shift+D)
   useEffect(() => {
-        // Cleared means unbound, same as zen mode above (#92).
+    // Cleared means unbound, same as zen mode above (#92).
     const shortcutStr = systemShortcuts.dictation ?? "Cmd+Shift+D";
     if (!shortcutStr) return;
     const handleDictation = (e: KeyboardEvent) => {
-      const parts = shortcutStr.split("+");
-      const key = parts[parts.length - 1];
-      const needsMeta = parts.some(
-        (p) => p === "Cmd" || p === "Command" || p === "Meta",
-      );
-      const needsShift = parts.some((p) => p === "Shift");
-      const needsAlt = parts.some((p) => p === "Alt" || p === "Option");
-      const needsCtrl = parts.some((p) => p === "Ctrl" || p === "Control");
-
-      if (needsMeta !== e.metaKey) return;
-      if (needsShift !== e.shiftKey) return;
-      if (needsAlt !== e.altKey) return;
-      if (needsCtrl !== e.ctrlKey) return;
-
-      const eventKey =
-        e.key === "." ? "Period" : e.key === "," ? "Comma" : e.key;
-      if (eventKey.toLowerCase() !== key.toLowerCase()) return;
+      if (!matchesShortcut(shortcutStr, e)) return;
 
       e.preventDefault();
       speechRef.current?.toggle();
