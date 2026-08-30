@@ -90,6 +90,7 @@ export interface StikSettings {
   folder_icons: Record<string, string>;
   system_shortcuts: Record<string, string>;
   analytics_enabled: boolean;
+  analytics_consent_version: number;
   analytics_notice_dismissed: boolean;
   font_size: number;
   custom_templates: CustomTemplate[];

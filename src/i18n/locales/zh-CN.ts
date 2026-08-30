@@ -158,6 +158,8 @@ export const zhCN: Translations = {
   "settings.analytics.neverPaths": "文件路径或个人信息",
   "settings.analytics.neverIdentify": "任何可以识别你身份的信息",
   "settings.analytics.yourDeviceId": "你的设备 ID",
+  "settings.analytics.resetId": "重置 ID",
+  "settings.analytics.idReset": "分析 ID 已重置",
 
   // ── Settings — durations ──────────────────────────────────────────
   "duration.1minute": "1 分钟",
@@ -248,6 +250,13 @@ export const zhCN: Translations = {
   // ── Misc ──────────────────────────────────────────────────────────
   "lock.lockedNote": "已锁定的笔记",
   "analytics.whatsNew": "更新内容",
+  "analytics.choiceTitle": "分析数据选择",
+  "analytics.choiceExplain":
+    "是否愿意分享匿名的应用使用统计数据，以帮助改进 Stik？笔记内容、标题、文件夹名称和文件路径绝不会被收集。",
+  "analytics.choiceHint":
+    "除非你主动启用，否则分析功能保持关闭。你可以随时在“设置 > 隐私”中更改此选择。",
+  "analytics.enable": "启用分析",
+  "analytics.noThanks": "不用了",
   "analytics.ifEnjoying": "如果你喜欢 Stik，欢迎：",
   "common.save": "保存",
   "common.create": "创建",

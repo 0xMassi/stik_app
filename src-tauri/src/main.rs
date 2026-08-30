@@ -507,6 +507,8 @@ fn main() {
             darwinkit::semantic_search,
             darwinkit::suggest_folder,
             analytics::get_analytics_device_id,
+            analytics::configure_analytics,
+            analytics::reset_analytics_device_id,
             ai_assistant::ai_available,
             ai_assistant::ai_rephrase,
             ai_assistant::ai_summarize,

@@ -156,6 +156,8 @@ export const en = {
   "settings.analytics.neverPaths": "File paths or personal information",
   "settings.analytics.neverIdentify": "Anything that could identify you",
   "settings.analytics.yourDeviceId": "Your device ID",
+  "settings.analytics.resetId": "Reset ID",
+  "settings.analytics.idReset": "Analytics ID reset",
 
   // ── Settings — durations ──────────────────────────────────────────
   "duration.1minute": "1 minute",
@@ -246,6 +248,13 @@ export const en = {
   // ── Misc ──────────────────────────────────────────────────────────
   "lock.lockedNote": "Locked Note",
   "analytics.whatsNew": "What's New",
+  "analytics.choiceTitle": "Analytics choice",
+  "analytics.choiceExplain":
+    "Would you like to share anonymous app-usage statistics to help improve Stik? Note content, titles, folder names, and file paths are never collected.",
+  "analytics.choiceHint":
+    "Analytics are off unless you enable them. You can change this choice anytime in Settings > Privacy.",
+  "analytics.enable": "Enable analytics",
+  "analytics.noThanks": "No thanks",
   "analytics.ifEnjoying": "If you're enjoying Stik, consider:",
   "common.save": "Save",
   "common.create": "Create",

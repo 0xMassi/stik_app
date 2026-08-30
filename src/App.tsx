@@ -363,9 +363,11 @@ export default function App() {
       .catch(() => {});
   }, [windowInfo.type]);
 
-  const handleDismissAnalyticsNotice = useCallback(async () => {
+  const handleAnalyticsChoice = useCallback(async (enabled: boolean) => {
     try {
       const settings = await invoke<StikSettings>("get_settings");
+      settings.analytics_enabled = enabled;
+      settings.analytics_consent_version = 1;
       settings.analytics_notice_dismissed = true;
       await invoke("save_settings", { settings });
     } catch (error) {
@@ -503,7 +505,7 @@ export default function App() {
         onContentChange={handleContentChange}
       />
       {showAnalyticsNotice && (
-        <AnalyticsNotice onDismiss={handleDismissAnalyticsNotice} />
+        <AnalyticsNotice onChoice={handleAnalyticsChoice} />
       )}
     </>
   );

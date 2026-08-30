@@ -213,13 +213,46 @@ function PrivacySection({
   const [isLockingAll, setIsLockingAll] = useState(false);
 
   const loadDeviceId = useCallback(async () => {
+    if (!settings.analytics_enabled) {
+      setDeviceId(null);
+      return;
+    }
     try {
-      const id = await invoke<string>("get_analytics_device_id");
+      const id = await invoke<string | null>("get_analytics_device_id");
       setDeviceId(id);
     } catch {
       setDeviceId(null);
     }
-  }, []);
+  }, [settings.analytics_enabled]);
+
+  const resetDeviceId = async () => {
+    try {
+      const id = await invoke<string | null>("reset_analytics_device_id");
+      setDeviceId(id);
+      setToast(t("settings.analytics.idReset"));
+    } catch (error) {
+      setToast(String(error));
+    }
+  };
+
+  const setAnalyticsEnabled = async (enabled: boolean) => {
+    onSettingsChange({
+      ...settings,
+      analytics_enabled: enabled,
+      analytics_consent_version: 1,
+      analytics_notice_dismissed: true,
+    });
+    if (!enabled) setDeviceId(null);
+
+    try {
+      await invoke("configure_analytics", { enabled });
+      if (enabled) {
+        setDeviceId(await invoke<string | null>("get_analytics_device_id"));
+      }
+    } catch (error) {
+      setToast(String(error));
+    }
+  };
 
   useEffect(() => {
     loadDeviceId();
@@ -426,10 +459,7 @@ function PrivacySection({
           <button
             type="button"
             onClick={() =>
-              onSettingsChange({
-                ...settings,
-                analytics_enabled: !settings.analytics_enabled,
-              })
+              void setAnalyticsEnabled(!settings.analytics_enabled)
             }
             className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
               settings.analytics_enabled ? "bg-coral" : "bg-line"
@@ -511,6 +541,13 @@ function PrivacySection({
                 className="px-3 py-2 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors whitespace-nowrap"
               >
                 {t("common.copy")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void resetDeviceId()}
+                className="px-3 py-2 text-[12px] text-stone border border-line rounded-lg hover:bg-line/50 transition-colors whitespace-nowrap"
+              >
+                {t("settings.analytics.resetId")}
               </button>
             </div>
             <p className="mt-2 text-[11px] text-stone">

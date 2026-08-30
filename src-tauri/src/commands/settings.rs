@@ -147,8 +147,10 @@ pub struct StikSettings {
     pub folder_icons: HashMap<String, String>,
     #[serde(default)]
     pub system_shortcuts: HashMap<String, String>,
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub analytics_enabled: bool,
+    #[serde(default)]
+    pub analytics_consent_version: u8,
     #[serde(default)]
     pub analytics_notice_dismissed: bool,
     #[serde(default = "default_font_size")]
@@ -238,7 +240,8 @@ impl Default for StikSettings {
             folder_colors: HashMap::new(),
             folder_icons: HashMap::new(),
             system_shortcuts: default_system_shortcuts(),
-            analytics_enabled: true,
+            analytics_enabled: false,
+            analytics_consent_version: 0,
             analytics_notice_dismissed: false,
             font_size: 14,
             viewing_window_size: None,
@@ -316,6 +319,10 @@ fn is_valid_active_theme(active_theme: &str, custom_themes: &[CustomThemeDefinit
 }
 
 fn normalize_loaded_settings(mut settings: StikSettings) -> StikSettings {
+    if settings.analytics_consent_version != 1 {
+        settings.analytics_enabled = false;
+    }
+
     // The UI has no enable/disable toggle — users delete shortcuts to remove them.
     // Force all visible shortcuts to enabled so stale disabled state can't persist.
     for mapping in &mut settings.shortcut_mappings {
@@ -372,6 +379,7 @@ pub fn get_settings() -> Result<StikSettings, String> {
 #[tauri::command]
 pub fn save_settings(settings: StikSettings) -> Result<bool, String> {
     save_settings_to_file(&settings)?;
+    super::analytics::configure_analytics(settings.analytics_enabled)?;
     git_share::notify_force_sync();
     Ok(true)
 }
@@ -631,6 +639,35 @@ mod tests {
         assert_eq!(parse_color_value("#112233"), Some("17 34 51".to_string()));
         assert_eq!(parse_color_value("10 20 30"), Some("10 20 30".to_string()));
         assert_eq!(parse_color_value("not-a-color"), None);
+    }
+
+    #[test]
+    fn analytics_defaults_to_no_consent() {
+        let settings = StikSettings::default();
+        assert!(!settings.analytics_enabled);
+        assert_eq!(settings.analytics_consent_version, 0);
+    }
+
+    #[test]
+    fn legacy_analytics_state_is_reset_until_the_user_makes_a_choice() {
+        let mut settings = StikSettings::default();
+        settings.analytics_enabled = true;
+        settings.analytics_consent_version = 0;
+
+        let normalized = normalize_loaded_settings(settings);
+
+        assert!(!normalized.analytics_enabled);
+    }
+
+    #[test]
+    fn explicit_analytics_consent_survives_normalization() {
+        let mut settings = StikSettings::default();
+        settings.analytics_enabled = true;
+        settings.analytics_consent_version = 1;
+
+        let normalized = normalize_loaded_settings(settings);
+
+        assert!(normalized.analytics_enabled);
     }
 }
 
