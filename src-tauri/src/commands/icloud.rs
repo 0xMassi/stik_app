@@ -1,6 +1,6 @@
 /// iCloud sync commands — status checking, enable/disable, and migration.
 use serde::Serialize;
-use std::path::PathBuf;
+use std::path::Path;
 use tauri::Manager;
 
 use super::embeddings::EmbeddingIndex;
@@ -59,7 +59,8 @@ pub async fn icloud_enable(app: tauri::AppHandle) -> Result<ICloudStatus, String
         // Verify iCloud container exists on disk
         if !storage::icloud_available() {
             return Err(
-                "iCloud is not available. Please enable iCloud Drive in System Settings.".to_string(),
+                "iCloud is not available. Please enable iCloud Drive in System Settings."
+                    .to_string(),
             );
         }
 
@@ -165,8 +166,8 @@ pub async fn icloud_migrate_notes(app: tauri::AppHandle) -> Result<MigrationResu
 
 /// Recursively copy files from source to destination, preserving directory structure.
 fn migrate_directory(
-    source: &PathBuf,
-    dest: &PathBuf,
+    source: &Path,
+    dest: &Path,
     result: &mut MigrationResult,
 ) -> Result<(), String> {
     let entries = std::fs::read_dir(source).map_err(|e| e.to_string())?;
@@ -186,10 +187,7 @@ fn migrate_directory(
             storage::ensure_dir(&dest_path.to_string_lossy())?;
             migrate_directory(&path, &dest_path, result)?;
         } else {
-            match storage::copy_file(
-                &path.to_string_lossy(),
-                &dest_path.to_string_lossy(),
-            ) {
+            match storage::copy_file(&path.to_string_lossy(), &dest_path.to_string_lossy()) {
                 Ok(()) => result.files_copied += 1,
                 Err(e) => result.errors.push(format!("{}: {}", name, e)),
             }

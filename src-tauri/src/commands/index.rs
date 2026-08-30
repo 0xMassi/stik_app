@@ -38,6 +38,12 @@ pub struct NoteIndex {
     entries: Mutex<HashMap<String, IndexedNote>>,
 }
 
+impl Default for NoteIndex {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoteIndex {
     pub fn new() -> Self {
         Self {
@@ -135,10 +141,11 @@ impl NoteIndex {
     }
 
     pub fn len(&self) -> usize {
-        self.entries
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .len()
+        self.entries.lock().unwrap_or_else(|e| e.into_inner()).len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn list(&self, folder: Option<&str>) -> Result<Vec<NoteEntry>, String> {
@@ -146,7 +153,7 @@ impl NoteIndex {
 
         let mut result: Vec<NoteEntry> = entries
             .values()
-            .filter(|indexed| folder.map_or(true, |f| indexed.entry.folder == f))
+            .filter(|indexed| folder.is_none_or(|f| indexed.entry.folder == f))
             .map(|indexed| indexed.entry.clone())
             .collect();
 

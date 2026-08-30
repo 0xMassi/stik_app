@@ -170,10 +170,8 @@ fn trash_note_with(
 
     let trash = trash_directory(root)?;
     storage.ensure_dir(&trash)?;
-    let destination = super::path_security::authorize_new_path(
-        &trash,
-        &trash.join(format!("{id}.{extension}")),
-    )?;
+    let destination =
+        super::path_security::authorize_new_path(&trash, &trash.join(format!("{id}.{extension}")))?;
     let metadata = metadata_path(root, &id)?;
     write_metadata(storage, &metadata, &entry)?;
     if let Err(error) = storage.move_path(&authorized_note, &destination) {

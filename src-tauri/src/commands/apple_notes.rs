@@ -41,10 +41,9 @@ fn open_readonly_connection() -> Result<Connection, String> {
     let conn = Connection::open_with_flags(&path, flags).map_err(|e| {
         let msg = e.to_string();
         if msg.contains("unable to open") || msg.contains("permission") || msg.contains("denied") {
-            format!(
-                "FULL_DISK_ACCESS_REQUIRED: Stik needs Full Disk Access to read Apple Notes. \
-                 Go to System Settings → Privacy & Security → Full Disk Access, then add Stik."
-            )
+            "FULL_DISK_ACCESS_REQUIRED: Stik needs Full Disk Access to read Apple Notes. \
+             Go to System Settings → Privacy & Security → Full Disk Access, then add Stik."
+                .to_string()
         } else {
             format!("Failed to open Apple Notes database: {}", msg)
         }
@@ -333,7 +332,12 @@ fn protobuf_to_markdown(note: &proto::Note) -> String {
     output.trim_end().to_string()
 }
 
-fn apply_inline_formatting(text: &str, font_weight: i32, strikethrough: i32, link: Option<&str>) -> String {
+fn apply_inline_formatting(
+    text: &str,
+    font_weight: i32,
+    strikethrough: i32,
+    link: Option<&str>,
+) -> String {
     if text.is_empty() {
         return String::new();
     }
@@ -342,9 +346,9 @@ fn apply_inline_formatting(text: &str, font_weight: i32, strikethrough: i32, lin
 
     // Apply formatting wrappers
     match font_weight {
-        1 => result = format!("**{}**", result),     // bold
-        2 => result = format!("*{}*", result),        // italic
-        3 => result = format!("***{}***", result),    // bold + italic
+        1 => result = format!("**{}**", result),   // bold
+        2 => result = format!("*{}*", result),     // italic
+        3 => result = format!("***{}***", result), // bold + italic
         _ => {}
     }
 
@@ -470,8 +474,8 @@ mod tests {
         let note = make_note(
             "My Title\nSome body text",
             vec![
-                styled_run(9, 0),   // "My Title\n" (title)
-                simple_run(14),      // "Some body text"
+                styled_run(9, 0), // "My Title\n" (title)
+                simple_run(14),   // "Some body text"
             ],
         );
         let md = protobuf_to_markdown(&note);
@@ -484,9 +488,9 @@ mod tests {
         let note = make_note(
             "Title\nHeading\nSubheading\n",
             vec![
-                styled_run(6, 0),   // "Title\n"
-                styled_run(8, 1),   // "Heading\n"
-                styled_run(11, 2),  // "Subheading\n"
+                styled_run(6, 0),  // "Title\n"
+                styled_run(8, 1),  // "Heading\n"
+                styled_run(11, 2), // "Subheading\n"
             ],
         );
         let md = protobuf_to_markdown(&note);
@@ -499,8 +503,8 @@ mod tests {
         let note = make_note(
             "Item one\nItem two\n",
             vec![
-                styled_run(9, 100),  // "Item one\n"
-                styled_run(9, 100),  // "Item two\n"
+                styled_run(9, 100), // "Item one\n"
+                styled_run(9, 100), // "Item two\n"
             ],
         );
         let md = protobuf_to_markdown(&note);
@@ -513,8 +517,8 @@ mod tests {
         let note = make_note(
             "First\nSecond\n",
             vec![
-                styled_run(6, 102),  // "First\n"
-                styled_run(7, 102),  // "Second\n"
+                styled_run(6, 102), // "First\n"
+                styled_run(7, 102), // "Second\n"
             ],
         );
         let md = protobuf_to_markdown(&note);
@@ -527,8 +531,8 @@ mod tests {
         let note = make_note(
             "Done task\nOpen task\n",
             vec![
-                checklist_run(10, true),   // "Done task\n"
-                checklist_run(10, false),  // "Open task\n"
+                checklist_run(10, true),  // "Done task\n"
+                checklist_run(10, false), // "Open task\n"
             ],
         );
         let md = protobuf_to_markdown(&note);
@@ -538,38 +542,50 @@ mod tests {
 
     #[test]
     fn bold_and_italic() {
-        let note = make_note("bold text", vec![{
-            let mut run = simple_run(9);
-            run.font_weight = Some(1);
-            run
-        }]);
+        let note = make_note(
+            "bold text",
+            vec![{
+                let mut run = simple_run(9);
+                run.font_weight = Some(1);
+                run
+            }],
+        );
         assert_eq!(protobuf_to_markdown(&note), "**bold text**");
 
-        let note = make_note("italic text", vec![{
-            let mut run = simple_run(11);
-            run.font_weight = Some(2);
-            run
-        }]);
+        let note = make_note(
+            "italic text",
+            vec![{
+                let mut run = simple_run(11);
+                run.font_weight = Some(2);
+                run
+            }],
+        );
         assert_eq!(protobuf_to_markdown(&note), "*italic text*");
     }
 
     #[test]
     fn strikethrough() {
-        let note = make_note("deleted", vec![{
-            let mut run = simple_run(7);
-            run.strikethrough = Some(1);
-            run
-        }]);
+        let note = make_note(
+            "deleted",
+            vec![{
+                let mut run = simple_run(7);
+                run.strikethrough = Some(1);
+                run
+            }],
+        );
         assert_eq!(protobuf_to_markdown(&note), "~~deleted~~");
     }
 
     #[test]
     fn link_formatting() {
-        let note = make_note("click here", vec![{
-            let mut run = simple_run(10);
-            run.link = Some("https://example.com".to_string());
-            run
-        }]);
+        let note = make_note(
+            "click here",
+            vec![{
+                let mut run = simple_run(10);
+                run.link = Some("https://example.com".to_string());
+                run
+            }],
+        );
         assert_eq!(
             protobuf_to_markdown(&note),
             "[click here](https://example.com)"
@@ -581,9 +597,9 @@ mod tests {
         let note = make_note(
             "Title\nlet x = 1\nlet y = 2\n",
             vec![
-                styled_run(6, 0),   // "Title\n"
-                styled_run(10, 4),  // "let x = 1\n"
-                styled_run(10, 4),  // "let y = 2\n"
+                styled_run(6, 0),  // "Title\n"
+                styled_run(10, 4), // "let x = 1\n"
+                styled_run(10, 4), // "let y = 2\n"
             ],
         );
         let md = protobuf_to_markdown(&note);
@@ -593,25 +609,28 @@ mod tests {
 
     #[test]
     fn indented_list() {
-        let note = make_note("Sub item\n", vec![{
-            proto::AttributeRun {
-                length: Some(9),
-                paragraph_style: Some(proto::ParagraphStyle {
-                    style_type: Some(100),
-                    alignment: None,
-                    indent_amount: Some(1),
-                    checklist: None,
-                }),
-                font: None,
-                font_weight: None,
-                underlined: None,
-                strikethrough: None,
-                superscript: None,
-                link: None,
-                color: None,
-                attachment_info: None,
-            }
-        }]);
+        let note = make_note(
+            "Sub item\n",
+            vec![{
+                proto::AttributeRun {
+                    length: Some(9),
+                    paragraph_style: Some(proto::ParagraphStyle {
+                        style_type: Some(100),
+                        alignment: None,
+                        indent_amount: Some(1),
+                        checklist: None,
+                    }),
+                    font: None,
+                    font_weight: None,
+                    underlined: None,
+                    strikethrough: None,
+                    superscript: None,
+                    link: None,
+                    color: None,
+                    attachment_info: None,
+                }
+            }],
+        );
         let md = protobuf_to_markdown(&note);
         assert!(md.contains("  - Sub item"));
     }

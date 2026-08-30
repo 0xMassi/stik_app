@@ -41,8 +41,7 @@ where
         .filter(|entry| entry.is_directory && is_visible_folder_name(&entry.name))
     {
         let child = directory.join(&entry.name);
-        let (child_direct, child_total) =
-            collect_folder_stats_with(root, &child, list, stats)?;
+        let (child_direct, child_total) = collect_folder_stats_with(root, &child, list, stats)?;
         let relative = child
             .strip_prefix(root)
             .map_err(|_| "Folder is outside the notes root".to_string())?
@@ -407,13 +406,7 @@ mod tests {
         assert_eq!(
             stats
                 .iter()
-                .map(|stat| {
-                    (
-                        stat.name.as_str(),
-                        stat.note_count,
-                        stat.total_note_count,
-                    )
-                })
+                .map(|stat| { (stat.name.as_str(), stat.note_count, stat.total_note_count,) })
                 .collect::<Vec<_>>(),
             vec![
                 ("Projects", 1, 3),

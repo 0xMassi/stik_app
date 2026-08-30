@@ -24,8 +24,7 @@ pub fn load_versioned<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<Optio
     // Check if it's a versioned store (has "version" and "data" keys)
     if let Some(obj) = value.as_object() {
         if obj.contains_key("version") && obj.contains_key("data") {
-            let store: VersionedStore =
-                serde_json::from_value(value).map_err(|e| e.to_string())?;
+            let store: VersionedStore = serde_json::from_value(value).map_err(|e| e.to_string())?;
             let migrated = migrate(store.version, store.data)?;
             let result: T = serde_json::from_value(migrated).map_err(|e| e.to_string())?;
             return Ok(Some(result));

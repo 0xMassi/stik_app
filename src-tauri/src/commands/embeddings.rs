@@ -26,6 +26,12 @@ pub struct EmbeddingIndex {
     loaded: Mutex<bool>,
 }
 
+impl Default for EmbeddingIndex {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // ── Persistence ────────────────────────────────────────────────────
 
 fn embeddings_path() -> Result<std::path::PathBuf, String> {
@@ -232,6 +238,10 @@ impl EmbeddingIndex {
     pub fn len(&self) -> usize {
         self.entries.lock().unwrap_or_else(|e| e.into_inner()).len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 // ── Background Build ───────────────────────────────────────────────
@@ -377,14 +387,8 @@ mod tests {
     #[test]
     fn folder_centroids_keep_complete_nested_folder_identities() {
         let index = EmbeddingIndex::new();
-        index.add_entry(
-            "/vault/Projects/Work/one.md",
-            embedding(vec![1.0, 0.0]),
-        );
-        index.add_entry(
-            "/vault/Personal/Work/two.md",
-            embedding(vec![0.0, 1.0]),
-        );
+        index.add_entry("/vault/Projects/Work/one.md", embedding(vec![1.0, 0.0]));
+        index.add_entry("/vault/Personal/Work/two.md", embedding(vec![0.0, 1.0]));
         index.add_entry("/vault/root.md", embedding(vec![0.5, 0.5]));
 
         let centroids = index.folder_centroids_for_root("en", Path::new("/vault"));

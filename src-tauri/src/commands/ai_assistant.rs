@@ -46,7 +46,8 @@ pub struct GenerateResult {
 // ── Helpers ────────────────────────────────────────────────────────
 
 fn check_ai_enabled() -> Result<(), String> {
-    let enabled = super::settings::get_settings().ok()
+    let enabled = super::settings::get_settings()
+        .ok()
         .map(|s| s.ai_features_enabled)
         .unwrap_or(false);
 
@@ -107,7 +108,12 @@ fn build_rag_context(
                 "- [{}] {}: {}",
                 entry.folder,
                 entry.title,
-                entry.preview.replace('\n', " ").chars().take(200).collect::<String>()
+                entry
+                    .preview
+                    .replace('\n', " ")
+                    .chars()
+                    .take(200)
+                    .collect::<String>()
             ));
         }
     }
@@ -116,14 +122,18 @@ fn build_rag_context(
         return String::new();
     }
 
-    format!("Related notes from this user:\n{}", context_parts.join("\n"))
+    format!(
+        "Related notes from this user:\n{}",
+        context_parts.join("\n")
+    )
 }
 
 // ── Tauri Commands ─────────────────────────────────────────────────
 
 #[tauri::command]
 pub async fn ai_available() -> AiAvailability {
-    let ai_enabled = super::settings::get_settings().ok()
+    let ai_enabled = super::settings::get_settings()
+        .ok()
         .map(|s| s.ai_features_enabled)
         .unwrap_or(false);
 
@@ -263,7 +273,11 @@ pub async fn ai_organize(
         let tags = result
             .get("tags")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
         let reasoning = result
             .get("reasoning")

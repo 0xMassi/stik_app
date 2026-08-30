@@ -610,10 +610,7 @@ fn is_supported_image_ext(ext: &str) -> bool {
 
 fn note_assets_directory(stik_folder: &Path, folder: &str) -> Result<PathBuf, String> {
     super::folders::validate_folder_path(folder)?;
-    super::path_security::authorize_new_path(
-        stik_folder,
-        &stik_folder.join(folder).join(".assets"),
-    )
+    super::path_security::authorize_new_path(stik_folder, &stik_folder.join(folder).join(".assets"))
 }
 
 /// Save an image (base64-encoded) into the folder's `.assets/` directory.

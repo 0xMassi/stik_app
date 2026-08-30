@@ -78,9 +78,9 @@ pub fn show_postit_with_folder(app: &AppHandle, folder: &str) {
             // Restore position only if it's visible on a connected monitor.
             if let Some((x, y)) = s.viewing_window_position {
                 if is_window_visible_on_any_monitor(app, x, y, w, h) {
-                    let _ = window.set_position(tauri::Position::Physical(
-                        PhysicalPosition::new(x as i32, y as i32),
-                    ));
+                    let _ = window.set_position(tauri::Position::Physical(PhysicalPosition::new(
+                        x as i32, y as i32,
+                    )));
                 } else {
                     let _ = window.center();
                 }
@@ -95,7 +95,10 @@ pub fn show_postit_with_folder(app: &AppHandle, folder: &str) {
 pub fn show_command_palette(app: &AppHandle) {
     {
         let state = app.state::<AppState>();
-        let mut postit_visible = state.postit_was_visible.lock().unwrap_or_else(|e| e.into_inner());
+        let mut postit_visible = state
+            .postit_was_visible
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         *postit_visible = app
             .get_webview_window("postit")
             .map(|w| w.is_visible().unwrap_or(false))
@@ -131,42 +134,43 @@ pub fn show_command_palette(app: &AppHandle) {
 
     if let Ok(win) = window {
         let app_handle = app.clone();
-        win.on_window_event(move |event| {
-            match event {
-                tauri::WindowEvent::Focused(focused) => {
-                    if !focused {
-                        for (label, window) in app_handle.webview_windows() {
-                            if label.starts_with("sticked-") {
-                                let _ = window.set_always_on_top(true);
-                            }
-                        }
-                    }
-                }
-                tauri::WindowEvent::Destroyed => {
+        win.on_window_event(move |event| match event {
+            tauri::WindowEvent::Focused(focused) => {
+                if !focused {
                     for (label, window) in app_handle.webview_windows() {
                         if label.starts_with("sticked-") {
                             let _ = window.set_always_on_top(true);
                         }
                     }
+                }
+            }
+            tauri::WindowEvent::Destroyed => {
+                for (label, window) in app_handle.webview_windows() {
+                    if label.starts_with("sticked-") {
+                        let _ = window.set_always_on_top(true);
+                    }
+                }
 
-                    let state = app_handle.state::<AppState>();
-                    let postit_visible = *state.postit_was_visible.lock().unwrap_or_else(|e| e.into_inner());
+                let state = app_handle.state::<AppState>();
+                let postit_visible = *state
+                    .postit_was_visible
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
 
-                    if postit_visible {
-                        let has_viewing_windows = app_handle
-                            .webview_windows()
-                            .iter()
-                            .any(|(label, _)| label.starts_with("sticked-view-"));
-                        if !has_viewing_windows {
-                            if let Some(postit) = app_handle.get_webview_window("postit") {
-                                let _ = postit.show();
-                                let _ = postit.set_focus();
-                            }
+                if postit_visible {
+                    let has_viewing_windows = app_handle
+                        .webview_windows()
+                        .iter()
+                        .any(|(label, _)| label.starts_with("sticked-view-"));
+                    if !has_viewing_windows {
+                        if let Some(postit) = app_handle.get_webview_window("postit") {
+                            let _ = postit.show();
+                            let _ = postit.set_focus();
                         }
                     }
                 }
-                _ => {}
             }
+            _ => {}
         });
     }
 }
@@ -174,19 +178,23 @@ pub fn show_command_palette(app: &AppHandle) {
 pub fn show_settings(app: &AppHandle) {
     {
         let state = app.state::<AppState>();
-        let mut prev_window = state.previous_focused_window.lock().unwrap_or_else(|e| e.into_inner());
+        let mut prev_window = state
+            .previous_focused_window
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         *prev_window = None;
 
         for (label, window) in app.webview_windows() {
-            if label.starts_with("sticked-") {
-                if window.is_focused().unwrap_or(false) {
-                    *prev_window = Some(label.clone());
-                    break;
-                }
+            if label.starts_with("sticked-") && window.is_focused().unwrap_or(false) {
+                *prev_window = Some(label.clone());
+                break;
             }
         }
 
-        let mut postit_visible = state.postit_was_visible.lock().unwrap_or_else(|e| e.into_inner());
+        let mut postit_visible = state
+            .postit_was_visible
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         *postit_visible = app
             .get_webview_window("postit")
             .map(|w| w.is_visible().unwrap_or(false))
@@ -232,8 +240,14 @@ pub fn show_settings(app: &AppHandle) {
                 }
 
                 let state = app_handle.state::<AppState>();
-                let prev_window = state.previous_focused_window.lock().unwrap_or_else(|e| e.into_inner());
-                let postit_visible = *state.postit_was_visible.lock().unwrap_or_else(|e| e.into_inner());
+                let prev_window = state
+                    .previous_focused_window
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                let postit_visible = *state
+                    .postit_was_visible
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
 
                 if let Some(label) = prev_window.as_ref() {
                     if let Some(window) = app_handle.get_webview_window(label) {
@@ -324,9 +338,9 @@ pub fn create_sticked_window(app: AppHandle, note: StickedNote) -> Result<bool, 
     match window {
         Ok(win) => {
             if let Some((x, y)) = saved_position {
-                let _ = win.set_position(tauri::Position::Physical(
-                    PhysicalPosition::new(x as i32, y as i32),
-                ));
+                let _ = win.set_position(tauri::Position::Physical(PhysicalPosition::new(
+                    x as i32, y as i32,
+                )));
             } else {
                 let _ = win.center();
             }
@@ -378,7 +392,10 @@ pub fn close_sticked_window(app: AppHandle, id: String) -> Result<bool, String> 
     // Clean up viewing note cache to prevent memory leak
     if id.starts_with("view-") {
         let state = app.state::<AppState>();
-        let mut viewing_notes = state.viewing_notes.lock().unwrap_or_else(|e| e.into_inner());
+        let mut viewing_notes = state
+            .viewing_notes
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         viewing_notes.remove(&id);
     }
 
@@ -463,7 +480,10 @@ pub async fn open_note_for_viewing(
 
     {
         let state = app.state::<AppState>();
-        let mut viewing_notes = state.viewing_notes.lock().unwrap_or_else(|e| e.into_inner());
+        let mut viewing_notes = state
+            .viewing_notes
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         viewing_notes.insert(
             id.clone(),
             crate::state::ViewingNoteContent {
@@ -482,7 +502,9 @@ pub async fn open_note_for_viewing(
         .as_ref()
         .and_then(|s| s.viewing_window_size)
         .unwrap_or((450.0, 320.0));
-    let saved_position = saved_settings.as_ref().and_then(|s| s.viewing_window_position);
+    let saved_position = saved_settings
+        .as_ref()
+        .and_then(|s| s.viewing_window_position);
 
     // Build hidden — we position after creation using PhysicalPosition to avoid
     // the logical/physical mismatch in WebviewWindowBuilder::position().
@@ -503,13 +525,12 @@ pub async fn open_note_for_viewing(
     match window {
         Ok(win) => {
             // Restore saved position in physical pixels, or center as fallback.
-            let positioned = saved_position.is_some_and(|(x, y)| {
-                is_window_visible_on_any_monitor(&app, x, y, width, height)
-            });
+            let positioned = saved_position
+                .is_some_and(|(x, y)| is_window_visible_on_any_monitor(&app, x, y, width, height));
             if let (true, Some((x, y))) = (positioned, saved_position) {
-                let _ = win.set_position(tauri::Position::Physical(
-                    PhysicalPosition::new(x as i32, y as i32),
-                ));
+                let _ = win.set_position(tauri::Position::Physical(PhysicalPosition::new(
+                    x as i32, y as i32,
+                )));
             } else {
                 let _ = win.center();
             }
@@ -525,7 +546,10 @@ pub async fn open_note_for_viewing(
 #[tauri::command]
 pub fn get_viewing_note_content(app: AppHandle, id: String) -> Result<serde_json::Value, String> {
     let state = app.state::<AppState>();
-    let viewing_notes = state.viewing_notes.lock().unwrap_or_else(|e| e.into_inner());
+    let viewing_notes = state
+        .viewing_notes
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
 
     if let Some(note) = viewing_notes.get(&id) {
         Ok(serde_json::json!({
@@ -540,14 +564,21 @@ pub fn get_viewing_note_content(app: AppHandle, id: String) -> Result<serde_json
 }
 
 #[tauri::command]
-pub fn transfer_to_capture(app: AppHandle, content: String, folder: String) -> Result<bool, String> {
+pub fn transfer_to_capture(
+    app: AppHandle,
+    content: String,
+    folder: String,
+) -> Result<bool, String> {
     if let Some(window) = app.get_webview_window("postit") {
         let _ = window.show();
         let _ = window.set_focus();
-        let _ = window.emit("transfer-content", serde_json::json!({
-            "content": content,
-            "folder": folder
-        }));
+        let _ = window.emit(
+            "transfer-content",
+            serde_json::json!({
+                "content": content,
+                "folder": folder
+            }),
+        );
         Ok(true)
     } else {
         Err("Postit window not found".to_string())
@@ -582,7 +613,10 @@ pub fn open_settings(app: AppHandle) -> Result<bool, String> {
 pub async fn reopen_last_note(app: AppHandle) -> Result<bool, String> {
     let (path, folder) = {
         let state = app.state::<AppState>();
-        let last = state.last_saved_note.lock().unwrap_or_else(|e| e.into_inner());
+        let last = state
+            .last_saved_note
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         match last.as_ref() {
             Some(note) => (note.path.clone(), note.folder.clone()),
             None => return Err("No note saved yet".to_string()),
@@ -653,7 +687,10 @@ mod tests {
         let state = AppState::new();
         remember_last_note(&state, "/tmp/stik/foo.md", "Inbox");
 
-        let last = state.last_saved_note.lock().unwrap_or_else(|e| e.into_inner());
+        let last = state
+            .last_saved_note
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let note = last.as_ref().expect("last note should be set");
         assert_eq!(note.path, "/tmp/stik/foo.md");
         assert_eq!(note.folder, "Inbox");
@@ -661,7 +698,9 @@ mod tests {
 
     #[test]
     fn settings_window_min_width_is_large_enough_for_full_menu_bar() {
-        assert!(SETTINGS_WINDOW_MIN_WIDTH >= 760.0);
-        assert!(SETTINGS_WINDOW_WIDTH > SETTINGS_WINDOW_MIN_WIDTH);
+        const {
+            assert!(SETTINGS_WINDOW_MIN_WIDTH >= 760.0);
+            assert!(SETTINGS_WINDOW_WIDTH > SETTINGS_WINDOW_MIN_WIDTH);
+        }
     }
 }

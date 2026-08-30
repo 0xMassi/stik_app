@@ -71,20 +71,11 @@ impl Default for GitSharingSettings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ICloudSettings {
     pub enabled: bool,
     pub migrated: bool,
-}
-
-impl Default for ICloudSettings {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            migrated: false,
-        }
-    }
 }
 
 pub use super::note_lock::NoteLockSettings;
@@ -642,19 +633,21 @@ mod tests {
 
     #[test]
     fn normalization_reenables_all_disabled_shortcuts() {
-        let mut settings = StikSettings::default();
-        settings.shortcut_mappings = vec![
-            ShortcutMapping {
-                shortcut: "Cmd+Shift+S".to_string(),
-                folder: "Inbox".to_string(),
-                enabled: false,
-            },
-            ShortcutMapping {
-                shortcut: "Cmd+Shift+1".to_string(),
-                folder: "Work".to_string(),
-                enabled: false,
-            },
-        ];
+        let settings = StikSettings {
+            shortcut_mappings: vec![
+                ShortcutMapping {
+                    shortcut: "Cmd+Shift+S".to_string(),
+                    folder: "Inbox".to_string(),
+                    enabled: false,
+                },
+                ShortcutMapping {
+                    shortcut: "Cmd+Shift+1".to_string(),
+                    folder: "Work".to_string(),
+                    enabled: false,
+                },
+            ],
+            ..StikSettings::default()
+        };
 
         let normalized = normalize_loaded_settings(settings);
         assert!(normalized.shortcut_mappings[0].enabled);
@@ -663,9 +656,11 @@ mod tests {
 
     #[test]
     fn normalization_falls_back_to_legacy_theme_mode_when_active_theme_is_invalid() {
-        let mut settings = StikSettings::default();
-        settings.theme_mode = "dark".to_string();
-        settings.active_theme = "removed-custom-theme".to_string();
+        let settings = StikSettings {
+            theme_mode: "dark".to_string(),
+            active_theme: "removed-custom-theme".to_string(),
+            ..StikSettings::default()
+        };
 
         let normalized = normalize_loaded_settings(settings);
         assert_eq!(normalized.active_theme, "dark");
@@ -693,8 +688,10 @@ mod tests {
 
     #[test]
     fn custom_asset_scope_matches_the_selected_vault_layout() {
-        let mut settings = StikSettings::default();
-        settings.notes_directory = "/tmp/My Notes".to_string();
+        let mut settings = StikSettings {
+            notes_directory: "/tmp/My Notes".to_string(),
+            ..StikSettings::default()
+        };
 
         assert_eq!(
             custom_notes_asset_root(&settings),
@@ -719,9 +716,11 @@ mod tests {
 
     #[test]
     fn legacy_analytics_state_is_reset_until_the_user_makes_a_choice() {
-        let mut settings = StikSettings::default();
-        settings.analytics_enabled = true;
-        settings.analytics_consent_version = 0;
+        let settings = StikSettings {
+            analytics_enabled: true,
+            analytics_consent_version: 0,
+            ..StikSettings::default()
+        };
 
         let normalized = normalize_loaded_settings(settings);
 
@@ -730,9 +729,11 @@ mod tests {
 
     #[test]
     fn explicit_analytics_consent_survives_normalization() {
-        let mut settings = StikSettings::default();
-        settings.analytics_enabled = true;
-        settings.analytics_consent_version = 1;
+        let settings = StikSettings {
+            analytics_enabled: true,
+            analytics_consent_version: 1,
+            ..StikSettings::default()
+        };
 
         let normalized = normalize_loaded_settings(settings);
 

@@ -203,7 +203,10 @@ pub fn shortcut_to_string(shortcut: &Shortcut) -> String {
 
 pub fn register_shortcuts_from_settings(app: &AppHandle, settings: &StikSettings) {
     let state = app.state::<AppState>();
-    let mut map = state.shortcut_to_folder.lock().unwrap_or_else(|e| e.into_inner());
+    let mut map = state
+        .shortcut_to_folder
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     map.clear();
 
     for mapping in &settings.shortcut_mappings {
@@ -239,8 +242,7 @@ pub fn register_shortcuts_from_settings(app: &AppHandle, settings: &StikSettings
 
     #[cfg(debug_assertions)]
     {
-        let devtools_shortcut =
-            Shortcut::new(Some(Modifiers::SUPER | Modifiers::ALT), Code::KeyI);
+        let devtools_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::ALT), Code::KeyI);
         let _ = app.global_shortcut().register(devtools_shortcut);
     }
 }

@@ -93,7 +93,7 @@ fn get_or_create_device_id_at(path: &std::path::Path) -> Result<String, String> 
     }
 
     if path.exists() {
-        let id = fs::read_to_string(&path)
+        let id = fs::read_to_string(path)
             .map_err(|e| e.to_string())?
             .trim()
             .to_string();
@@ -103,7 +103,7 @@ fn get_or_create_device_id_at(path: &std::path::Path) -> Result<String, String> 
     }
 
     let id = Uuid::new_v4().to_string();
-    fs::write(&path, &id).map_err(|e| e.to_string())?;
+    fs::write(path, id.as_bytes()).map_err(|e| e.to_string())?;
     Ok(id)
 }
 
@@ -217,9 +217,12 @@ pub fn start_analytics(app: &AppHandle) {
     }
 
     if !enabled {
-        eprintln!("[analytics] disabled (key={}, setting={})",
+        eprintln!(
+            "[analytics] disabled (key={}, setting={})",
             POSTHOG_API_KEY.is_some(),
-            super::settings::load_settings_from_file().map(|s| s.analytics_enabled).unwrap_or(false),
+            super::settings::load_settings_from_file()
+                .map(|s| s.analytics_enabled)
+                .unwrap_or(false),
         );
         return;
     }
