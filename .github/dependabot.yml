@@ -40,6 +40,15 @@ updates:
     commit-message:
       prefix: "chore(deps)"
 
+  - package-ecosystem: swift
+    directory: "/src-tauri/darwinkit"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
