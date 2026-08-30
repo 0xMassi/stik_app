@@ -118,7 +118,11 @@ main() {
     build)
       build_sidecar debug
       log "Building local Stik.app (${RUST_TARGET})"
-      npm run tauri -- build --debug --target "$RUST_TARGET" --bundles app
+      npm run tauri -- build \
+        --debug \
+        --target "$RUST_TARGET" \
+        --bundles app \
+        --config '{"bundle":{"createUpdaterArtifacts":false}}'
       log "App ready at src-tauri/target/${RUST_TARGET}/debug/bundle/macos/Stik.app"
       ;;
     sidecar)
