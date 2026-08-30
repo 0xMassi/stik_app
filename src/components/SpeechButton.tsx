@@ -12,13 +12,16 @@ import {
   useCallback,
   useImperativeHandle,
   forwardRef,
+  lazy,
+  Suspense,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { DictationStatus } from "@/types";
-import DictationSetupModal from "./DictationSetupModal";
 import "@/styles/speech-button.css";
 import { useTranslation } from "@/hooks/useTranslation";
+
+const DictationSetupModal = lazy(() => import("./DictationSetupModal"));
 
 interface SpeechButtonProps {
   onPartialText: (text: string, replaceFrom: number) => void;
@@ -299,21 +302,23 @@ const SpeechButton = forwardRef<SpeechButtonRef, SpeechButtonProps>(
         </div>
 
         {setupOpen && (
-          <DictationSetupModal
-            onClose={() => setSetupOpen(false)}
-            onReady={async (modelId, language) => {
-              setSetupOpen(false);
-              // Persist the user's choice into settings.json so the
-              // next launch (and every subsequent mic click) knows
-              // which model to use — and so ⌘⇧V can actually work
-              // without re-prompting.
-              if (onActiveModelSelected) {
-                await onActiveModelSelected(modelId, language);
-              }
-              await refreshStatus();
-              await startDictation();
-            }}
-          />
+          <Suspense fallback={null}>
+            <DictationSetupModal
+              onClose={() => setSetupOpen(false)}
+              onReady={async (modelId, language) => {
+                setSetupOpen(false);
+                // Persist the user's choice into settings.json so the
+                // next launch (and every subsequent mic click) knows
+                // which model to use — and so ⌘⇧V can actually work
+                // without re-prompting.
+                if (onActiveModelSelected) {
+                  await onActiveModelSelected(modelId, language);
+                }
+                await refreshStatus();
+                await startDictation();
+              }}
+            />
+          </Suspense>
         )}
       </>
     );

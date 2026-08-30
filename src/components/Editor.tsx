@@ -20,8 +20,7 @@ import {
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab, insertNewline } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { syntaxTree } from "@codemirror/language";
-import { languages } from "@codemirror/language-data";
+import { syntaxTree, type LanguageDescription } from "@codemirror/language";
 import { autocompletion, closeCompletion, completionStatus } from "@codemirror/autocomplete";
 import { search, searchKeymap } from "@codemirror/search";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -70,6 +69,7 @@ import {
 } from "@/utils/externalLinkHitTest";
 import { markdownToHtml, markdownToPlainText } from "@/utils/markdownToHtml";
 import { createVimCommandCallbacks } from "@/utils/vimCommandBridge";
+import { hasNamedFencedCodeBlock } from "@/utils/fencedCodeLanguage";
 import FormattingToolbar from "@/components/FormattingToolbar";
 import LinkPopover from "@/components/LinkPopover";
 import type { SearchResult } from "@/types";
@@ -114,6 +114,31 @@ export interface EditorRef {
 /// place until the window was recreated.
 const placeholderCompartment = new Compartment();
 const remoteImagesCompartment = new Compartment();
+const markdownCompartment = new Compartment();
+
+function createMarkdownSupport(
+  codeLanguages: readonly LanguageDescription[],
+) {
+  return markdown({
+    base: markdownLanguage,
+    codeLanguages,
+    // Disable setext headings (text\n--- = H2) — they cause jarring
+    // style jumps while typing list markers like "-" on a new line.
+    // ATX headings (# H1, ## H2) are sufficient.
+    extensions: [
+      highlightExtension,
+      {
+        parseBlock: [
+          {
+            name: "SetextHeading",
+            parse: () => false,
+            leaf: () => null,
+          },
+        ],
+      },
+    ],
+  });
+}
 
 const Editor = forwardRef<EditorRef, EditorProps>(
   (
@@ -502,10 +527,48 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         }
       });
 
+      let languageDataRequested = false;
+      let firstInputRecorded = false;
+      const loadCodeLanguagesIfNeeded = (
+        markdownText: string,
+        targetView: EditorView,
+      ) => {
+        if (
+          languageDataRequested ||
+          !hasNamedFencedCodeBlock(markdownText)
+        ) {
+          return;
+        }
+        languageDataRequested = true;
+        void import("@codemirror/language-data")
+          .then(({ languages }) => {
+            if (viewRef.current !== targetView) return;
+            targetView.dispatch({
+              effects: markdownCompartment.reconfigure(
+                createMarkdownSupport(languages),
+              ),
+            });
+          })
+          .catch((error) => {
+            console.error("Failed to load fenced-code languages:", error);
+          });
+      };
+
       // Doc change listener
       const docChangeListener = EditorView.updateListener.of((update) => {
         if (update.docChanged) {
-          onChangeRef.current(update.state.doc.toString());
+          if (
+            !firstInputRecorded &&
+            update.transactions.some((transaction) =>
+              transaction.isUserEvent("input"),
+            )
+          ) {
+            firstInputRecorded = true;
+            globalThis.performance?.mark?.("stik:first-editor-input");
+          }
+          const markdownText = update.state.doc.toString();
+          onChangeRef.current(markdownText);
+          loadCodeLanguagesIfNeeded(markdownText, update.view);
         }
       });
 
@@ -514,23 +577,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         history(),
         formatKeybindings,
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
-        markdown({
-          base: markdownLanguage,
-          codeLanguages: languages,
-          // Disable setext headings (text\n--- = H2) — they cause jarring
-          // style jumps while typing list markers like "-" on a new line.
-          // ATX headings (# H1, ## H2) are sufficient.
-          extensions: [
-            highlightExtension,
-            {
-              parseBlock: [{
-                name: "SetextHeading",
-                parse: () => false,
-                leaf: () => null,
-              }],
-            },
-          ],
-        }),
+        markdownCompartment.of(createMarkdownSupport([])),
         stikEditorTheme,
         stikHighlightStyle,
         // Required for Vim visual mode highlight:
@@ -581,6 +628,8 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       });
 
       viewRef.current = view;
+      globalThis.performance?.mark?.("stik:editor-ready");
+      loadCodeLanguagesIfNeeded(view.state.doc.toString(), view);
 
       // Setup vim mode listener after view is created
       if (vimEnabled) {

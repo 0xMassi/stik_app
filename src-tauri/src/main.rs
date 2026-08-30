@@ -335,6 +335,130 @@ fn open_accessibility_settings() {
         .spawn();
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct StartupPlan {
+    build_local_index: bool,
+    start_icloud_monitor: bool,
+    build_embeddings: bool,
+}
+
+impl StartupPlan {
+    fn new(icloud_enabled: bool, ai_enabled: bool) -> Self {
+        Self {
+            build_local_index: !icloud_enabled,
+            start_icloud_monitor: icloud_enabled,
+            build_embeddings: ai_enabled,
+        }
+    }
+}
+
+fn spawn_background(name: &str, job: impl FnOnce() + Send + 'static) {
+    if let Err(error) = std::thread::Builder::new()
+        .name(name.to_string())
+        .spawn(job)
+    {
+        eprintln!("Failed to start {name}: {error}");
+    }
+}
+
+fn spawn_embeddings(app: AppHandle) {
+    spawn_background("stik-embeddings", move || {
+        let index = app.state::<NoteIndex>();
+        let embeddings_index = app.state::<EmbeddingIndex>();
+        embeddings::build_embeddings(&index, &embeddings_index);
+    });
+}
+
+fn start_deferred_services(app: AppHandle, plan: StartupPlan) {
+    let service_handle = app.clone();
+    spawn_background("stik-service-bootstrap", move || {
+        // Register before launching the bridge so no early push notification is
+        // lost. Bridge process startup itself happens on its own worker thread.
+        dictation::register_notifications(&service_handle);
+        let notification_handle = service_handle.clone();
+        darwinkit::register_notification_handler(move |method, params| {
+            if dictation::handle_notification(&method, &params) {
+                return;
+            }
+
+            if method == "icloud.files_changed" {
+                if let Some(paths) = params.get("paths").and_then(|value| value.as_array()) {
+                    let path_strings: Vec<String> = paths
+                        .iter()
+                        .filter_map(|value| value.as_str().map(str::to_string))
+                        .collect();
+
+                    if !path_strings.is_empty() {
+                        file_watcher::handle_changes(&notification_handle, &path_strings);
+                        let _ = notification_handle.emit("icloud-files-changed", &path_strings);
+                    }
+                }
+            }
+        });
+        darwinkit::start_bridge(service_handle.clone());
+        git_share::start_background_worker(service_handle.clone());
+        analytics::start_analytics(&service_handle);
+    });
+
+    if plan.build_local_index {
+        let index_handle = app.clone();
+        spawn_background("stik-index-bootstrap", move || {
+            let index = index_handle.state::<NoteIndex>();
+            if let Err(error) = index.build() {
+                eprintln!("Failed to build note index: {error}");
+            }
+            file_watcher::start(index_handle.clone());
+
+            if plan.build_embeddings {
+                spawn_embeddings(index_handle.clone());
+            }
+
+            spawn_background("stik-on-this-day", move || {
+                if let Err(error) = on_this_day::maybe_show_on_this_day_notification() {
+                    eprintln!("Failed to check On This Day notification: {error}");
+                }
+            });
+        });
+    }
+
+    if plan.start_icloud_monitor {
+        let monitor_handle = app.clone();
+        spawn_background("stik-icloud-monitor", move || {
+            // DarwinKit owns coordinated iCloud access. Wait for its bridge,
+            // then build the index and start monitoring away from app setup.
+            for _ in 0..20 {
+                if darwinkit::is_available() {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+
+            let index = monitor_handle.state::<NoteIndex>();
+            if let Err(error) = index.build() {
+                eprintln!("Failed to build note index (iCloud): {error}");
+            }
+            if let Err(error) = storage::start_monitoring() {
+                eprintln!("Failed to start iCloud monitoring: {error}");
+            }
+            if plan.build_embeddings {
+                spawn_embeddings(monitor_handle);
+            }
+        });
+    }
+
+    // Window creation must happen on the main thread, but queue it from a
+    // worker so the setup callback can return and the capture window can paint.
+    let restore_handle = app.clone();
+    spawn_background("stik-restore-windows", move || {
+        let app_for_restore = restore_handle.clone();
+        if let Err(error) = restore_handle.run_on_main_thread(move || {
+            windows::restore_sticked_notes(&app_for_restore);
+        }) {
+            eprintln!("Failed to schedule sticked-note restoration: {error}");
+        }
+    });
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(AppState::new())
@@ -546,34 +670,22 @@ fn main() {
             dictation::dictation_stop,
         ])
         .setup(|app| {
+            let setup_started = std::time::Instant::now();
             let settings = settings::get_settings().unwrap_or_default();
+            let startup_plan = StartupPlan::new(
+                settings.icloud.enabled,
+                settings.ai_features_enabled,
+            );
 
             if let Err(error) = settings::allow_custom_notes_asset_scope(app.handle(), &settings) {
                 eprintln!("Failed to authorize custom note images: {error}");
             }
 
-            // Build in-memory note index — deferred when iCloud is enabled
-            // (needs DarwinKit bridge to resolve the iCloud container path)
-            if !settings.icloud.enabled {
-                let index = app.state::<NoteIndex>();
-                if let Err(e) = index.build() {
-                    eprintln!("Failed to build note index: {}", e);
-                }
-                // Watch local notes directory for external changes
-                file_watcher::start(app.handle().clone());
-            }
             shortcuts::register_shortcuts_from_settings(app.handle(), &settings);
-            analytics::start_analytics(app.handle());
 
             #[cfg(target_os = "macos")]
             if settings.hide_dock_icon {
                 settings::apply_dock_icon_visibility(true);
-            }
-
-            if !settings.icloud.enabled {
-                if let Err(e) = on_this_day::maybe_show_on_this_day_notification() {
-                    eprintln!("Failed to check On This Day notification: {}", e);
-                }
             }
 
             // Restore capture window size from settings
@@ -583,10 +695,6 @@ fn main() {
                 }
             }
 
-            // (DevTools auto-open removed. ⌘⌥I still opens them on
-            //  demand from the global-shortcut handler at line 200-ish.)
-
-            windows::restore_sticked_notes(app.handle());
             tray::setup_tray(app)?;
 
             // Apply tray icon visibility from settings
@@ -595,85 +703,6 @@ fn main() {
                     let _ = tray.set_visible(false);
                 }
             }
-            git_share::start_background_worker(app.handle().clone());
-
-            // Start DarwinKit sidecar bridge unconditionally — it now hosts
-            // dictation (WhisperKit) which is needed regardless of the AI or
-            // iCloud feature toggles. Cost is ~10 MB resident; benefit is a
-            // single warm sidecar shared across all handlers.
-            let icloud_enabled = settings.icloud.enabled;
-            {
-                darwinkit::start_bridge(app.handle().clone());
-
-                // Store AppHandle for dictation event forwarding
-                dictation::register_notifications(app.handle());
-
-                // Register unified notification handler for all DarwinKit push events
-                let handle = app.handle().clone();
-                darwinkit::register_notification_handler(move |method, params| {
-                    // Dictation notifications (dictation.partial, .final, .error,
-                    // .download_progress, .download_complete, .model_loaded, ...)
-                    if dictation::handle_notification(&method, &params) {
-                        return;
-                    }
-
-                    // iCloud file change notifications
-                    if method == "icloud.files_changed" {
-                        if let Some(paths) = params.get("paths").and_then(|v| v.as_array()) {
-                            let path_strings: Vec<String> = paths
-                                .iter()
-                                .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                                .collect();
-
-                            if !path_strings.is_empty() {
-                                file_watcher::handle_changes(&handle, &path_strings);
-                                let _ = handle.emit("icloud-files-changed", &path_strings);
-                            }
-                        }
-                    }
-                });
-
-                if icloud_enabled {
-                    // Start monitoring after a short delay (let sidecar initialize)
-                    let monitor_handle = app.handle().clone();
-                    std::thread::Builder::new()
-                        .name("stik-icloud-monitor".to_string())
-                        .spawn(move || {
-                            // Wait for DarwinKit to become available
-                            for _ in 0..20 {
-                                if darwinkit::is_available() { break; }
-                                std::thread::sleep(std::time::Duration::from_millis(500));
-                            }
-
-                            // Build note index now that DarwinKit can resolve the iCloud container
-                            let index = monitor_handle.state::<NoteIndex>();
-                            if let Err(e) = index.build() {
-                                eprintln!("Failed to build note index (iCloud): {}", e);
-                            }
-
-                            if let Err(e) = storage::start_monitoring() {
-                                eprintln!("Failed to start iCloud monitoring: {}", e);
-                            }
-                        })
-                        .ok();
-                }
-
-                let ai_enabled = settings::get_settings()
-                    .map(|s| s.ai_features_enabled)
-                    .unwrap_or(true);
-                if ai_enabled {
-                    let handle = app.handle().clone();
-                    std::thread::Builder::new()
-                        .name("stik-embeddings".to_string())
-                        .spawn(move || {
-                            let index = handle.state::<NoteIndex>();
-                            let emb = handle.state::<EmbeddingIndex>();
-                            embeddings::build_embeddings(&index, &emb);
-                        })
-                        .ok();
-                }
-            }
-
             // Postit window: emit blur event so frontend can decide whether to hide
             if let Some(window) = app.get_webview_window("postit") {
                 let w = window.clone();
@@ -691,6 +720,12 @@ fn main() {
             } else {
                 eprintln!("Warning: postit window not found during setup");
             }
+
+            start_deferred_services(app.handle().clone(), startup_plan);
+            eprintln!(
+                "[startup] capture-critical setup completed in {} ms",
+                setup_started.elapsed().as_millis()
+            );
 
             Ok(())
         })
@@ -714,7 +749,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use std::path::Path;
-    use super::folder_for_opened_note;
+    use super::{folder_for_opened_note, StartupPlan};
 
     #[test]
     fn file_in_stik_subfolder_returns_folder_name() {
@@ -742,5 +777,21 @@ mod tests {
         let root = Path::new("/Users/test/Documents/Stik");
         let path = Path::new("/tmp/random/note.md");
         assert_eq!(folder_for_opened_note(path, root), "");
+    }
+
+    #[test]
+    fn local_startup_builds_the_local_index_before_embeddings() {
+        let plan = StartupPlan::new(false, true);
+        assert!(plan.build_local_index);
+        assert!(!plan.start_icloud_monitor);
+        assert!(plan.build_embeddings);
+    }
+
+    #[test]
+    fn icloud_startup_defers_indexing_to_the_icloud_monitor() {
+        let plan = StartupPlan::new(true, false);
+        assert!(!plan.build_local_index);
+        assert!(plan.start_icloud_monitor);
+        assert!(!plan.build_embeddings);
     }
 }
