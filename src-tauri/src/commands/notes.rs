@@ -263,29 +263,34 @@ pub fn list_notes(
 }
 
 #[tauri::command]
-pub fn search_notes(
+pub async fn search_notes(
+    app: AppHandle,
     query: String,
     folder: Option<String>,
-    index: State<'_, NoteIndex>,
 ) -> Result<Vec<SearchResult>, String> {
     if query.trim().is_empty() {
         return Ok(Vec::new());
     }
 
-    let results = index.search(&query, folder.as_deref())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let index = app.state::<NoteIndex>();
+        let results = index.search(&query, folder.as_deref())?;
 
-    Ok(results
-        .into_iter()
-        .map(|(entry, snippet)| SearchResult {
-            locked: entry.locked,
-            path: entry.path,
-            filename: entry.filename,
-            folder: entry.folder,
-            title: entry.title,
-            snippet,
-            created: entry.created,
-        })
-        .collect())
+        Ok(results
+            .into_iter()
+            .map(|(entry, snippet)| SearchResult {
+                locked: entry.locked,
+                path: entry.path,
+                filename: entry.filename,
+                folder: entry.folder,
+                title: entry.title,
+                snippet,
+                created: entry.created,
+            })
+            .collect())
+    })
+    .await
+    .map_err(|error| format!("Search task failed: {error}"))?
 }
 
 pub fn get_note_content_inner(path: &str) -> Result<String, String> {

@@ -23,6 +23,7 @@ import {
   resolveImagePaths,
   unresolveImagePaths,
 } from "@/utils/imageMarkdownPaths";
+import { createLatestRequestGate } from "@/utils/latestRequest";
 import type {
   NoteInfo,
   SearchResult,
@@ -146,7 +147,7 @@ export default function EditorWindow() {
 
   const editorRef = useRef<EditorRef | null>(null);
   const saveTimer = useRef<number | null>(null);
-  const searchTimer = useRef<number | null>(null);
+  const searchRequestGate = useRef(createLatestRequestGate());
 
   const loadFolders = useCallback(async (): Promise<string[]> => {
     try {
@@ -208,18 +209,30 @@ export default function EditorWindow() {
   }, [activeFolder, refreshNotes]);
 
   useEffect(() => {
-    if (searchTimer.current !== null) window.clearTimeout(searchTimer.current);
+    const gate = searchRequestGate.current;
+    const token = gate.begin();
     if (!query.trim()) {
       setResults([]);
-      return;
+      return () => {
+        if (gate.isLatest(token)) gate.invalidate();
+      };
     }
-    searchTimer.current = window.setTimeout(async () => {
+    const timer = window.setTimeout(async () => {
       try {
-        setResults(await invoke<SearchResult[]>("search_notes", { query, folder: activeFolder }));
+        const next = await invoke<SearchResult[]>("search_notes", {
+          query,
+          folder: activeFolder,
+        });
+        if (gate.isLatest(token)) setResults(next);
       } catch {
-        setResults([]);
+        if (gate.isLatest(token)) setResults([]);
       }
     }, SEARCH_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+      if (gate.isLatest(token)) gate.invalidate();
+    };
   }, [query, activeFolder]);
 
   const persistLocal = useCallback((key: string, next: string[], set: (v: string[]) => void) => {

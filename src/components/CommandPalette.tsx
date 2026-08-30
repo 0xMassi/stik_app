@@ -21,6 +21,7 @@ import NoteList from "./command-palette/NoteList";
 import MovePicker from "./command-palette/MovePicker";
 import { useTranslation } from "@/hooks/useTranslation";
 import ActionToast from "./ActionToast";
+import { createLatestRequestGate } from "@/utils/latestRequest";
 
 /** Derive a human-readable title from a Stik filename like `20260310-114522-my-note-a1b2.md` */
 function titleFromFilename(filename: string): string {
@@ -89,6 +90,8 @@ export default function CommandPalette() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const searchRequestGate = useRef(createLatestRequestGate());
+  const recentRequestGate = useRef(createLatestRequestGate());
 
   // Focus input on mount
   useEffect(() => {
@@ -134,8 +137,12 @@ export default function CommandPalette() {
 
   // Load recent notes when folder filter changes
   useEffect(() => {
-    invoke<NoteInfo[]>("list_notes", { folder: selectedFolder }).then(
-      (notes) => {
+    const gate = recentRequestGate.current;
+    const token = gate.begin();
+
+    void invoke<NoteInfo[]>("list_notes", { folder: selectedFolder })
+      .then((notes) => {
+        if (!gate.isLatest(token)) return;
         setRecentNotes(
           notes.slice(0, 15).map((n) => ({
             path: n.path,
@@ -149,17 +156,31 @@ export default function CommandPalette() {
             locked: n.locked,
           })),
         );
-      },
-    );
+      })
+      .catch((error) => {
+        if (gate.isLatest(token)) {
+          console.error("Failed to load recent notes:", error);
+        }
+      });
+
+    return () => {
+      if (gate.isLatest(token)) gate.invalidate();
+    };
   }, [selectedFolder]);
 
   // Search: text + semantic in parallel (debounced)
   useEffect(() => {
+    const gate = searchRequestGate.current;
+    const token = gate.begin();
+
     if (!query.trim()) {
       setResults(recentNotes);
       setSemanticResults([]);
       setSelectedNoteIndex(0);
-      return;
+      setIsSearching(false);
+      return () => {
+        if (gate.isLatest(token)) gate.invalidate();
+      };
     }
 
     const timer = setTimeout(async () => {
@@ -176,6 +197,8 @@ export default function CommandPalette() {
           folder: selectedFolder,
         }),
       ]);
+
+      if (!gate.isLatest(token)) return;
 
       const textResults =
         textResult.status === "fulfilled" ? textResult.value : [];
@@ -194,7 +217,10 @@ export default function CommandPalette() {
       setIsSearching(false);
     }, 200);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (gate.isLatest(token)) gate.invalidate();
+    };
   }, [query, recentNotes, selectedFolder]);
 
   // Keep selectedFolderIndex in sync with selectedFolder
@@ -264,36 +290,51 @@ export default function CommandPalette() {
   );
 
   const refreshAfterChange = useCallback(async () => {
-    await loadFolderStats();
-    const updatedFolders = await invoke<string[]>("list_folders");
-    setFolders(updatedFolders);
+    const gate = searchRequestGate.current;
+    const token = gate.begin();
+    try {
+      await loadFolderStats();
+      const updatedFolders = await invoke<string[]>("list_folders");
+      if (!gate.isLatest(token)) return;
+      setFolders(updatedFolders);
 
-    const notes = await invoke<NoteInfo[]>("list_notes", {
-      folder: selectedFolder,
-    });
-    const recent = notes.slice(0, 15).map((n) => ({
-      path: n.path,
-      filename: n.filename,
-      folder: n.folder,
-      title: n.locked
-        ? titleFromFilename(n.filename)
-        : extractNoteTitle(n.content),
-      snippet: normalizeNoteSnippet(n.content),
-      created: n.created,
-      locked: n.locked,
-    }));
-    setRecentNotes(recent);
-
-    if (query.trim()) {
-      const searchResults = await invoke<SearchResult[]>("search_notes", {
-        query: query.trim(),
+      const notes = await invoke<NoteInfo[]>("list_notes", {
         folder: selectedFolder,
       });
-      setResults(searchResults);
-      setSelectedNoteIndex((i) => Math.min(i, searchResults.length - 1));
-    } else {
-      setResults(recent);
-      setSelectedNoteIndex((i) => Math.min(i, recent.length - 1));
+      if (!gate.isLatest(token)) return;
+      const recent = notes.slice(0, 15).map((n) => ({
+        path: n.path,
+        filename: n.filename,
+        folder: n.folder,
+        title: n.locked
+          ? titleFromFilename(n.filename)
+          : extractNoteTitle(n.content),
+        snippet: normalizeNoteSnippet(n.content),
+        created: n.created,
+        locked: n.locked,
+      }));
+      setRecentNotes(recent);
+
+      if (query.trim()) {
+        const searchResults = await invoke<SearchResult[]>("search_notes", {
+          query: query.trim(),
+          folder: selectedFolder,
+        });
+        if (!gate.isLatest(token)) return;
+        setResults(searchResults);
+        setSemanticResults([]);
+        setSelectedNoteIndex((i) => Math.min(i, searchResults.length - 1));
+      } else {
+        setResults(recent);
+        setSemanticResults([]);
+        setSelectedNoteIndex((i) => Math.min(i, recent.length - 1));
+      }
+    } catch (error) {
+      if (gate.isLatest(token)) {
+        console.error("Failed to refresh search results:", error);
+      }
+    } finally {
+      if (gate.isLatest(token)) setIsSearching(false);
     }
   }, [loadFolderStats, query, selectedFolder]);
 
