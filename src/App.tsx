@@ -9,6 +9,7 @@ import SettingsModal from "./components/SettingsModal";
 import CommandPalette from "./components/CommandPalette";
 import AnalyticsNotice from "./components/AnalyticsNotice";
 import AppleNotesPicker from "./components/AppleNotesPicker";
+import EditorWindow from "./components/EditorWindow";
 import { useTheme } from "./hooks/useTheme";
 import type { StickedNote, StikSettings } from "@/types";
 import { isMarkdownEffectivelyEmpty } from "@/utils/normalizeMarkdownForCopy";
@@ -21,7 +22,8 @@ type WindowType =
   | "sticked"
   | "settings"
   | "command-palette"
-  | "apple-notes-picker";
+  | "apple-notes-picker"
+  | "editor";
 const PENDING_UPDATE_KEY = "stik_pending_update_version";
 
 function getWindowInfo(): { type: WindowType; id?: string; viewing?: boolean } {
@@ -46,6 +48,10 @@ function getWindowInfo(): { type: WindowType; id?: string; viewing?: boolean } {
     windowType === "command-palette"
   ) {
     return { type: "command-palette" };
+  }
+
+  if (windowType === "editor") {
+    return { type: "editor" };
   }
 
   if (windowType === "apple-notes-picker") {
@@ -274,7 +280,6 @@ export default function App() {
           console.error("Failed to open settings:", error);
         }
       }
-
       // Cmd/Ctrl+K opens the command menu. Stik has always had it on
       // Cmd+Shift+P; K is what most people reach for first, so accept both.
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "k") {
@@ -283,6 +288,15 @@ export default function App() {
           await invoke("open_command_palette");
         } catch (error) {
           console.error("Failed to open command palette:", error);
+        }
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "e" || e.key === "E")) {
+        e.preventDefault();
+        try {
+          await invoke("open_editor");
+        } catch (error) {
+          console.error("Failed to open editor:", error);
         }
       }
     };
@@ -408,6 +422,11 @@ export default function App() {
   // Render command palette if this is that window type
   if (windowInfo.type === "command-palette") {
     return <CommandPalette />;
+  }
+
+  // Render full editor mode if this is that window type
+  if (windowInfo.type === "editor") {
+    return <EditorWindow />;
   }
 
   // Render Apple Notes picker if this is that window type

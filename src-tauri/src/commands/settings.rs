@@ -144,6 +144,8 @@ pub struct StikSettings {
     #[serde(default)]
     pub folder_colors: HashMap<String, String>,
     #[serde(default)]
+    pub folder_icons: HashMap<String, String>,
+    #[serde(default)]
     pub system_shortcuts: HashMap<String, String>,
     #[serde(default = "default_true")]
     pub analytics_enabled: bool,
@@ -234,6 +236,7 @@ impl Default for StikSettings {
             notes_directory: String::new(),
             hide_dock_icon: false,
             folder_colors: HashMap::new(),
+            folder_icons: HashMap::new(),
             system_shortcuts: default_system_shortcuts(),
             analytics_enabled: true,
             analytics_notice_dismissed: false,
@@ -267,6 +270,7 @@ pub fn default_system_shortcuts() -> HashMap<String, String> {
         ("manager".to_string(), "Cmd+Shift+M".to_string()),
         ("settings".to_string(), "Cmd+Shift+Comma".to_string()),
         ("last_note".to_string(), "Cmd+Shift+L".to_string()),
+        ("editor".to_string(), "Cmd+Shift+E".to_string()),
         ("zen_mode".to_string(), "Cmd+Period".to_string()),
         ("dictation".to_string(), "Cmd+Shift+D".to_string()),
         ("voice_note".to_string(), "Cmd+Shift+V".to_string()),

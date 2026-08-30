@@ -57,6 +57,7 @@ fn reconcile_settings_after_folder_delete(
     }
 
     settings.folder_colors.remove(deleted_folder);
+    settings.folder_icons.remove(deleted_folder);
 }
 
 fn reconcile_settings_after_folder_rename(
@@ -80,6 +81,10 @@ fn reconcile_settings_after_folder_rename(
 
     if let Some(color) = settings.folder_colors.remove(old_name) {
         settings.folder_colors.insert(new_name.to_string(), color);
+    }
+
+    if let Some(icon) = settings.folder_icons.remove(old_name) {
+        settings.folder_icons.insert(new_name.to_string(), icon);
     }
 }
 
@@ -114,6 +119,57 @@ pub fn validate_name(name: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Folder identifier for a note = its parent directory's path relative to the
+/// Stik root, using '/' separators. Root-level notes return "". Supports nesting.
+pub fn note_folder(stik_root: &Path, note_path: &Path) -> String {
+    note_path
+        .parent()
+        .and_then(|p| p.strip_prefix(stik_root).ok())
+        .map(|rel| rel.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default()
+}
+
+/// Validate a relative folder path (supports nesting like "Projects/Work") while
+/// blocking traversal. Each segment must be a visible, non-".."/"." name.
+pub fn validate_folder_path(path: &str) -> Result<(), String> {
+    if path.trim().is_empty() {
+        return Err("Name cannot be empty".to_string());
+    }
+    if path.contains('\\') || path.contains('\0') {
+        return Err("Invalid name: must not contain '\\' or null bytes".to_string());
+    }
+    if path.starts_with('/') || path.ends_with('/') {
+        return Err("Invalid folder path: no leading or trailing '/'".to_string());
+    }
+    for seg in path.split('/') {
+        let s = seg.trim();
+        if s.is_empty() || s == ".." || s == "." {
+            return Err("Invalid folder path: empty or traversal segment".to_string());
+        }
+        if !is_visible_folder_name(s) {
+            return Err("Invalid name: hidden folders are not supported".to_string());
+        }
+    }
+    Ok(())
+}
+
+/// Recursively collect every visible folder as a relative path (Obsidian-style tree).
+fn collect_folders(root: &Path, dir: &Path, out: &mut Vec<String>) {
+    let entries = match super::storage::list_dir(&dir.to_string_lossy()) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+    for e in entries {
+        if e.is_directory && is_visible_folder_name(&e.name) {
+            let child = dir.join(&e.name);
+            if let Ok(rel) = child.strip_prefix(root) {
+                out.push(rel.to_string_lossy().replace('\\', "/"));
+            }
+            collect_folders(root, &child, out);
+        }
+    }
+}
+
 /// Get the Stik folder path — delegates to storage abstraction which handles
 /// iCloud, custom directory, and local default modes.
 pub fn get_stik_folder() -> Result<PathBuf, String> {
@@ -129,12 +185,15 @@ pub fn get_notes_directory() -> Result<String, String> {
 #[tauri::command]
 pub fn list_folders() -> Result<Vec<String>, String> {
     let stik_folder = get_stik_folder()?;
-    list_visible_folder_names(&stik_folder)
+    let mut out = Vec::new();
+    collect_folders(&stik_folder, &stik_folder, &mut out);
+    out.sort_unstable();
+    Ok(out)
 }
 
 #[tauri::command]
 pub fn create_folder(name: String) -> Result<bool, String> {
-    validate_name(&name)?;
+    validate_folder_path(&name)?;
     let stik_folder = get_stik_folder()?;
     let folder_path = stik_folder.join(&name);
 
@@ -149,7 +208,7 @@ pub fn delete_folder(
     index: tauri::State<'_, super::index::NoteIndex>,
     emb_index: tauri::State<'_, super::embeddings::EmbeddingIndex>,
 ) -> Result<bool, String> {
-    validate_name(&name)?;
+    validate_folder_path(&name)?;
 
     let stik_folder = get_stik_folder()?;
     let folder_path = stik_folder.join(&name);
@@ -164,7 +223,7 @@ pub fn delete_folder(
         .map_err(|e| format!("Failed to delete folder: {}", e))?;
 
     // Purge deleted notes from in-memory indices
-    index.remove_by_folder(&name);
+    index.remove_by_folder_tree(&name);
     let prefix = folder_path.to_string_lossy();
     emb_index.remove_by_path_prefix(&prefix);
     let _ = emb_index.save();
@@ -179,8 +238,8 @@ pub fn delete_folder(
 
 #[tauri::command]
 pub fn rename_folder(old_name: String, new_name: String) -> Result<bool, String> {
-    validate_name(&old_name)?;
-    validate_name(&new_name)?;
+    validate_folder_path(&old_name)?;
+    validate_folder_path(&new_name)?;
 
     let stik_folder = get_stik_folder()?;
     let old_path = stik_folder.join(&old_name);
@@ -194,6 +253,11 @@ pub fn rename_folder(old_name: String, new_name: String) -> Result<bool, String>
     // Check new folder doesn't already exist
     if super::storage::path_exists(&new_path.to_string_lossy()) {
         return Err("A folder with that name already exists".to_string());
+    }
+
+    // Ensure the destination's parent exists (renaming into a nested path).
+    if let Some(parent) = new_path.parent() {
+        super::storage::ensure_dir(&parent.to_string_lossy())?;
     }
 
     // Rename folder
@@ -238,9 +302,34 @@ pub fn get_folder_stats() -> Result<Vec<FolderStats>, String> {
 mod tests {
     use std::collections::HashMap;
     use super::{
-        is_visible_folder_name, reconcile_settings_after_folder_delete,
-        reconcile_settings_after_folder_rename, validate_name,
+        is_visible_folder_name, note_folder, reconcile_settings_after_folder_delete,
+        reconcile_settings_after_folder_rename, validate_folder_path, validate_name,
     };
+
+    #[test]
+    fn validate_folder_path_allows_nesting_but_blocks_traversal() {
+        assert!(validate_folder_path("Inbox").is_ok());
+        assert!(validate_folder_path("Projects/Work").is_ok());
+        assert!(validate_folder_path("a/b/c").is_ok());
+
+        assert!(validate_folder_path("").is_err());
+        assert!(validate_folder_path("../etc").is_err());
+        assert!(validate_folder_path("Projects/../secret").is_err());
+        assert!(validate_folder_path("/abs").is_err());
+        assert!(validate_folder_path("trailing/").is_err());
+        assert!(validate_folder_path(".hidden").is_err());
+        assert!(validate_folder_path("Projects/.git").is_err());
+        assert!(validate_folder_path("a\\b").is_err());
+    }
+
+    #[test]
+    fn note_folder_returns_relative_parent_path() {
+        use std::path::Path;
+        let root = Path::new("/stik");
+        assert_eq!(note_folder(root, Path::new("/stik/foo.md")), "");
+        assert_eq!(note_folder(root, Path::new("/stik/Inbox/foo.md")), "Inbox");
+        assert_eq!(note_folder(root, Path::new("/stik/A/B/foo.md")), "A/B");
+    }
     use crate::commands::settings::{GitSharingSettings, ShortcutMapping, StikSettings};
 
     fn sample_settings() -> StikSettings {

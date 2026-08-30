@@ -1,12 +1,19 @@
 use crate::commands::{notes, settings, sticked_notes};
 use crate::state::{AppState, LastSavedNote};
 use sticked_notes::StickedNote;
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    AppHandle, Emitter, Manager, PhysicalPosition, TitleBarStyle, WebviewUrl, WebviewWindowBuilder,
+};
 
 const SETTINGS_WINDOW_WIDTH: f64 = 860.0;
 const SETTINGS_WINDOW_HEIGHT: f64 = 720.0;
 const SETTINGS_WINDOW_MIN_WIDTH: f64 = 760.0;
 const SETTINGS_WINDOW_MIN_HEIGHT: f64 = 560.0;
+
+const EDITOR_WINDOW_WIDTH: f64 = 1100.0;
+const EDITOR_WINDOW_HEIGHT: f64 = 740.0;
+const EDITOR_WINDOW_MIN_WIDTH: f64 = 820.0;
+const EDITOR_WINDOW_MIN_HEIGHT: f64 = 520.0;
 
 /// Minimum overlap (in physical pixels) between window and monitor for the position to be usable.
 const MIN_OVERLAP: f64 = 80.0;
@@ -242,6 +249,37 @@ pub fn show_settings(app: &AppHandle) {
             }
         });
     }
+}
+
+/// Stik's full editor mode: a real, decorated, taskbar-visible app window
+/// (unlike the transparent always-on-top sticky windows). Singleton — if it
+/// already exists we just focus it.
+pub fn show_editor(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("editor") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+
+    let _ = WebviewWindowBuilder::new(
+        app,
+        "editor",
+        WebviewUrl::App("index.html?window=editor".into()),
+    )
+    .title("Stik Editor")
+    .inner_size(EDITOR_WINDOW_WIDTH, EDITOR_WINDOW_HEIGHT)
+    .min_inner_size(EDITOR_WINDOW_MIN_WIDTH, EDITOR_WINDOW_MIN_HEIGHT)
+    .resizable(true)
+    .title_bar_style(TitleBarStyle::Overlay)
+    .hidden_title(true)
+    .center()
+    .build();
+}
+
+#[tauri::command]
+pub fn open_editor(app: AppHandle) -> Result<bool, String> {
+    show_editor(&app);
+    Ok(true)
 }
 
 #[tauri::command]

@@ -18,7 +18,7 @@ use shortcuts::shortcut_to_string;
 use state::AppState;
 use tauri::{AppHandle, Emitter, Manager, RunEvent};
 use tauri_plugin_global_shortcut::{Code, Modifiers, ShortcutState};
-use windows::{show_command_palette, show_postit_with_folder, show_settings};
+use windows::{show_command_palette, show_editor, show_postit_with_folder, show_settings};
 
 fn folder_for_opened_note(path: &std::path::Path, stik_root: &std::path::Path) -> String {
     if let Ok(relative) = path.strip_prefix(stik_root) {
@@ -374,6 +374,10 @@ fn main() {
                                     show_settings(app);
                                     return;
                                 }
+                                "editor" => {
+                                    show_editor(app);
+                                    return;
+                                }
                                 "last_note" => {
                                     let app = app.clone();
                                     tauri::async_runtime::spawn(async move {
@@ -482,6 +486,7 @@ fn main() {
             windows::open_search,
             windows::open_manager,
             windows::open_settings,
+            windows::open_editor,
             windows::transfer_to_capture,
             windows::reopen_last_note,
             shortcuts::reload_shortcuts,

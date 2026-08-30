@@ -158,7 +158,7 @@ pub fn is_effectively_empty_markdown(content: &str) -> bool {
 /// Core save logic, callable from other Rust modules without Tauri State
 pub fn save_note_inner(folder: String, content: String) -> Result<NoteSaved, String> {
     if !folder.is_empty() {
-        super::folders::validate_name(&folder)?;
+        super::folders::validate_folder_path(&folder)?;
     }
 
     // Don't save empty notes
@@ -366,12 +366,8 @@ pub fn update_note(
         });
     }
 
-    // Get folder name from path
-    let folder = note_path
-        .parent()
-        .and_then(|p| p.file_name())
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_default();
+    // Folder = parent path relative to the Stik root (supports nesting).
+    let folder = super::folders::note_folder(&stik_folder, &note_path);
 
     let filename = note_path
         .file_name()
@@ -429,11 +425,7 @@ pub fn delete_note(
         return Err("Note file does not exist".to_string());
     }
 
-    let folder = note_path
-        .parent()
-        .and_then(|p| p.file_name())
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_default();
+    let folder = super::folders::note_folder(&stik_folder, &note_path);
 
     // Delete referenced .assets/ images
     if let Ok(content) = super::storage::read_file(&path) {
@@ -464,11 +456,7 @@ pub fn move_note(
 ) -> Result<NoteInfo, String> {
     let stik_folder = get_stik_folder()?;
     let source_path = PathBuf::from(&path);
-    let source_folder = source_path
-        .parent()
-        .and_then(|p| p.file_name())
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_default();
+    let source_folder = super::folders::note_folder(&stik_folder, &source_path);
 
     // Validate source path is within Stik folder
     if !source_path.starts_with(&stik_folder) {
@@ -479,6 +467,8 @@ pub fn move_note(
     if !super::storage::path_exists(&path) {
         return Err("Note file does not exist".to_string());
     }
+
+    super::folders::validate_folder_path(&target_folder)?;
 
     // Ensure target folder exists
     let target_folder_path = stik_folder.join(&target_folder);
@@ -499,7 +489,7 @@ pub fn move_note(
 
     // Move referenced .assets/ images to the target folder
     if source_folder != target_folder {
-        let source_folder_path = stik_folder.join(&source_folder);
+        let source_folder_path = source_path.parent().unwrap_or(&stik_folder).to_path_buf();
         move_note_assets(&content, &source_folder_path, &target_folder_path);
     }
 

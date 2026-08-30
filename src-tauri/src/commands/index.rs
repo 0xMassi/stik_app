@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Instant;
 use std::time::SystemTime;
@@ -39,41 +39,10 @@ impl NoteIndex {
 
     pub fn build(&self) -> Result<(), String> {
         let stik_folder = get_stik_folder()?;
-        let stik_path = stik_folder.to_string_lossy();
         let mut new_entries = HashMap::new();
 
-        let dir_entries = super::storage::list_dir(&stik_path)?;
-
-        // Index folders
-        for dir_entry in &dir_entries {
-            if !dir_entry.is_directory {
-                continue;
-            }
-            let folder_name = &dir_entry.name;
-            let folder_path = stik_folder.join(folder_name);
-            let folder_path_str = folder_path.to_string_lossy();
-
-            if let Ok(files) = super::storage::list_dir(&folder_path_str) {
-                for file in files {
-                    if !file.is_directory && file.name.ends_with(".md") {
-                        let path = folder_path.join(&file.name);
-                        if let Some(note_entry) = read_note_entry(&path, folder_name) {
-                            new_entries.insert(note_entry.path.clone(), note_entry);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Index root-level .md files (no folder)
-        for dir_entry in &dir_entries {
-            if !dir_entry.is_directory && dir_entry.name.ends_with(".md") {
-                let path = stik_folder.join(&dir_entry.name);
-                if let Some(note_entry) = read_note_entry(&path, "") {
-                    new_entries.insert(note_entry.path.clone(), note_entry);
-                }
-            }
-        }
+        // Recursively index every .md under the Stik root (Obsidian-style nesting).
+        index_dir(&stik_folder, &stik_folder, &mut new_entries);
 
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         *entries = new_entries;
@@ -112,9 +81,11 @@ impl NoteIndex {
         entries.remove(path);
     }
 
-    pub fn remove_by_folder(&self, folder: &str) {
+    /// Remove a folder and all of its descendants (used when deleting a folder).
+    pub fn remove_by_folder_tree(&self, folder: &str) {
+        let prefix = format!("{}/", folder);
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
-        entries.retain(|_, e| e.folder != folder);
+        entries.retain(|_, e| e.folder != folder && !e.folder.starts_with(&prefix));
     }
 
     pub fn move_entry(&self, old_path: &str, new_path: &str, new_folder: &str) {
@@ -144,21 +115,8 @@ impl NoteIndex {
                 continue;
             }
 
-            // Extract folder name from path
-            let folder = path
-                .strip_prefix(&stik_folder)
-                .ok()
-                .and_then(|rel| rel.components().next())
-                .and_then(|c| {
-                    let name = c.as_os_str().to_string_lossy().to_string();
-                    // If it's the file itself (root-level), return empty
-                    if name.ends_with(".md") {
-                        None
-                    } else {
-                        Some(name)
-                    }
-                })
-                .unwrap_or_default();
+            // Folder = parent path relative to the Stik root (supports nesting).
+            let folder = super::folders::note_folder(&stik_folder, &path);
 
             // Try to re-index — if file was deleted, remove from index
             if super::storage::path_exists(path_str) {
@@ -235,6 +193,29 @@ impl NoteIndex {
 pub fn rebuild_index(index: tauri::State<'_, NoteIndex>) -> Result<bool, String> {
     index.build()?;
     Ok(true)
+}
+
+/// Recursively index every `.md` file under `dir`, skipping hidden directories
+/// (`.assets`, `.git`, …). `folder` is each note's parent path relative to root.
+fn index_dir(stik_root: &Path, dir: &Path, into: &mut HashMap<String, NoteEntry>) {
+    let entries = match super::storage::list_dir(&dir.to_string_lossy()) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+    for e in entries {
+        if e.is_directory {
+            if e.name.starts_with('.') {
+                continue;
+            }
+            index_dir(stik_root, &dir.join(&e.name), into);
+        } else if e.name.ends_with(".md") {
+            let path = dir.join(&e.name);
+            let folder = super::folders::note_folder(stik_root, &path);
+            if let Some(entry) = read_note_entry(&path, &folder) {
+                into.insert(entry.path.clone(), entry);
+            }
+        }
+    }
 }
 
 fn read_note_entry(path: &PathBuf, folder: &str) -> Option<NoteEntry> {
