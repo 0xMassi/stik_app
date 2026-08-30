@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import ConfirmDialog from "./ConfirmDialog";
 import { setLocale } from "@/i18n";
 
@@ -92,7 +92,7 @@ describe("ConfirmDialog", () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-  it("confirms on Enter", () => {
+  it("does not confirm from a global Enter key", () => {
     const onCancel = vi.fn();
     const onConfirm = vi.fn();
     render(
@@ -100,8 +100,72 @@ describe("ConfirmDialog", () => {
     );
 
     fireEvent.keyDown(window, { key: "Enter" });
-    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
     expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it("is a named modal and initially focuses the safe action", async () => {
+    render(
+      <ConfirmDialog
+        title="Delete note?"
+        description="This moves the note to Trash."
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "Delete note?" }),
+    ).toHaveAttribute("aria-modal", "true");
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    });
+  });
+
+  it("contains Tab focus within its controls", async () => {
+    render(
+      <ConfirmDialog title="T" onConfirm={() => {}} onCancel={() => {}} />,
+    );
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    const confirm = screen.getByRole("button", { name: "Delete" });
+
+    await waitFor(() => expect(cancel).toHaveFocus());
+    confirm.focus();
+    fireEvent.keyDown(confirm, { key: "Tab" });
+    expect(cancel).toHaveFocus();
+
+    cancel.focus();
+    fireEvent.keyDown(cancel, { key: "Tab", shiftKey: true });
+    expect(confirm).toHaveFocus();
+  });
+
+  it("restores focus to the invoking control", async () => {
+    const trigger = document.createElement("button");
+    document.body.appendChild(trigger);
+    trigger.focus();
+
+    const { unmount } = render(
+      <ConfirmDialog title="T" onConfirm={() => {}} onCancel={() => {}} />,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    });
+    unmount();
+    expect(trigger).toHaveFocus();
+    trigger.remove();
+  });
+
+  it("makes background content inert until it closes", () => {
+    const background = document.createElement("main");
+    document.body.appendChild(background);
+    const { unmount } = render(
+      <ConfirmDialog title="T" onConfirm={() => {}} onCancel={() => {}} />,
+    );
+
+    expect(background.inert).toBe(true);
+    unmount();
+    expect(background.inert).not.toBe(true);
+    background.remove();
   });
 
   it("ignores unrelated keys", () => {

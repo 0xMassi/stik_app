@@ -39,7 +39,7 @@ export default function ActionToast({
         fixed bottom-6 left-1/2 -translate-x-1/2 z-[250]
         flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-stik
         text-[13px] font-medium bg-ink text-bg
-        transition-all duration-200 ease-out
+        transition-[opacity,transform] duration-200 ease-out
         ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
       `}
     >

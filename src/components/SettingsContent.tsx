@@ -57,6 +57,7 @@ interface DropdownProps {
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
   placeholder?: string;
+  ariaLabel?: string;
 }
 
 export function Dropdown({
@@ -64,10 +65,13 @@ export function Dropdown({
   options,
   onChange,
   placeholder,
+  ariaLabel,
 }: DropdownProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listboxRef = useRef<HTMLDivElement>(null);
 
   const allOptions = options.some((o) => o.value === value)
     ? options
@@ -88,11 +92,35 @@ export function Dropdown({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    requestAnimationFrame(() => {
+      const selected = listboxRef.current?.querySelector<HTMLElement>(
+        "[role='option'][aria-selected='true']",
+      );
+      const first = listboxRef.current?.querySelector<HTMLElement>(
+        "[role='option']",
+      );
+      (selected ?? first)?.focus();
+    });
+  }, [isOpen]);
+
   return (
     <div ref={dropdownRef} className="relative">
       <button
+        ref={triggerRef}
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2.5 bg-bg border border-line rounded-lg text-[13px] text-ink text-left flex items-center justify-between hover:border-coral/50 transition-colors"
+        aria-label={ariaLabel ?? placeholder ?? t("common.select")}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            setIsOpen(true);
+          }
+        }}
+        className="w-full px-3 py-2.5 bg-bg border border-line rounded-lg text-[13px] text-ink text-left flex items-center justify-between hover:border-coral/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
       >
         <span className={selectedOption ? "text-ink" : "text-stone"}>
           {selectedOption?.label || placeholder || t("common.select")}
@@ -105,15 +133,44 @@ export function Dropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-bg border border-line rounded-lg shadow-stik overflow-hidden max-h-[220px] overflow-y-auto">
+        <div
+          ref={listboxRef}
+          role="listbox"
+          aria-label={ariaLabel ?? placeholder ?? t("common.select")}
+          onKeyDown={(event) => {
+            const options = Array.from(
+              event.currentTarget.querySelectorAll<HTMLElement>("[role='option']"),
+            );
+            const current = options.indexOf(document.activeElement as HTMLElement);
+            let next: number | null = null;
+            if (event.key === "ArrowDown") next = (current + 1) % options.length;
+            if (event.key === "ArrowUp") next = (current - 1 + options.length) % options.length;
+            if (event.key === "Home") next = 0;
+            if (event.key === "End") next = options.length - 1;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setIsOpen(false);
+              triggerRef.current?.focus();
+              return;
+            }
+            if (next !== null && options.length) {
+              event.preventDefault();
+              options[next]?.focus();
+            }
+          }}
+          className="absolute z-50 top-full left-0 right-0 mt-1 bg-bg border border-line rounded-lg shadow-stik overflow-hidden max-h-[220px] overflow-y-auto"
+        >
           {allOptions.map((option) => (
             <button
+              type="button"
+              role="option"
+              aria-selected={option.value === value}
               key={option.value}
               onClick={() => {
                 onChange(option.value);
                 setIsOpen(false);
               }}
-              className={`w-full px-3 py-2.5 text-[13px] text-left transition-colors ${
+              className={`w-full min-h-8 px-3 py-2.5 text-[13px] text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-coral ${
                 option.value === value
                   ? "bg-coral text-white"
                   : "text-ink hover:bg-line/50"
@@ -1147,15 +1204,16 @@ function AppearanceSection({
                 isActive={activeTheme === theme.id}
                 onClick={() => selectTheme(theme.id)}
               />
-              <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     startEditTheme(theme);
                   }}
-                  className="w-5 h-5 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-ink text-[10px]"
+                  className="w-6 h-6 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-ink text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
                   title={t("settings.theme.edit")}
+                  aria-label={t("settings.theme.edit")}
                 >
                   <svg
                     width="10"
@@ -1176,8 +1234,9 @@ function AppearanceSection({
                     e.stopPropagation();
                     handleExport(theme);
                   }}
-                  className="w-5 h-5 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-ink text-[10px]"
+                  className="w-6 h-6 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-ink text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
                   title={t("settings.theme.export")}
+                  aria-label={t("settings.theme.export")}
                 >
                   <svg
                     width="10"
@@ -1200,8 +1259,9 @@ function AppearanceSection({
                     e.stopPropagation();
                     setConfirmingDelete(theme.id);
                   }}
-                  className="w-5 h-5 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-coral text-[10px]"
+                  className="w-6 h-6 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-coral text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
                   title={t("settings.theme.delete")}
+                  aria-label={t("settings.theme.delete")}
                 >
                   <svg
                     width="10"
@@ -1387,6 +1447,7 @@ function AppearanceSection({
                           : "border-line text-stone hover:text-coral hover:border-coral/40"
                       }`}
                       title={t("settings.font.remove")}
+                      aria-label={`${t("settings.font.remove")} ${cf.name}`}
                     >
                       ×
                     </button>
@@ -1587,6 +1648,7 @@ function TemplatesSection({
                   onClick={() => startEdit(i)}
                   className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
                   title={t("settings.template.edit")}
+                  aria-label={`${t("settings.template.edit")} /${tpl.name}`}
                 >
                   <svg
                     width="12"
@@ -1606,6 +1668,7 @@ function TemplatesSection({
                   onClick={() => setConfirmingDelete(i)}
                   className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-coral-light text-stone hover:text-coral transition-colors"
                   title={t("settings.template.delete")}
+                  aria-label={`${t("settings.template.delete")} /${tpl.name}`}
                 >
                   <svg
                     width="14"
@@ -1900,6 +1963,7 @@ export default function SettingsContent({
                   onClick={() => removeMapping(index)}
                   className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-coral-light text-stone hover:text-coral transition-colors"
                   title={t("settings.shortcut.remove")}
+                  aria-label={t("settings.shortcut.remove")}
                 >
                   <svg
                     width="14"
@@ -2023,6 +2087,7 @@ export default function SettingsContent({
                         }
                         className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-coral-light text-stone hover:text-coral transition-colors"
                         title={t("settings.shortcut.resetDefault")}
+                        aria-label={t("settings.shortcut.resetDefault")}
                       >
                         <svg
                           width="12"

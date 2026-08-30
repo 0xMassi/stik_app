@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Command as CommandPrimitive } from "cmdk";
+import Dialog from "./Dialog";
 
 /// shadcn-style Command primitives, trimmed to what Stik uses.
 ///
@@ -95,19 +96,14 @@ function CommandDialog({ open, onOpenChange, label, children }: CommandDialogPro
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[400] flex items-start justify-center pt-[18vh]">
-      <button
-        type="button"
-        aria-label={label}
-        onClick={() => onOpenChange(false)}
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-default"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={label}
-        className="relative w-[min(90vw,420px)] overflow-hidden rounded-xl border border-line bg-bg shadow-stik"
-      >
+    <Dialog
+      title={label}
+      onClose={() => onOpenChange(false)}
+      closeOnBackdrop
+      backdropClassName="fixed inset-0 z-[400] flex items-start justify-center bg-black/40 pt-[18vh] backdrop-blur-sm"
+      panelClassName="relative w-[min(90vw,420px)] overflow-hidden rounded-xl border border-line bg-bg shadow-stik"
+      titleClassName="sr-only"
+    >
         <Command
           loop
           onKeyDown={(e) => {
@@ -119,8 +115,7 @@ function CommandDialog({ open, onOpenChange, label, children }: CommandDialogPro
         >
           {children}
         </Command>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 

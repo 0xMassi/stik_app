@@ -587,4 +587,7 @@ export const zhCN: Translations = {
   "palette.commandMenu": "命令菜单",
   "palette.commandMenuPlaceholder": "输入命令…",
   "palette.commandMenuEmpty": "没有匹配的命令",
+  "palette.searching": "正在搜索笔记",
+  "palette.resultsFound": "找到 {count} 个结果",
+  "format.toolbar": "格式工具栏",
 };

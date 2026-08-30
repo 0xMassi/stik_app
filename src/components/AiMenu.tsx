@@ -128,6 +128,7 @@ export default function AiMenu({
   return (
     <div className="relative" ref={menuRef}>
       <button
+        type="button"
         onClick={() => setIsOpen((o) => !o)}
         disabled={disabled}
         className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 ${
@@ -138,6 +139,9 @@ export default function AiMenu({
               : "hover:bg-coral-light text-coral/70 hover:text-coral"
         }`}
         title={t("ai.assistant")}
+        aria-label={t("ai.assistant")}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
       >
         <svg
           width="13"

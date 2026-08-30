@@ -5,13 +5,14 @@
  * installed. Lets them pick a language + a model tier, downloads with
  * progress, loads it, persists the choice in settings.
  */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { DictationModelInfo, DictationDownloadProgress } from "@/types";
 import { Dropdown } from "./SettingsContent";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { TranslationKey } from "@/i18n";
+import Dialog from "./ui/Dialog";
 
 interface Props {
   onClose: () => void;
@@ -55,6 +56,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
   const [bytesTotal, setBytesTotal] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loadElapsed, setLoadElapsed] = useState(0);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   // Tick elapsed seconds while in loading phase so the user sees
   // progress (CoreML compile for turbo is 2+ min on first load).
@@ -164,12 +166,18 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
   // max-h-[92vh] + overflow-y-auto keeps the whole flow accessible even
   // on a small sticky note. Outer padding scales with viewport.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3">
-      <div className="w-full max-w-[440px] max-h-[92vh] overflow-y-auto rounded-2xl bg-bg p-4 shadow-2xl border border-line">
-        <h2 className="text-[14px] font-semibold text-ink mb-1">
+    <Dialog
+      labelledBy="dictation-setup-title"
+      describedBy="dictation-setup-description"
+      onClose={phase === "downloading" ? () => void cancelDownload() : onClose}
+      initialFocusRef={cancelRef}
+      backdropClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3"
+      panelClassName="w-full max-w-[440px] max-h-[92vh] overflow-y-auto rounded-2xl bg-bg p-4 shadow-2xl border border-line"
+    >
+        <h2 id="dictation-setup-title" className="text-[14px] font-semibold text-ink mb-1">
           {t("dictation.setupTitle")}
         </h2>
-        <p className="text-[11px] text-stone leading-snug mb-3">
+        <p id="dictation-setup-description" className="text-[11px] text-stone leading-snug mb-3">
           {t("dictation.whisperIntro")}
         </p>
 
@@ -187,6 +195,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
                 }))}
                 onChange={(value) => setSelectedLanguage(value || null)}
                 placeholder={t("dictation.selectLanguage")}
+                ariaLabel={t("settings.language.title")}
               />
             </div>
 
@@ -234,6 +243,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
 
             <div className="flex justify-end gap-2">
               <button
+                ref={cancelRef}
                 type="button"
                 onClick={onClose}
                 className="px-3 py-1.5 text-[11px] text-stone hover:text-ink rounded-lg"
@@ -256,13 +266,20 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
         {phase === "downloading" && (
           <div className="py-4">
             <p className="text-[13px] text-ink mb-2">{t("dictation.downloadingModel")}</p>
-            <div className="w-full h-2 bg-line/30 rounded-full overflow-hidden mb-2">
+            <div
+              className="w-full h-2 bg-line/30 rounded-full overflow-hidden mb-2"
+              role="progressbar"
+              aria-label={t("dictation.downloadingModel")}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(progress * 100)}
+            >
               <div
-                className="h-full bg-coral transition-all"
+                className="h-full bg-coral transition-[width]"
                 style={{ width: `${Math.round(progress * 100)}%` }}
               />
             </div>
-            <p className="text-[11px] text-stone">
+            <p className="text-[11px] text-stone" role="status" aria-live="polite">
               {(() => {
                 // WhisperKit's Progress uses per-file units, not bytes, so
                 // the raw bytes_done/bytes_total are tiny counts. Show the
@@ -290,7 +307,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
         )}
 
         {phase === "loading" && (
-          <div className="py-6 text-center">
+          <div className="py-6 text-center" role="status" aria-live="polite">
             <p className="text-[13px] text-ink">
               
               {t("dictation.compilingModel")} {loadElapsed}s
@@ -305,7 +322,7 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
 
         {phase === "error" && (
           <div className="py-4">
-            <p className="text-[13px] text-coral mb-2">{t("common.somethingWentWrong")}</p>
+            <p className="text-[13px] text-coral mb-2" role="alert">{t("common.somethingWentWrong")}</p>
             <p className="text-[11px] text-stone mb-4 break-words">
               {errorMsg ?? t("common.unknownError")}
             </p>
@@ -327,7 +344,6 @@ export default function DictationSetupModal({ onClose, onReady }: Props) {
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </Dialog>
   );
 }

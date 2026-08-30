@@ -81,11 +81,14 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
 
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
       className={`
         fixed bottom-6 left-1/2 -translate-x-1/2 z-[250]
         px-4 py-2.5 rounded-xl shadow-stik
         text-[13px] font-medium bg-ink text-bg
-        transition-all duration-200 ease-out
+        transition-[opacity,transform] duration-200 ease-out
         ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
       `}
     >
@@ -1563,6 +1566,7 @@ export default function PostIt({
                         : "text-stone/50 cursor-not-allowed"
                     }`}
                     title={t("postit.pinToScreen")}
+                    aria-label={t("postit.pinToScreen")}
                   >
                     <svg
                       width="14"
@@ -1592,6 +1596,9 @@ export default function PostIt({
                       isPinned
                         ? t("postit.unpinHint")
                         : t("postit.pinHint")
+                    }
+                    aria-label={
+                      isPinned ? t("postit.unpinHint") : t("postit.pinHint")
                     }
                   >
                     <svg
@@ -1650,13 +1657,17 @@ export default function PostIt({
                 <div className="relative" ref={copyMenuRef}>
                   {!(isCopying && copyMode === "image") && (
                     <button
+                      type="button"
                       onClick={() => setIsCopyMenuOpen((open) => !open)}
-                      className={`p-1 rounded-md transition-colors ${
+                      className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
                         isCopyMenuOpen
                           ? "text-coral bg-coral-light"
                           : "text-stone hover:bg-line hover:text-ink"
                       }`}
                       title={t("postit.actions")}
+                      aria-label={t("postit.actions")}
+                      aria-haspopup="menu"
+                      aria-expanded={isCopyMenuOpen}
                     >
                       <svg
                         width="14"
@@ -1673,20 +1684,26 @@ export default function PostIt({
                   )}
 
                   {isCopyMenuOpen && (
-                    <div className="absolute top-full right-0 mt-1 w-40 rounded-lg border border-line bg-bg shadow-stik overflow-hidden z-[240]">
+                    <div role="menu" aria-label={t("postit.actions")} className="absolute top-full right-0 mt-1 w-40 rounded-lg border border-line bg-bg shadow-stik overflow-hidden z-[240]">
                       <button
+                        type="button"
+                        role="menuitem"
                         onClick={() => void handleCopy("rich")}
                         className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors"
                       >
                         {t("postit.copyRichText")}
                       </button>
                       <button
+                        type="button"
+                        role="menuitem"
                         onClick={() => void handleCopy("markdown")}
                         className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors"
                       >
                         {t("postit.copyMarkdown")}
                       </button>
                       <button
+                        type="button"
+                        role="menuitem"
                         onClick={() => void handleCopy("image")}
                         className="w-full px-3 py-2 text-left text-[11px] text-ink hover:bg-line/50 transition-colors"
                       >
@@ -1694,6 +1711,8 @@ export default function PostIt({
                       </button>
                       <div className="border-t border-line" />
                       <button
+                        type="button"
+                        role="menuitem"
                         onClick={async () => {
                           setIsCopyMenuOpen(false);
                           try {

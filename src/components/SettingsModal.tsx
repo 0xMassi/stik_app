@@ -20,6 +20,7 @@ import {
   SETTINGS_MODAL_MAX_WIDTH,
   SETTINGS_MODAL_MIN_WIDTH,
 } from "@/utils/settingsLayout";
+import Dialog from "./ui/Dialog";
 
 const TABS: { id: SettingsTab; labelKey: TranslationKey; icon: React.ReactNode }[] = [
   {
@@ -383,6 +384,7 @@ export default function SettingsModal({
   const prevNotesDir = useRef(settings?.notes_directory ?? "");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasPendingRef = useRef(false);
+  const modalCloseRef = useRef<HTMLButtonElement>(null);
 
   // Track the notes_directory at load time so we can detect changes on save
   useEffect(() => {
@@ -459,14 +461,40 @@ export default function SettingsModal({
 
   const tabBar = (
     <div className="px-4 pb-3">
-      <div className="flex flex-wrap items-center gap-0.5">
+      <div
+        className="flex flex-wrap items-center gap-0.5"
+        role="tablist"
+        aria-label={t("settings.title")}
+      >
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
+              role="tab"
+              id={`settings-tab-${tab.id}`}
+              aria-selected={isActive}
+              aria-controls="settings-panel"
+              tabIndex={isActive ? 0 : -1}
               onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(event) => {
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                const current = TABS.findIndex((candidate) => candidate.id === tab.id);
+                const next = event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? TABS.length - 1
+                    : event.key === "ArrowRight"
+                      ? (current + 1) % TABS.length
+                      : (current - 1 + TABS.length) % TABS.length;
+                const nextTab = TABS[next];
+                setActiveTab(nextTab.id);
+                requestAnimationFrame(() => {
+                  document.getElementById(`settings-tab-${nextTab.id}`)?.focus();
+                });
+              }}
               className={`flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium rounded-lg transition-colors whitespace-nowrap ${
                 isActive
                   ? "text-coral bg-coral-light"
@@ -568,7 +596,12 @@ export default function SettingsModal({
           </div>
           {tabBar}
         </div>
-        <div className="flex-1 overflow-y-auto scrollbar-hide p-5">
+        <div
+          id="settings-panel"
+          role="tabpanel"
+          aria-labelledby={`settings-tab-${activeTab}`}
+          className="flex-1 overflow-y-auto scrollbar-hide p-5"
+        >
           {settingsContent}
         </div>
         <div className="flex items-center px-5 py-3 border-t border-line bg-line/10">
@@ -579,14 +612,17 @@ export default function SettingsModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
-      <div
-        className="bg-bg rounded-[14px] max-h-[85vh] flex flex-col shadow-stik overflow-hidden border border-line/50"
-        style={{
-          width: `min(96vw, ${SETTINGS_MODAL_MAX_WIDTH}px)`,
-          minWidth: `min(96vw, ${SETTINGS_MODAL_MIN_WIDTH}px)`,
-        }}
-      >
+    <Dialog
+      labelledBy="settings-modal-title"
+      onClose={() => void handleClose()}
+      initialFocusRef={modalCloseRef}
+      backdropClassName="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm"
+      panelClassName="bg-bg rounded-[14px] max-h-[85vh] flex flex-col shadow-stik overflow-hidden border border-line/50"
+      panelStyle={{
+        width: `min(96vw, ${SETTINGS_MODAL_MAX_WIDTH}px)`,
+        minWidth: `min(96vw, ${SETTINGS_MODAL_MIN_WIDTH}px)`,
+      }}
+    >
         <div className="border-b border-line bg-line/20">
           <div className="flex items-center justify-between px-5 pt-4 pb-3">
             <div className="flex items-center gap-2.5">
@@ -604,7 +640,7 @@ export default function SettingsModal({
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
-              <h2 className="text-[15px] font-semibold text-ink">
+              <h2 id="settings-modal-title" className="text-[15px] font-semibold text-ink">
                 {t("settings.title")}
               </h2>
               {betaLabel && (
@@ -617,6 +653,7 @@ export default function SettingsModal({
               )}
             </div>
             <button
+              ref={modalCloseRef}
               type="button"
               onClick={handleClose}
               aria-label={t("common.closeDialog")}
@@ -639,13 +676,17 @@ export default function SettingsModal({
           </div>
           {tabBar}
         </div>
-        <div className="flex-1 overflow-y-auto scrollbar-hide p-5">
+        <div
+          id="settings-panel"
+          role="tabpanel"
+          aria-labelledby={`settings-tab-${activeTab}`}
+          className="flex-1 overflow-y-auto scrollbar-hide p-5"
+        >
           {settingsContent}
         </div>
         <div className="flex items-center px-5 py-3 border-t border-line bg-line/10">
           <SettingsFooterLinks appVersion={appVersion} />
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

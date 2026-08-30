@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import AnalyticsNotice from "./AnalyticsNotice";
 
@@ -20,5 +20,13 @@ describe("AnalyticsNotice", () => {
     render(<AnalyticsNotice onChoice={() => {}} />);
 
     expect(screen.getByRole("dialog", { name: "Analytics choice" })).toBeInTheDocument();
+  });
+
+  it("initially focuses the privacy-preserving choice", async () => {
+    render(<AnalyticsNotice onChoice={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "No thanks" })).toHaveFocus();
+    });
   });
 });

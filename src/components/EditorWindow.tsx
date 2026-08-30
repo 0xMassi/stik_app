@@ -146,6 +146,7 @@ export default function EditorWindow() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const editorRef = useRef<EditorRef | null>(null);
+  const rowMenuRef = useRef<HTMLDivElement | null>(null);
   const saveTimer = useRef<number | null>(null);
   const searchRequestGate = useRef(createLatestRequestGate());
 
@@ -379,6 +380,24 @@ export default function EditorWindow() {
     setConfirmDelete(null);
   }, []);
 
+  useEffect(() => {
+    if (!rowMenu) return;
+    const frame = requestAnimationFrame(() => {
+      rowMenuRef.current?.querySelector<HTMLButtonElement>("[role='menuitem']")?.focus();
+    });
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMenus();
+      }
+    };
+    window.addEventListener("keydown", handleEscape, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", handleEscape, true);
+    };
+  }, [rowMenu, closeMenus]);
+
   const togglePin = useCallback(
     (path: string) => {
       persistLocal(PINNED_KEY, pinned.includes(path) ? pinned.filter((p) => p !== path) : [path, ...pinned], setPinned);
@@ -534,8 +553,11 @@ export default function EditorWindow() {
           return (
             <button
               key={k}
+              type="button"
               onClick={() => setFolderColor(path, k)}
-              className={`w-4 h-4 rounded-full transition-transform ${active ? "ring-2 ring-offset-1 ring-offset-bg ring-ink/40 scale-110" : "hover:scale-110"}`}
+              aria-label={`${k} folder colour`}
+              aria-pressed={active}
+              className={`w-6 h-6 rounded-full transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral ${active ? "ring-2 ring-offset-1 ring-offset-bg ring-ink/40 scale-110" : "hover:scale-110"}`}
               style={{ background: FOLDER_COLORS[k].dot }}
               title={k}
             />
@@ -574,7 +596,13 @@ export default function EditorWindow() {
       return (
         <div key={node.path}>
           <div className={`group flex items-center gap-1 pr-1 h-7 rounded-md transition-colors ${isActive ? "bg-coral/10" : "hover:bg-line/40"}`} style={{ paddingLeft: `${4 + depth * 12}px` }}>
-            <button onClick={() => hasChildren && toggleExpand(node.path)} className={`w-4 h-4 flex items-center justify-center shrink-0 text-stone ${hasChildren ? "" : "invisible"}`}>
+            <button
+              type="button"
+              onClick={() => hasChildren && toggleExpand(node.path)}
+              aria-label={`${isOpen ? "Collapse" : "Expand"} ${node.name}`}
+              aria-expanded={hasChildren ? isOpen : undefined}
+              className={`w-6 h-6 flex items-center justify-center shrink-0 text-stone focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral ${hasChildren ? "" : "invisible"}`}
+            >
               <Caret open={isOpen} />
             </button>
             <button
@@ -589,7 +617,7 @@ export default function EditorWindow() {
               {glyph(node.path)}
               <span className={`truncate text-[13px] ${isActive ? "text-ink font-semibold" : "text-ink/90"}`}>{node.name}</span>
             </button>
-            <button onClick={() => { setConfirmFolderDelete(null); setEditingFolder(editingFolder === node.path ? null : node.path); }} title="Colour & icon" className={`w-5 h-5 flex items-center justify-center rounded text-stone hover:text-coral transition-opacity ${editingFolder === node.path ? "opacity-100 text-coral" : "opacity-0 group-hover:opacity-100"}`}>
+            <button type="button" onClick={() => { setConfirmFolderDelete(null); setEditingFolder(editingFolder === node.path ? null : node.path); }} title="Colour & icon" aria-label={`Change colour and icon for ${node.name}`} className={`w-6 h-6 flex items-center justify-center rounded text-stone hover:text-coral transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral ${editingFolder === node.path ? "opacity-100 text-coral" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"}`}>
               <Palette />
             </button>
             <button
@@ -599,7 +627,8 @@ export default function EditorWindow() {
                 setNewFolder("");
               }}
               title="New subfolder"
-              className="w-5 h-5 flex items-center justify-center rounded text-stone hover:text-coral opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label={`New subfolder in ${node.name}`}
+              className="w-6 h-6 flex items-center justify-center rounded text-stone hover:text-coral opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
             >
               <Plus />
             </button>
@@ -627,11 +656,13 @@ export default function EditorWindow() {
 
   const MenuItem = ({ onClick, icon, label, danger }: { onClick: () => void; icon: React.ReactNode; label: string; danger?: boolean }) => (
     <button
+      type="button"
+      role="menuitem"
       onClick={(e) => {
         e.stopPropagation();
         onClick();
       }}
-      className={`w-full px-3 py-1.5 flex items-center gap-2.5 text-left text-[13px] transition-colors ${danger ? "text-coral hover:bg-coral hover:text-white" : "text-ink hover:bg-line/50"}`}
+      className={`w-full min-h-8 px-3 py-1.5 flex items-center gap-2.5 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-coral ${danger ? "text-coral hover:bg-coral hover:text-white" : "text-ink hover:bg-line/50"}`}
     >
       <span className="shrink-0">{icon}</span>
       <span>{label}</span>
@@ -643,10 +674,10 @@ export default function EditorWindow() {
       {/* Top bar — drag region; pl clears native traffic lights */}
       <header data-tauri-drag-region className="h-11 shrink-0 flex items-center gap-1 pl-[80px] pr-3 border-b border-line bg-line/20">
         <div data-tauri-drag-region className="flex-1 h-full" />
-        <button onClick={() => setSettingsOpen(true)} title="Settings" className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-ink hover:bg-line/50 transition-colors">
+        <button type="button" onClick={() => setSettingsOpen(true)} title="Settings" aria-label="Settings" className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-ink hover:bg-line/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral">
           <Cog />
         </button>
-        <button onClick={handleNewNote} title="New note" className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-coral hover:bg-coral/10 transition-colors">
+        <button type="button" onClick={handleNewNote} title="New note" aria-label="New note" className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-coral hover:bg-coral/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral">
           <Plus />
         </button>
       </header>
@@ -785,12 +816,16 @@ export default function EditorWindow() {
                     )}
 
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setConfirmDelete(null);
                         setRowMenu((cur) => (cur === r.path ? null : r.path));
                       }}
-                      className={`absolute top-2 right-1.5 w-6 h-6 flex items-center justify-center rounded-md text-stone hover:text-ink hover:bg-line/60 transition-all ${rowMenu === r.path ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                      aria-label={`Actions for ${r.title}`}
+                      aria-haspopup="menu"
+                      aria-expanded={rowMenu === r.path}
+                      className={`absolute top-2 right-1.5 w-6 h-6 flex items-center justify-center rounded-md text-stone hover:text-ink hover:bg-line/60 transition-[opacity,background-color,color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral ${rowMenu === r.path ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"}`}
                     >
                       <Dots />
                     </button>
@@ -798,7 +833,27 @@ export default function EditorWindow() {
                     {rowMenu === r.path && (
                       <>
                         <div className="fixed inset-0 z-10" onClick={closeMenus} />
-                        <div className="absolute top-8 right-1.5 min-w-[160px] bg-bg rounded-[10px] shadow-stik border border-line/50 overflow-hidden z-20 py-1">
+                        <div
+                          ref={rowMenuRef}
+                          role="menu"
+                          aria-label={`Actions for ${r.title}`}
+                          onKeyDown={(event) => {
+                            if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+                            const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='menuitem']"));
+                            if (!items.length) return;
+                            event.preventDefault();
+                            const current = items.indexOf(document.activeElement as HTMLButtonElement);
+                            const next = event.key === "Home"
+                              ? 0
+                              : event.key === "End"
+                                ? items.length - 1
+                                : event.key === "ArrowDown"
+                                  ? (current + 1 + items.length) % items.length
+                                  : (current - 1 + items.length) % items.length;
+                            items[next]?.focus();
+                          }}
+                          className="absolute top-8 right-1.5 min-w-[160px] bg-bg rounded-[10px] shadow-stik border border-line/50 overflow-hidden z-20 py-1"
+                        >
                           <MenuItem onClick={() => togglePin(r.path)} icon={<PinIcon />} label={isPinned ? "Unpin" : "Pin to top"} />
                           <MenuItem onClick={() => startRename(r.path, r.title)} icon={<Pencil />} label="Rename" />
                           <MenuItem onClick={() => archiveNote(r.path)} icon={<ArchiveIcon />} label="Archive" />

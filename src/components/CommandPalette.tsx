@@ -22,6 +22,7 @@ import MovePicker from "./command-palette/MovePicker";
 import { useTranslation } from "@/hooks/useTranslation";
 import ActionToast from "./ActionToast";
 import { createLatestRequestGate } from "@/utils/latestRequest";
+import LiveRegion from "./ui/LiveRegion";
 
 /** Derive a human-readable title from a Stik filename like `20260310-114522-my-note-a1b2.md` */
 function titleFromFilename(filename: string): string {
@@ -92,6 +93,13 @@ export default function CommandPalette() {
   const resultsRef = useRef<HTMLDivElement>(null);
   const searchRequestGate = useRef(createLatestRequestGate());
   const recentRequestGate = useRef(createLatestRequestGate());
+  const announcedSearchStatus = isSearching
+    ? t("palette.searching")
+    : query.trim()
+      ? t("palette.resultsFound", {
+          count: results.length + semanticResults.length,
+        })
+      : "";
 
   // Focus input on mount
   useEffect(() => {
@@ -784,6 +792,7 @@ export default function CommandPalette() {
 
   return (
     <div className="w-full h-full bg-bg rounded-[14px] flex flex-col overflow-hidden">
+      <LiveRegion message={announcedSearchStatus} />
       {/* Search bar */}
       <div
         onMouseDown={startDrag}
@@ -820,7 +829,7 @@ export default function CommandPalette() {
             className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-stone outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:rounded-md"
           />
           {isSearching && (
-            <span className="text-stone text-sm animate-pulse">...</span>
+            <span className="text-stone text-sm animate-pulse" aria-hidden="true">...</span>
           )}
         </div>
       </div>

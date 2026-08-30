@@ -585,4 +585,7 @@ export const en = {
   "palette.commandMenu": "Command menu",
   "palette.commandMenuPlaceholder": "Type a command…",
   "palette.commandMenuEmpty": "No matching commands",
+  "palette.searching": "Searching notes",
+  "palette.resultsFound": "{count} results found",
+  "format.toolbar": "Formatting toolbar",
 } as const;
