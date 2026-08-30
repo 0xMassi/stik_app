@@ -12,7 +12,7 @@ use commands::index::NoteIndex;
 use commands::{
     ai_assistant, analytics, apple_notes, cursor_positions, darwinkit, dictation, embeddings,
     file_watcher, folders, git_share, icloud, index, macos_notify, note_lock, notes,
-    on_this_day, settings, share, stats, sticked_notes, storage,
+    on_this_day, settings, share, stats, sticked_notes, storage, trash,
 };
 use shortcuts::shortcut_to_string;
 use state::AppState;
@@ -447,6 +447,9 @@ fn main() {
             notes::list_notes,
             notes::search_notes,
             notes::delete_note,
+            trash::list_trashed_notes,
+            trash::restore_trashed_note,
+            trash::purge_trashed_note,
             notes::move_note,
             notes::get_note_content,
             notes::save_note_image,

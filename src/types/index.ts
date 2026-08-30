@@ -149,6 +149,14 @@ export interface NoteInfo {
   locked?: boolean;
 }
 
+export interface TrashedNote {
+  id: string;
+  original_relative_path: string;
+  filename: string;
+  folder: string;
+  deleted_at: string;
+}
+
 export interface SearchResult {
   path: string;
   filename: string;

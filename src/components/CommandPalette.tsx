@@ -8,6 +8,7 @@ import type {
   SemanticResult,
   FolderStats,
   StikSettings,
+  TrashedNote,
 } from "@/types";
 import {
   extractNoteTitle,
@@ -19,6 +20,7 @@ import FolderSidebar from "./command-palette/FolderSidebar";
 import NoteList from "./command-palette/NoteList";
 import MovePicker from "./command-palette/MovePicker";
 import { useTranslation } from "@/hooks/useTranslation";
+import ActionToast from "./ActionToast";
 
 /** Derive a human-readable title from a Stik filename like `20260310-114522-my-note-a1b2.md` */
 function titleFromFilename(filename: string): string {
@@ -29,33 +31,6 @@ function titleFromFilename(filename: string): string {
     return parts.slice(2, -1).join(" ");
   }
   return stem;
-}
-
-function Toast({ message, onDone }: { message: string; onDone: () => void }) {
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    requestAnimationFrame(() => setIsVisible(true));
-    const timer = setTimeout(() => {
-      setIsVisible(false);
-      setTimeout(onDone, 200);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [onDone]);
-
-  return (
-    <div
-      className={`
-        fixed bottom-6 left-1/2 -translate-x-1/2 z-[250]
-        px-4 py-2.5 rounded-xl shadow-stik
-        text-[13px] font-medium bg-ink text-bg
-        transition-all duration-200 ease-out
-        ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
-      `}
-    >
-      {message}
-    </div>
-  );
 }
 
 export default function CommandPalette() {
@@ -104,6 +79,7 @@ export default function CommandPalette() {
     null,
   );
   const [toast, setToast] = useState<string | null>(null);
+  const [lastTrashed, setLastTrashed] = useState<TrashedNote | null>(null);
 
   // Sidebar position (persisted in settings)
   const [sidebarPosition, setSidebarPosition] = useState<"left" | "right">(
@@ -351,9 +327,11 @@ export default function CommandPalette() {
   const handleDeleteNote = useCallback(
     async (note: SearchResult) => {
       try {
-        await invoke("delete_note", { path: note.path });
-        // Notify viewing windows about deletion
-        await emit("note-deleted", note.path);
+        const trashed = await invoke<TrashedNote>("delete_note", {
+          path: note.path,
+        });
+        setLastTrashed(trashed);
+        setToast(t("trash.noteMoved"));
         setConfirmDelete(null);
         await refreshAfterChange();
       } catch (error) {
@@ -361,7 +339,24 @@ export default function CommandPalette() {
         setToast(String(error));
       }
     },
-    [refreshAfterChange],
+    [refreshAfterChange, t],
+  );
+
+  const undoDelete = useCallback(
+    async (entry: TrashedNote) => {
+      try {
+        await invoke<string>("restore_trashed_note", { id: entry.id });
+        setLastTrashed(null);
+        setToast(t("trash.noteRestored"));
+        await emit("files-changed", []);
+        await refreshAfterChange();
+      } catch (error) {
+        console.error("Failed to restore note:", error);
+        setLastTrashed(null);
+        setToast(t("trash.restoreFailed", { error: String(error) }));
+      }
+    },
+    [refreshAfterChange, t],
   );
 
   // Delete folder
@@ -979,7 +974,21 @@ export default function CommandPalette() {
         />
       )}
 
-      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+      {toast && (
+        <ActionToast
+          message={toast}
+          actionLabel={
+            lastTrashed && toast === t("trash.noteMoved")
+              ? t("trash.undo")
+              : undefined
+          }
+          onAction={lastTrashed ? () => undoDelete(lastTrashed) : undefined}
+          onDone={() => {
+            setToast(null);
+            setLastTrashed(null);
+          }}
+        />
+      )}
     </div>
   );
 }

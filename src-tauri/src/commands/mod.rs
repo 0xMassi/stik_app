@@ -20,4 +20,5 @@ pub mod share;
 pub mod stats;
 pub mod sticked_notes;
 pub mod storage;
+pub mod trash;
 pub mod versioning;

@@ -12,11 +12,19 @@
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
 import Editor, { type EditorRef } from "./Editor";
 import SettingsModal from "./SettingsModal";
+import ActionToast from "./ActionToast";
+import ConfirmDialog from "./ConfirmDialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { getFolderColor, FOLDER_COLORS, FOLDER_COLOR_KEYS } from "@/utils/folderColors";
-import type { NoteInfo, SearchResult, StikSettings } from "@/types";
+import type {
+  NoteInfo,
+  SearchResult,
+  StikSettings,
+  TrashedNote,
+} from "@/types";
 
 const AUTOSAVE_DELAY_MS = 600;
 const SEARCH_DELAY_MS = 180;
@@ -116,6 +124,11 @@ export default function EditorWindow() {
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [trashedNotes, setTrashedNotes] = useState<TrashedNote[]>([]);
+  const [confirmPurge, setConfirmPurge] = useState<TrashedNote | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [lastTrashed, setLastTrashed] = useState<TrashedNote | null>(null);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -164,6 +177,14 @@ export default function EditorWindow() {
       setNotes(list);
     } catch {
       setNotes([]);
+    }
+  }, []);
+
+  const loadTrash = useCallback(async () => {
+    try {
+      setTrashedNotes(await invoke<TrashedNote[]>("list_trashed_notes"));
+    } catch (error) {
+      setToast(String(error));
     }
   }, []);
 
@@ -381,7 +402,9 @@ export default function EditorWindow() {
   const deleteNote = useCallback(
     async (path: string) => {
       try {
-        await invoke("delete_note", { path });
+        const trashed = await invoke<TrashedNote>("delete_note", { path });
+        setLastTrashed(trashed);
+        setToast(t("trash.noteMoved"));
         if (path === activePath) {
           setActivePath(null);
           setContent("");
@@ -389,11 +412,54 @@ export default function EditorWindow() {
         if (pinned.includes(path)) persistLocal(PINNED_KEY, pinned.filter((p) => p !== path), setPinned);
         closeMenus();
         await refreshNotes(activeFolder);
+        if (trashOpen) await loadTrash();
       } catch (e) {
         console.error("Delete failed:", e);
+        setToast(String(e));
       }
     },
-    [activePath, activeFolder, pinned, persistLocal, refreshNotes, closeMenus],
+    [
+      activePath,
+      activeFolder,
+      pinned,
+      persistLocal,
+      refreshNotes,
+      closeMenus,
+      trashOpen,
+      loadTrash,
+      t,
+    ],
+  );
+
+  const restoreNote = useCallback(
+    async (entry: TrashedNote) => {
+      try {
+        await invoke<string>("restore_trashed_note", { id: entry.id });
+        setLastTrashed(null);
+        setToast(t("trash.noteRestored"));
+        await Promise.all([loadFolders(), loadTrash()]);
+        await refreshNotes(activeFolder);
+        await emit("files-changed", []);
+      } catch (error) {
+        setLastTrashed(null);
+        setToast(t("trash.restoreFailed", { error: String(error) }));
+      }
+    },
+    [activeFolder, loadFolders, loadTrash, refreshNotes, t],
+  );
+
+  const purgeNote = useCallback(
+    async (entry: TrashedNote) => {
+      try {
+        await invoke("purge_trashed_note", { id: entry.id });
+        setConfirmPurge(null);
+        await loadTrash();
+      } catch (error) {
+        setConfirmPurge(null);
+        setToast(t("trash.purgeFailed", { error: String(error) }));
+      }
+    },
+    [loadTrash, t],
   );
 
   const searching = query.trim().length > 0;
@@ -604,7 +670,9 @@ export default function EditorWindow() {
           </div>
 
           {/* Search */}
-          <div className="px-2.5 py-2 border-b border-line/70">
+          <div
+            className={`px-2.5 py-2 border-b border-line/70 ${trashOpen ? "hidden" : ""}`}
+          >
             <div className="flex items-center gap-2 px-2.5 h-8 rounded-lg bg-line/40 focus-within:bg-line/60 transition-colors">
               <span className="text-stone shrink-0"><Search /></span>
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search notes…" className="flex-1 min-w-0 bg-transparent text-[13px] text-ink placeholder:text-stone/60 outline-none" />
@@ -614,7 +682,43 @@ export default function EditorWindow() {
 
           {/* Note list */}
           <div className="flex-1 overflow-y-auto scrollbar-hide py-1">
-            {rows.length === 0 ? (
+            {trashOpen ? (
+              trashedNotes.length === 0 ? (
+                <p className="px-3 py-4 text-xs text-stone">
+                  {t("trash.empty")}
+                </p>
+              ) : (
+                trashedNotes.map((entry) => (
+                  <article
+                    key={entry.id}
+                    className="border-b border-line/50 px-3 py-2.5"
+                  >
+                    <p className="truncate text-[13px] font-medium text-ink">
+                      {entry.filename.replace(/\.(md|markdown)$/i, "")}
+                    </p>
+                    <p className="mt-0.5 truncate text-[11px] text-stone/70">
+                      {entry.original_relative_path}
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => restoreNote(entry)}
+                        className="min-h-6 rounded-md bg-coral/10 px-2 text-[11px] font-medium text-coral hover:bg-coral/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
+                      >
+                        {t("trash.restore")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmPurge(entry)}
+                        className="min-h-6 rounded-md px-2 text-[11px] text-stone hover:bg-line/60 hover:text-coral focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
+                      >
+                        {t("trash.deletePermanently")}
+                      </button>
+                    </div>
+                  </article>
+                ))
+              )
+            ) : rows.length === 0 ? (
               <p className="px-3 py-4 text-xs text-stone">{searching ? "No matches." : "No notes here."}</p>
             ) : (
               rows.map((r) => {
@@ -677,13 +781,41 @@ export default function EditorWindow() {
             )}
           </div>
 
-          <footer className="h-[37px] shrink-0 flex items-center px-3 border-t border-line text-[11px] text-stone/60">
-            {saving ? "Saving…" : searching ? `${rows.length} matches` : `${rows.length} notes`}
+          <footer className="h-[37px] shrink-0 flex items-center justify-between gap-2 px-3 border-t border-line text-[11px] text-stone/60">
+            <span>
+              {trashOpen
+                ? `${trashedNotes.length}`
+                : saving
+                  ? "Saving…"
+                  : searching
+                    ? `${rows.length} matches`
+                    : `${rows.length} notes`}
+            </span>
+            <button
+              type="button"
+              aria-pressed={trashOpen}
+              onClick={() => {
+                const next = !trashOpen;
+                setTrashOpen(next);
+                if (next) void loadTrash();
+              }}
+              className={`flex min-h-6 items-center gap-1 rounded-md px-1.5 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral ${trashOpen ? "bg-coral/10 text-coral" : "hover:bg-line/50 hover:text-ink"}`}
+            >
+              <Trash /> {t("trash.title")}
+            </button>
           </footer>
         </aside>
 
         <main className="flex-1 min-w-0 flex flex-col">
-          {activePath ? (
+          {trashOpen ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-stone">
+              <span className="text-coral" aria-hidden="true">
+                <Trash />
+              </span>
+              <p className="text-sm font-medium text-ink">{t("trash.title")}</p>
+              <p className="text-xs">{t("trash.empty")}</p>
+            </div>
+          ) : activePath ? (
             <Editor key={activePath} ref={editorRef} initialContent={content} onChange={handleChange} placeholder="Start writing…" showFormatToolbar />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-stone">
@@ -698,6 +830,32 @@ export default function EditorWindow() {
         <div className="relative z-[200]">
           <SettingsModal isOpen onClose={() => setSettingsOpen(false)} />
         </div>
+      )}
+
+      {confirmPurge && (
+        <ConfirmDialog
+          title={t("trash.confirmDeletePermanently")}
+          description={confirmPurge.original_relative_path}
+          confirmLabel={t("trash.deletePermanently")}
+          onConfirm={() => purgeNote(confirmPurge)}
+          onCancel={() => setConfirmPurge(null)}
+        />
+      )}
+
+      {toast && (
+        <ActionToast
+          message={toast}
+          actionLabel={
+            lastTrashed && toast === t("trash.noteMoved")
+              ? t("trash.undo")
+              : undefined
+          }
+          onAction={lastTrashed ? () => restoreNote(lastTrashed) : undefined}
+          onDone={() => {
+            setToast(null);
+            setLastTrashed(null);
+          }}
+        />
       )}
     </div>
   );

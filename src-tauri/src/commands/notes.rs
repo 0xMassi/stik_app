@@ -344,8 +344,7 @@ pub fn update_note(
 
     // In Stik-managed notes, empty content deletes the note.
     if in_stik_folder && is_effectively_empty_markdown(&content) {
-        super::storage::delete_file(&effective_path.to_string_lossy())
-            .map_err(|e| format!("Failed to delete note: {}", e))?;
+        super::trash::trash_managed_note(&stik_folder, effective_path)?;
         index.remove(&path);
         emb_index.remove_entry(&path);
         let _ = emb_index.save();
@@ -401,7 +400,7 @@ pub fn delete_note(
     path: String,
     index: State<'_, NoteIndex>,
     emb_index: State<'_, EmbeddingIndex>,
-) -> Result<bool, String> {
+) -> Result<super::trash::TrashedNote, String> {
     let stik_folder = get_stik_folder()?;
     let note_path =
         super::path_security::authorize_existing_path(&stik_folder, &PathBuf::from(&path))?;
@@ -409,25 +408,17 @@ pub fn delete_note(
 
     let folder = super::folders::note_folder(&stik_folder, &note_path);
 
-    // Delete referenced .assets/ images
-    if let Ok(content) = super::storage::read_file(&authorized_path) {
-        let folder_path = note_path.parent().unwrap_or(&stik_folder);
-        delete_note_assets(&content, folder_path);
-    }
-
-    // Delete the file
-    super::storage::delete_file(&authorized_path)
-        .map_err(|e| format!("Failed to delete note: {}", e))?;
+    let trashed = super::trash::trash_managed_note(&stik_folder, &note_path)?;
     analytics::track("note_deleted", serde_json::json!({}));
-    index.remove(&path);
-    emb_index.remove_entry(&path);
+    index.remove(&authorized_path);
+    emb_index.remove_entry(&authorized_path);
     let _ = emb_index.save();
     git_share::notify_note_changed(&folder);
 
     // Notify any viewing windows so they can close themselves
-    let _ = app.emit("note-deleted", &path);
+    let _ = app.emit("note-deleted", &authorized_path);
 
-    Ok(true)
+    Ok(trashed)
 }
 
 #[tauri::command]
@@ -602,22 +593,6 @@ fn move_note_assets(
         if super::storage::copy_file(&src_str, &dst.to_string_lossy()).is_ok() {
             let _ = super::storage::delete_file(&src_str);
         }
-    }
-}
-
-/// Delete `.assets/` files referenced by a note.
-fn delete_note_assets(content: &str, folder_path: &std::path::Path) {
-    let filenames = extract_asset_filenames(content);
-    let assets_dir = folder_path.join(".assets");
-    for name in filenames {
-        let path = match super::path_security::authorize_existing_path(
-            &assets_dir,
-            &assets_dir.join(&name),
-        ) {
-            Ok(path) => path,
-            Err(_) => continue,
-        };
-        let _ = super::storage::delete_file(&path.to_string_lossy());
     }
 }
 
