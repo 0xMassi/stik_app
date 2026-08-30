@@ -14,6 +14,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import Editor, { type EditorRef } from "./Editor";
 import SettingsModal from "./SettingsModal";
+import { useTranslation } from "@/hooks/useTranslation";
 import { getFolderColor, FOLDER_COLORS, FOLDER_COLOR_KEYS } from "@/utils/folderColors";
 import type { NoteInfo, SearchResult, StikSettings } from "@/types";
 
@@ -98,6 +99,7 @@ const Trash = () => (<svg width="13" height="13" viewBox="0 0 24 24" fill={ico} 
 const Cog = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill={ico} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>);
 
 export default function EditorWindow() {
+  const { t } = useTranslation();
   const [folders, setFolders] = useState<string[]>([]);
   const [activeFolder, setActiveFolder] = useState("");
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
@@ -451,11 +453,11 @@ export default function EditorWindow() {
       <div className="mt-2 pt-2 border-t border-line/40">
         {confirmFolderDelete === path ? (
           <button onClick={() => deleteFolder(path)} className="w-full flex items-center justify-center gap-2 text-[12px] font-medium text-white bg-coral rounded-md py-1.5 transition-colors">
-            <Trash /> Delete folder &amp; its notes
+            <Trash /> {t("editor.deleteFolderAndNotes")}
           </button>
         ) : (
           <button onClick={() => setConfirmFolderDelete(path)} className="w-full flex items-center gap-2 text-[12px] text-coral hover:bg-coral/10 rounded-md py-1.5 px-2 transition-colors">
-            <Trash /> Delete folder
+            <Trash /> {t("editor.deleteFolder")}
           </button>
         )}
       </div>
@@ -569,7 +571,7 @@ export default function EditorWindow() {
                   }}
                 />
                 <div className="absolute left-2.5 right-2.5 top-full mt-1 max-h-[440px] overflow-y-auto scrollbar-hide bg-bg rounded-[10px] shadow-stik border border-line/50 z-20 p-1">
-                  {tree.length === 0 ? <p className="px-2 py-2 text-xs text-stone">No folders.</p> : renderTree(tree, 0)}
+                  {tree.length === 0 ? <p className="px-2 py-2 text-xs text-stone">{t("editor.noFolders")}</p> : renderTree(tree, 0)}
                   <div className="mt-1 border-t border-line/50 pt-1">
                     {addingUnder === "" ? (
                       <input
@@ -592,7 +594,7 @@ export default function EditorWindow() {
                         }}
                         className="w-full px-2 py-1.5 flex items-center gap-2 text-[13px] text-stone hover:text-coral hover:bg-line/40 rounded-md transition-colors"
                       >
-                        <Plus /> New folder
+                        <Plus /> {t("editor.newFolder")}
                       </button>
                     )}
                   </div>
@@ -685,8 +687,8 @@ export default function EditorWindow() {
             <Editor key={activePath} ref={editorRef} initialContent={content} onChange={handleChange} placeholder="Start writing…" showFormatToolbar />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-stone">
-              <p className="text-sm">Select a note, or create one.</p>
-              <button onClick={handleNewNote} className="px-3 py-1.5 text-sm rounded-lg bg-coral/10 text-coral hover:bg-coral/20 transition-colors">+ New note</button>
+              <p className="text-sm">{t("editor.selectOrCreate")}</p>
+              <button onClick={handleNewNote} className="px-3 py-1.5 text-sm rounded-lg bg-coral/10 text-coral hover:bg-coral/20 transition-colors">+ {t("editor.newNote")}</button>
             </div>
           )}
         </main>
