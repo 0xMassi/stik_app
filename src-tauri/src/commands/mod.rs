@@ -14,6 +14,7 @@ pub mod macos_notify;
 pub mod note_lock;
 pub mod notes;
 pub mod on_this_day;
+pub mod path_security;
 pub mod settings;
 pub mod share;
 pub mod stats;

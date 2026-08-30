@@ -195,7 +195,8 @@ pub fn list_folders() -> Result<Vec<String>, String> {
 pub fn create_folder(name: String) -> Result<bool, String> {
     validate_folder_path(&name)?;
     let stik_folder = get_stik_folder()?;
-    let folder_path = stik_folder.join(&name);
+    let folder_path =
+        super::path_security::authorize_new_path(&stik_folder, &stik_folder.join(&name))?;
 
     super::storage::ensure_dir(&folder_path.to_string_lossy())?;
 
@@ -211,7 +212,8 @@ pub fn delete_folder(
     validate_folder_path(&name)?;
 
     let stik_folder = get_stik_folder()?;
-    let folder_path = stik_folder.join(&name);
+    let folder_path =
+        super::path_security::authorize_existing_path(&stik_folder, &stik_folder.join(&name))?;
 
     // Check folder exists
     if !super::storage::is_dir(&folder_path.to_string_lossy()) {
@@ -228,9 +230,7 @@ pub fn delete_folder(
     emb_index.remove_by_path_prefix(&prefix);
     let _ = emb_index.save();
 
-    let fallback = list_visible_folder_names(&stik_folder)?
-        .into_iter()
-        .next();
+    let fallback = list_visible_folder_names(&stik_folder)?.into_iter().next();
     sync_settings_after_folder_delete(&name, fallback.as_deref())?;
 
     Ok(true)
@@ -242,8 +242,10 @@ pub fn rename_folder(old_name: String, new_name: String) -> Result<bool, String>
     validate_folder_path(&new_name)?;
 
     let stik_folder = get_stik_folder()?;
-    let old_path = stik_folder.join(&old_name);
-    let new_path = stik_folder.join(&new_name);
+    let old_path =
+        super::path_security::authorize_existing_path(&stik_folder, &stik_folder.join(&old_name))?;
+    let new_path =
+        super::path_security::authorize_new_path(&stik_folder, &stik_folder.join(&new_name))?;
 
     // Check old folder exists
     if !super::storage::is_dir(&old_path.to_string_lossy()) {
@@ -289,7 +291,10 @@ pub fn get_folder_stats() -> Result<Vec<FolderStats>, String> {
                 })
                 .unwrap_or(0);
 
-            FolderStats { name: e.name, note_count }
+            FolderStats {
+                name: e.name,
+                note_count,
+            }
         })
         .collect();
 
@@ -300,11 +305,11 @@ pub fn get_folder_stats() -> Result<Vec<FolderStats>, String> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use super::{
         is_visible_folder_name, note_folder, reconcile_settings_after_folder_delete,
         reconcile_settings_after_folder_rename, validate_folder_path, validate_name,
     };
+    use std::collections::HashMap;
 
     #[test]
     fn validate_folder_path_allows_nesting_but_blocks_traversal() {
