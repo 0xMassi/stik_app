@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "check:bundle": "node scripts/check-bundle-size.mjs",
+    "check:platform": "node scripts/check-platform-consistency.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "release": "./scripts/release.sh",

@@ -30,6 +30,9 @@ jobs:
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
+      - name: Check platform declarations
+        run: npm run check:platform
+
       - name: Typecheck and build
         run: npm run build
 

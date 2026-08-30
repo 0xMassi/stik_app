@@ -10,6 +10,8 @@
 
 We recommend always running the latest version. Stik includes a built-in auto-updater starting from v0.3.3.
 
+Supported builds require macOS 14 (Sonoma) or newer.
+
 ## Reporting a Vulnerability
 
 **Do not open a public issue for security vulnerabilities.**
@@ -59,10 +61,11 @@ We will credit reporters in the release notes unless anonymity is requested.
 
 Stik is designed with a minimal attack surface:
 
-- **No network**: All AI processing runs on-device via Apple NaturalLanguage framework. No data leaves the machine.
-- **No account**: No authentication, no cloud sync, no telemetry.
+- **On-device note processing**: AI and dictation run locally through Apple frameworks and WhisperKit. Note content is never sent to an analytics service.
+- **No account**: Stik has no hosted account or required cloud service. Optional file sync is configured by the user through iCloud Drive, Dropbox, Syncthing, or git.
+- **Opt-in analytics**: Anonymous analytics are disabled by default and no identifier is created before explicit consent. If enabled, Stik sends app/note lifecycle events, word counts, OS/app version, architecture, locale, screen resolution, and a random identifier to PostHog EU. It never sends note content, titles, folder names, paths, or personal information; disabling analytics deletes the identifier.
 - **Local storage only**: Notes are plain `.md` files in `~/Documents/Stik/`. Settings in `~/.stik/`.
-- **No sandbox escape**: The app uses macOS entitlements with only the permissions it needs.
+- **Path containment**: Stik is not App-Sandboxed, because it must work with user-selected note folders. Filesystem commands authorize note, asset, font, and lock operations against configured roots and reject traversal and symlink escapes.
 - **Signed and notarized**: Release builds are code-signed with a Developer ID certificate and notarized by Apple.
 - **Signed updates**: Auto-update artifacts are signed with a separate key to prevent tampered updates.
 

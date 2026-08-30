@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: macos-latest
+    runs-on: macos-14
     permissions:
       contents: write
 
@@ -22,6 +22,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
+
+      - name: Check release configuration
+        run: npm run check:platform
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -199,7 +202,7 @@ jobs:
             desc "Instant thought capture - one shortcut, post-it appears, type, close"
             homepage "https://github.com/0xMassi/stik_app"
 
-            depends_on macos: ">= :catalina"
+            depends_on macos: :sonoma
 
             app "Stik.app"
 

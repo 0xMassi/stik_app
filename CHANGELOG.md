@@ -5,6 +5,40 @@ All notable changes to Stik will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Recoverable note Trash with restore, conflict-safe recovery, and permanent purge.
+- Vault Health checks for storage access, writability, and index drift, with repair and diagnostics export actions.
+- Dedicated full editor windows and consistent nested-folder handling.
+- Reusable accessible dialogs, live regions, keyboard navigation, reduced-motion behavior, and editor VoiceOver announcements.
+- A supported local build script that compiles the correct DarwinKit sidecar before starting Tauri or producing a test `.app`.
+
+### Changed
+
+- Analytics now requires explicit consent before any identifier or event exists; opting out removes the identifier.
+- Locked-note keys now live in macOS Keychain and migrate from the legacy file only after verified readback.
+- Search uses indexed full text and ignores stale async results instead of rereading every note for each query.
+- Startup prioritizes shortcut/capture readiness and defers indexing, embeddings, updater, sync, and other services.
+- Window-specific surfaces and editor language support load lazily; CI enforces an entry-bundle budget.
+- macOS 14 (Sonoma) is now the minimum across the app bundle, DarwinKit, CI, documentation, and Homebrew.
+- npm is the sole JavaScript package manager; vulnerable `nanoid` and `quick-xml` dependency paths were upgraded.
+
+### Fixed
+
+- Crafted Markdown asset references can no longer move or delete files outside the vault; symlink escapes are rejected.
+- Remote Markdown images no longer make network requests unless the user enables them.
+- Note deletion is recoverable, and rename/create races can no longer silently overwrite another note.
+- Primary native-command failures now show actionable messages instead of disappearing into the console.
+- Rust tests no longer compile and run twice through duplicate library/binary module trees.
+
+### Developer experience
+
+- CI now blocks on frontend, Rust, and Swift tests, strict formatting/Clippy, bundle/platform checks, and npm/Cargo security audits.
+- Dependabot now covers npm, Cargo, Swift, and GitHub Actions; release automation emits current Homebrew cask syntax.
+- Added a stable release checklist covering data recovery, privacy, accessibility, performance, signing, notarization, updater, and Homebrew verification.
+
 ## [0.8.0] - 2026-04-13
 Voice dictation, clipboard capture, and dev tooling
 

@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   beta:
-    runs-on: macos-latest
+    runs-on: macos-14
     permissions:
       contents: write
 
@@ -44,6 +44,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
+
+      - name: Check release configuration
+        run: npm run check:platform
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
