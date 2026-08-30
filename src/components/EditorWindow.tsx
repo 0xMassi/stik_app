@@ -24,6 +24,7 @@ import {
   unresolveImagePaths,
 } from "@/utils/imageMarkdownPaths";
 import { createLatestRequestGate } from "@/utils/latestRequest";
+import { errorMessage } from "@/utils/appError";
 import type {
   NoteInfo,
   SearchResult,
@@ -201,9 +202,9 @@ export default function EditorWindow() {
     try {
       setTrashedNotes(await invoke<TrashedNote[]>("list_trashed_notes"));
     } catch (error) {
-      setToast(String(error));
+      setToast(errorMessage(error, t("common.unknownError")));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void refreshNotes(activeFolder);
@@ -249,8 +250,9 @@ export default function EditorWindow() {
       await invoke("save_settings", { settings });
     } catch (e) {
       console.error("Failed to save folder appearance:", e);
+      setToast(errorMessage(e, t("common.unknownError")));
     }
-  }, []);
+  }, [t]);
 
   const setFolderColor = useCallback(
     (path: string, key: string) => {
@@ -286,8 +288,9 @@ export default function EditorWindow() {
       setContent(resolveImagePaths(text, folderPath, convertFileSrc));
     } catch (e) {
       console.error("Failed to open note:", e);
+      setToast(errorMessage(e, t("note.failedToLoad")));
     }
-  }, []);
+  }, [t]);
 
   const handleChange = useCallback(
     (next: string) => {
@@ -305,12 +308,13 @@ export default function EditorWindow() {
           void refreshNotes(activeFolder);
         } catch (e) {
           console.error("Autosave failed:", e);
+          setToast(errorMessage(e, t("postit.saveFailed")));
         } finally {
           setSaving(false);
         }
       }, AUTOSAVE_DELAY_MS);
     },
-    [activePath, activeFolder, refreshNotes],
+    [activePath, activeFolder, refreshNotes, t],
   );
 
   const handleNewNote = useCallback(async () => {
@@ -326,8 +330,9 @@ export default function EditorWindow() {
       }
     } catch (e) {
       console.error("Failed to create note:", e);
+      setToast(errorMessage(e, t("postit.saveFailed")));
     }
-  }, [activeFolder, refreshNotes]);
+  }, [activeFolder, refreshNotes, t]);
 
   const commitNewFolder = useCallback(async () => {
     const name = newFolder.trim();
@@ -344,8 +349,9 @@ export default function EditorWindow() {
       setFolderMenuOpen(false);
     } catch (e) {
       console.error("Create folder failed:", e);
+      setToast(errorMessage(e, t("common.unknownError")));
     }
-  }, [newFolder, addingUnder, loadFolders, expanded, toggleExpand]);
+  }, [newFolder, addingUnder, loadFolders, expanded, toggleExpand, t]);
 
   const deleteFolder = useCallback(
     async (path: string) => {
@@ -370,9 +376,10 @@ export default function EditorWindow() {
         setConfirmFolderDelete(null);
       } catch (e) {
         console.error("Delete folder failed:", e);
+        setToast(errorMessage(e, t("common.unknownError")));
       }
     },
-    [activeFolder, activePath, loadFolders],
+    [activeFolder, activePath, loadFolders, t],
   );
 
   const closeMenus = useCallback(() => {
@@ -431,9 +438,10 @@ export default function EditorWindow() {
         await refreshNotes(activeFolder);
       } catch (e) {
         console.error("Rename failed:", e);
+        setToast(errorMessage(e, t("common.unknownError")));
       }
     },
-    [renameValue, activePath, content, activeFolder, refreshNotes],
+    [renameValue, activePath, content, activeFolder, refreshNotes, t],
   );
 
   const archiveNote = useCallback(
@@ -449,9 +457,10 @@ export default function EditorWindow() {
         await refreshNotes(activeFolder);
       } catch (e) {
         console.error("Archive failed:", e);
+        setToast(errorMessage(e, t("common.unknownError")));
       }
     },
-    [activePath, activeFolder, refreshNotes, loadFolders, closeMenus],
+    [activePath, activeFolder, refreshNotes, loadFolders, closeMenus, t],
   );
 
   const deleteNote = useCallback(
@@ -470,7 +479,7 @@ export default function EditorWindow() {
         if (trashOpen) await loadTrash();
       } catch (e) {
         console.error("Delete failed:", e);
-        setToast(String(e));
+        setToast(errorMessage(e, t("common.unknownError")));
       }
     },
     [
@@ -497,7 +506,9 @@ export default function EditorWindow() {
         await emit("files-changed", []);
       } catch (error) {
         setLastTrashed(null);
-        setToast(t("trash.restoreFailed", { error: String(error) }));
+        setToast(t("trash.restoreFailed", {
+          error: errorMessage(error, t("common.unknownError")),
+        }));
       }
     },
     [activeFolder, loadFolders, loadTrash, refreshNotes, t],
@@ -511,7 +522,9 @@ export default function EditorWindow() {
         await loadTrash();
       } catch (error) {
         setConfirmPurge(null);
-        setToast(t("trash.purgeFailed", { error: String(error) }));
+        setToast(t("trash.purgeFailed", {
+          error: errorMessage(error, t("common.unknownError")),
+        }));
       }
     },
     [loadTrash, t],

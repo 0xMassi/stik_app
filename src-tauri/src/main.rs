@@ -11,7 +11,7 @@ use commands::embeddings::EmbeddingIndex;
 use commands::index::NoteIndex;
 use commands::{
     ai_assistant, analytics, apple_notes, cursor_positions, darwinkit, dictation, embeddings,
-    file_watcher, folders, git_share, icloud, index, macos_notify, note_lock, notes,
+    file_watcher, folders, git_share, health, icloud, index, macos_notify, note_lock, notes,
     on_this_day, settings, share, stats, sticked_notes, storage, trash,
 };
 use shortcuts::shortcut_to_string;
@@ -583,6 +583,8 @@ fn main() {
             folders::get_folder_stats,
             folders::get_notes_directory,
             index::rebuild_index,
+            health::get_vault_health,
+            health::export_vault_diagnostics,
             settings::get_settings,
             settings::save_settings,
             git_share::git_prepare_repository,

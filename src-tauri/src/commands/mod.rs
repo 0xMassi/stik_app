@@ -8,6 +8,7 @@ pub mod embeddings;
 pub mod file_watcher;
 pub mod folders;
 pub mod git_share;
+pub mod health;
 pub mod icloud;
 pub mod index;
 pub mod macos_notify;

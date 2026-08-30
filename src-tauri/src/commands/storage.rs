@@ -44,31 +44,49 @@ pub fn current_mode() -> StorageMode {
     }
 }
 
-/// Get the root Stik directory for the current storage mode.
-/// When `use_directory_as_root` is enabled and a custom directory is set,
-/// the custom path is used directly without appending a `Stik/` subfolder.
-pub fn stik_root() -> Result<PathBuf, String> {
+/// Resolve the configured root without creating it. Diagnostics use this to
+/// report a missing or moved vault instead of silently creating a new one.
+pub fn configured_stik_root() -> Result<PathBuf, String> {
     match current_mode() {
-        StorageMode::ICloud => icloud_stik_root(),
+        StorageMode::ICloud => {
+            let drive = icloud_container_path()?;
+            if !drive.exists() {
+                return Err(
+                    "iCloud Drive is not available. Enable iCloud Drive in System Settings → Apple ID → iCloud."
+                        .to_string(),
+                );
+            }
+            Ok(drive.join("Stik"))
+        }
         StorageMode::Custom(dir) => {
             let use_as_root = settings::load_settings_from_file()
                 .map(|s| s.use_directory_as_root)
                 .unwrap_or(false);
-            let path = if use_as_root {
+            Ok(if use_as_root {
                 PathBuf::from(&dir)
             } else {
                 PathBuf::from(&dir).join("Stik")
-            };
-            fs::create_dir_all(&path).map_err(|e| e.to_string())?;
-            Ok(path)
+            })
         }
         StorageMode::Local => {
             let docs = dirs::document_dir().ok_or("Could not find Documents directory")?;
-            let path = docs.join("Stik");
-            fs::create_dir_all(&path).map_err(|e| e.to_string())?;
-            Ok(path)
+            Ok(docs.join("Stik"))
         }
     }
+}
+
+/// Get the root Stik directory for the current storage mode, creating it for
+/// normal application use when necessary.
+pub fn stik_root() -> Result<PathBuf, String> {
+    let path = configured_stik_root()?;
+    fs::create_dir_all(&path).map_err(|e| {
+        if current_mode() == StorageMode::ICloud {
+            format!("Failed to create iCloud Stik folder: {}", e)
+        } else {
+            e.to_string()
+        }
+    })?;
+    Ok(path)
 }
 
 /// Stik uses the generic iCloud Drive folder (`com~apple~CloudDocs`) rather
@@ -94,22 +112,6 @@ pub fn icloud_container_path() -> Result<PathBuf, String> {
 /// Check whether iCloud Drive is available on this machine.
 pub fn icloud_available() -> bool {
     icloud_container_path().map(|p| p.exists()).unwrap_or(false)
-}
-
-/// Resolve the iCloud Drive Stik folder, creating it if needed.
-fn icloud_stik_root() -> Result<PathBuf, String> {
-    let drive = icloud_container_path()?;
-
-    if !drive.exists() {
-        return Err(
-            "iCloud Drive is not available. Enable iCloud Drive in System Settings → Apple ID → iCloud."
-                .to_string(),
-        );
-    }
-
-    let path = drive.join("Stik");
-    fs::create_dir_all(&path).map_err(|e| format!("Failed to create iCloud Stik folder: {}", e))?;
-    Ok(path)
 }
 
 // ── Atomic Writes ─────────────────────────────────────────────────

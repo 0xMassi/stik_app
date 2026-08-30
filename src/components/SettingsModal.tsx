@@ -202,6 +202,25 @@ const TABS: { id: SettingsTab; labelKey: TranslationKey; icon: React.ReactNode }
     ),
   },
   {
+    id: "health",
+    labelKey: "settings.tab.health",
+    icon: (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M3 12h4l2-5 4 10 2-5h6" />
+        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.9-8.6a5.5 5.5 0 0 0-.1-7.8Z" />
+      </svg>
+    ),
+  },
+  {
     id: "privacy",
     labelKey: "settings.tab.privacy",
     icon: (

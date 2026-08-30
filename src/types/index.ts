@@ -185,6 +185,26 @@ export interface FolderStats {
   total_note_count: number;
 }
 
+export interface VaultHealthIssue {
+  code: string;
+  severity: "warning" | "error";
+  message: string;
+  suggestion: string;
+}
+
+export interface VaultHealthReport {
+  status: "healthy" | "warning" | "error";
+  storageMode: "local" | "icloud" | "custom";
+  rootPath: string | null;
+  rootExists: boolean;
+  rootIsDirectory: boolean;
+  rootWritable: boolean;
+  indexedNoteCount: number;
+  diskNoteCount: number | null;
+  checkedAt: string;
+  issues: VaultHealthIssue[];
+}
+
 export interface CaptureStreakStatus {
   days: number;
   label: string;

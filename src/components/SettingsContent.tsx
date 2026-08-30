@@ -17,6 +17,7 @@ import type {
 import { listen } from "@tauri-apps/api/event";
 import { BUILTIN_COMMAND_NAMES } from "@/extensions/cm-slash-commands";
 import ConfirmDialog from "./ConfirmDialog";
+import VaultHealth from "./VaultHealth";
 import {
   SYSTEM_SHORTCUT_ACTIONS,
   SYSTEM_SHORTCUT_DEFAULTS,
@@ -195,6 +196,7 @@ export type SettingsTab =
   | "ai"
   | "dictation"
   | "insights"
+  | "health"
   | "privacy";
 
 interface SettingsContentProps {
@@ -2927,6 +2929,8 @@ export default function SettingsContent({
           </div>
         </div>
       )}
+
+      {activeTab === "health" && <VaultHealth />}
 
       {activeTab === "privacy" && (
         <PrivacySection

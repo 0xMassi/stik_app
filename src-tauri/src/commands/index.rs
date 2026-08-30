@@ -134,6 +134,13 @@ impl NoteIndex {
         entries.get(path).map(|indexed| indexed.entry.clone())
     }
 
+    pub fn len(&self) -> usize {
+        self.entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .len()
+    }
+
     pub fn list(&self, folder: Option<&str>) -> Result<Vec<NoteEntry>, String> {
         let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
 

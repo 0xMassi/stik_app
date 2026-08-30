@@ -33,6 +33,7 @@ import {
 } from "@/utils/imageMarkdownPaths";
 import { resolveCaptureFolder } from "@/utils/folderSelection";
 import { getFolderColor } from "@/utils/folderColors";
+import { errorMessage } from "@/utils/appError";
 import { formatShortcutDisplay } from "./ShortcutRecorder";
 import { loadGoogleFont, loadCustomFont } from "@/utils/fonts";
 import SyncIndicator from "./SyncIndicator";
@@ -583,7 +584,7 @@ export default function PostIt({
     } catch (error) {
       console.error("Failed to save note:", error);
       setIsSaving(false);
-      setToast(t("postit.saveFailed"));
+      setToast(errorMessage(error, t("postit.saveFailed")));
     }
   }, [
     isSticked,
@@ -592,6 +593,7 @@ export default function PostIt({
     onContentChange,
     resolveFolderForAction,
     getLiveContent,
+    t,
   ]);
 
   const showToast = useCallback((message: string) => {
@@ -915,10 +917,11 @@ export default function PostIt({
       editorRef.current?.clear();
     } catch (error) {
       console.error("Failed to pin note:", error);
+      showToast(errorMessage(error, t("common.somethingWentWrong")));
     } finally {
       setIsPinning(false);
     }
-  }, [content, isPinning, resolveFolderForAction]);
+  }, [content, isPinning, resolveFolderForAction, showToast, t]);
 
   // Toggle pin state for sticked notes
   const handleTogglePin = useCallback(async () => {
@@ -946,6 +949,7 @@ export default function PostIt({
         }
       } catch (error) {
         console.error("Failed to unpin note:", error);
+        showToast(errorMessage(error, t("common.somethingWentWrong")));
         // Fallback: just keep window open as unpinned
         setIsPinned(false);
       }
@@ -976,9 +980,10 @@ export default function PostIt({
         }
       } catch (error) {
         console.error("Failed to pin note:", error);
+        showToast(errorMessage(error, t("common.somethingWentWrong")));
       }
     }
-  }, [currentStickedId, stickedId, isPinned, content, folder, isViewing]);
+  }, [currentStickedId, stickedId, isPinned, content, folder, isViewing, showToast, t]);
 
   // Save & Close sticked note (saves content to folder file)
   // Read from contentRef — React state in the closure can be one render behind
@@ -1033,6 +1038,7 @@ export default function PostIt({
       } catch (error) {
         console.error("Failed to save and close sticked note:", error);
         setIsSaving(false);
+        showToast(errorMessage(error, t("postit.saveFailed")));
       }
     } else {
       // No content, just close without animation
@@ -1046,9 +1052,10 @@ export default function PostIt({
         await invoke("close_sticked_window", { id: idToClose });
       } catch (error) {
         console.error("Failed to close sticked note:", error);
+        showToast(errorMessage(error, t("common.somethingWentWrong")));
       }
     }
-  }, [stickedId, currentStickedId, isPinned, folder, getLiveContent]);
+  }, [stickedId, currentStickedId, isPinned, folder, getLiveContent, showToast, t]);
 
   // Close without saving
   const handleCloseWithoutSaving = useCallback(async () => {
@@ -1065,8 +1072,9 @@ export default function PostIt({
       await invoke("close_sticked_window", { id: idToClose });
     } catch (error) {
       console.error("Failed to close sticked note:", error);
+      showToast(errorMessage(error, t("common.somethingWentWrong")));
     }
-  }, [stickedId, currentStickedId, isPinned]);
+  }, [stickedId, currentStickedId, isPinned, showToast, t]);
 
   const handleContentChange = useCallback(
     (newContent: string) => {

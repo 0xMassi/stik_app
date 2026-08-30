@@ -22,6 +22,7 @@ import MovePicker from "./command-palette/MovePicker";
 import { useTranslation } from "@/hooks/useTranslation";
 import ActionToast from "./ActionToast";
 import { createLatestRequestGate } from "@/utils/latestRequest";
+import { errorMessage } from "@/utils/appError";
 import LiveRegion from "./ui/LiveRegion";
 
 /** Derive a human-readable title from a Stik filename like `20260310-114522-my-note-a1b2.md` */
@@ -118,17 +119,22 @@ export default function CommandPalette() {
       setTotalNoteCount(allNotes.length);
     } catch (error) {
       console.error("Failed to load folder stats:", error);
+      setToast(errorMessage(error, t("common.unknownError")));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadFolderStats();
-    invoke<string[]>("list_folders").then(setFolders);
-    invoke<StikSettings>("get_settings").then((s) => {
-      settingsRef.current = s;
-      setFolderColors(s.folder_colors ?? {});
-      if (s.sidebar_position === "right") setSidebarPosition("right");
-    });
+    invoke<string[]>("list_folders")
+      .then(setFolders)
+      .catch((error) => setToast(errorMessage(error, t("common.unknownError"))));
+    invoke<StikSettings>("get_settings")
+      .then((s) => {
+        settingsRef.current = s;
+        setFolderColors(s.folder_colors ?? {});
+        if (s.sidebar_position === "right") setSidebarPosition("right");
+      })
+      .catch((error) => setToast(errorMessage(error, t("common.unknownError"))));
 
     const unlistenSettings = listen<StikSettings>(
       "settings-changed",
@@ -141,7 +147,7 @@ export default function CommandPalette() {
     return () => {
       unlistenSettings.then((fn) => fn());
     };
-  }, [loadFolderStats]);
+  }, [loadFolderStats, t]);
 
   // Load recent notes when folder filter changes
   useEffect(() => {
@@ -273,10 +279,10 @@ export default function CommandPalette() {
         closePalette();
       } catch (error) {
         console.error("Failed to open note:", error);
-        setToast(`Couldn't open note: ${String(error)}`);
+        setToast(errorMessage(error, t("note.failedToLoad")));
       }
     },
-    [closePalette],
+    [closePalette, t],
   );
 
   const handleSelectResult = useCallback(
@@ -373,7 +379,7 @@ export default function CommandPalette() {
         await refreshAfterChange();
       } catch (error) {
         console.error("Failed to delete note:", error);
-        setToast(String(error));
+        setToast(errorMessage(error, t("common.unknownError")));
       }
     },
     [refreshAfterChange, t],
@@ -390,7 +396,9 @@ export default function CommandPalette() {
       } catch (error) {
         console.error("Failed to restore note:", error);
         setLastTrashed(null);
-        setToast(t("trash.restoreFailed", { error: String(error) }));
+        setToast(t("trash.restoreFailed", {
+          error: errorMessage(error, t("common.unknownError")),
+        }));
       }
     },
     [refreshAfterChange, t],
@@ -412,10 +420,10 @@ export default function CommandPalette() {
         await refreshAfterChange();
       } catch (error) {
         console.error("Failed to delete folder:", error);
-        setToast(String(error));
+        setToast(errorMessage(error, t("common.unknownError")));
       }
     },
-    [selectedFolder, refreshAfterChange],
+    [selectedFolder, refreshAfterChange, t],
   );
 
   // Move note
@@ -431,10 +439,10 @@ export default function CommandPalette() {
         await refreshAfterChange();
       } catch (error) {
         console.error("Failed to move note:", error);
-        setToast(String(error));
+        setToast(errorMessage(error, t("common.unknownError")));
       }
     },
-    [refreshAfterChange],
+    [refreshAfterChange, t],
   );
 
   // Save settings helper — keeps settingsRef in sync and notifies other windows
@@ -474,7 +482,7 @@ export default function CommandPalette() {
       setSelectedFolder(newFolderName.trim());
     } catch (error) {
       console.error("Failed to create folder:", error);
-      setToast(String(error));
+      setToast(errorMessage(error, t("common.unknownError")));
     }
   }, [
     newFolderName,
@@ -482,6 +490,7 @@ export default function CommandPalette() {
     folderColors,
     refreshAfterChange,
     saveAndEmitSettings,
+    t,
   ]);
 
   // Rename folder
@@ -511,9 +520,9 @@ export default function CommandPalette() {
       }
     } catch (error) {
       console.error("Failed to rename folder:", error);
-      setToast(String(error));
+      setToast(errorMessage(error, t("common.unknownError")));
     }
-  }, [renameValue, renamingFolderName, selectedFolder, refreshAfterChange]);
+  }, [renameValue, renamingFolderName, selectedFolder, refreshAfterChange, t]);
 
   // Set folder color (during rename)
   const handleSetFolderColor = useCallback(
@@ -525,9 +534,10 @@ export default function CommandPalette() {
         await saveAndEmitSettings({ folder_colors: updatedColors });
       } catch (error) {
         console.error("Failed to save folder color:", error);
+        setToast(errorMessage(error, t("common.unknownError")));
       }
     },
-    [renamingFolderName, folderColors, saveAndEmitSettings],
+    [renamingFolderName, folderColors, saveAndEmitSettings, t],
   );
 
   // Create new note in selected folder
@@ -571,9 +581,9 @@ export default function CommandPalette() {
       }
     } catch (error) {
       console.error("Failed to create note:", error);
-      setToast(String(error));
+      setToast(errorMessage(error, t("postit.saveFailed")));
     }
-  }, [newNoteTitle, selectedFolder, folders, refreshAfterChange, closePalette]);
+  }, [newNoteTitle, selectedFolder, folders, refreshAfterChange, closePalette, t]);
 
   // Select folder from sidebar
   const handleSelectFolder = useCallback((folder: string | null) => {
@@ -687,7 +697,7 @@ export default function CommandPalette() {
                 }
                 await refreshAfterChange();
               } catch (err) {
-                setToast(String(err));
+                setToast(errorMessage(err, t("common.unknownError")));
               }
             };
             toggleLock();
@@ -764,6 +774,7 @@ export default function CommandPalette() {
     handleSelectResult,
     refreshAfterChange,
     closePalette,
+    t,
   ]);
 
   const toggleSidebarPosition = useCallback(async () => {
@@ -773,8 +784,9 @@ export default function CommandPalette() {
       await saveAndEmitSettings({ sidebar_position: next });
     } catch (err) {
       console.error("Failed to save sidebar position:", err);
+      setToast(errorMessage(err, t("common.unknownError")));
     }
-  }, [sidebarPosition, saveAndEmitSettings]);
+  }, [sidebarPosition, saveAndEmitSettings, t]);
 
   const startDrag = useCallback(async (e: React.MouseEvent) => {
     if (
