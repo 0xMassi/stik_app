@@ -3,10 +3,70 @@ use std::path::{Path, PathBuf};
 
 use super::settings::StikSettings;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FolderStats {
     pub name: String,
     pub note_count: usize,
+    pub total_note_count: usize,
+}
+
+fn is_markdown_note(name: &str) -> bool {
+    Path::new(name)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| {
+            extension.eq_ignore_ascii_case("md") || extension.eq_ignore_ascii_case("markdown")
+        })
+        .unwrap_or(false)
+}
+
+fn collect_folder_stats_with<F>(
+    root: &Path,
+    directory: &Path,
+    list: &F,
+    stats: &mut Vec<FolderStats>,
+) -> Result<(usize, usize), String>
+where
+    F: Fn(&Path) -> Result<Vec<super::storage::DirEntry>, String>,
+{
+    let entries = list(directory)?;
+    let direct = entries
+        .iter()
+        .filter(|entry| !entry.is_directory && is_markdown_note(&entry.name))
+        .count();
+    let mut total = direct;
+
+    for entry in entries
+        .iter()
+        .filter(|entry| entry.is_directory && is_visible_folder_name(&entry.name))
+    {
+        let child = directory.join(&entry.name);
+        let (child_direct, child_total) =
+            collect_folder_stats_with(root, &child, list, stats)?;
+        let relative = child
+            .strip_prefix(root)
+            .map_err(|_| "Folder is outside the notes root".to_string())?
+            .to_string_lossy()
+            .replace('\\', "/");
+        stats.push(FolderStats {
+            name: relative,
+            note_count: child_direct,
+            total_note_count: child_total,
+        });
+        total += child_total;
+    }
+
+    Ok((direct, total))
+}
+
+fn folder_stats_with<F>(root: &Path, list: &F) -> Result<Vec<FolderStats>, String>
+where
+    F: Fn(&Path) -> Result<Vec<super::storage::DirEntry>, String>,
+{
+    let mut stats = Vec::new();
+    collect_folder_stats_with(root, root, list, &mut stats)?;
+    stats.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(stats)
 }
 
 fn is_visible_folder_name(name: &str) -> bool {
@@ -273,43 +333,22 @@ pub fn rename_folder(old_name: String, new_name: String) -> Result<bool, String>
 #[tauri::command]
 pub fn get_folder_stats() -> Result<Vec<FolderStats>, String> {
     let stik_folder = get_stik_folder()?;
-    let stik_path = stik_folder.to_string_lossy();
-
-    let dir_entries = super::storage::list_dir(&stik_path)?;
-
-    let mut stats: Vec<FolderStats> = dir_entries
-        .into_iter()
-        .filter(|e| e.is_directory && is_visible_folder_name(&e.name))
-        .map(|e| {
-            let folder_path = stik_folder.join(&e.name);
-            let note_count = super::storage::list_dir(&folder_path.to_string_lossy())
-                .map(|entries| {
-                    entries
-                        .iter()
-                        .filter(|e| !e.is_directory && e.name.ends_with(".md"))
-                        .count()
-                })
-                .unwrap_or(0);
-
-            FolderStats {
-                name: e.name,
-                note_count,
-            }
-        })
-        .collect();
-
-    stats.sort_by(|a, b| a.name.cmp(&b.name));
-
-    Ok(stats)
+    folder_stats_with(&stik_folder, &|path| {
+        let authorized = super::path_security::authorize_existing_path(&stik_folder, path)?;
+        super::storage::list_dir(&authorized.to_string_lossy())
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        is_visible_folder_name, note_folder, reconcile_settings_after_folder_delete,
-        reconcile_settings_after_folder_rename, validate_folder_path, validate_name,
+        folder_stats_with, is_visible_folder_name, note_folder,
+        reconcile_settings_after_folder_delete, reconcile_settings_after_folder_rename,
+        validate_folder_path, validate_name,
     };
+    use crate::commands::storage::DirEntry;
     use std::collections::HashMap;
+    use std::path::Path;
 
     #[test]
     fn validate_folder_path_allows_nesting_but_blocks_traversal() {
@@ -329,11 +368,77 @@ mod tests {
 
     #[test]
     fn note_folder_returns_relative_parent_path() {
-        use std::path::Path;
         let root = Path::new("/stik");
         assert_eq!(note_folder(root, Path::new("/stik/foo.md")), "");
         assert_eq!(note_folder(root, Path::new("/stik/Inbox/foo.md")), "Inbox");
         assert_eq!(note_folder(root, Path::new("/stik/A/B/foo.md")), "A/B");
+    }
+
+    #[test]
+    fn folder_stats_include_nested_folders_and_descendant_notes() {
+        let root = Path::new("/vault");
+        let entries = HashMap::from([
+            (
+                "/vault".to_string(),
+                vec![directory("Projects"), directory(".trash")],
+            ),
+            (
+                "/vault/Projects".to_string(),
+                vec![note("one.md"), directory("Work"), directory(".assets")],
+            ),
+            (
+                "/vault/Projects/Work".to_string(),
+                vec![note("two.markdown"), directory("Deep")],
+            ),
+            (
+                "/vault/Projects/Work/Deep".to_string(),
+                vec![note("three.MD"), note("ignore.txt")],
+            ),
+        ]);
+
+        let stats = folder_stats_with(root, &|path| {
+            Ok(entries
+                .get(&path.to_string_lossy().to_string())
+                .cloned()
+                .unwrap_or_default())
+        })
+        .unwrap();
+
+        assert_eq!(
+            stats
+                .iter()
+                .map(|stat| {
+                    (
+                        stat.name.as_str(),
+                        stat.note_count,
+                        stat.total_note_count,
+                    )
+                })
+                .collect::<Vec<_>>(),
+            vec![
+                ("Projects", 1, 3),
+                ("Projects/Work", 1, 2),
+                ("Projects/Work/Deep", 1, 1),
+            ]
+        );
+    }
+
+    fn directory(name: &str) -> DirEntry {
+        DirEntry {
+            name: name.to_string(),
+            is_directory: true,
+            size: 0,
+            modified: None,
+        }
+    }
+
+    fn note(name: &str) -> DirEntry {
+        DirEntry {
+            name: name.to_string(),
+            is_directory: false,
+            size: 0,
+            modified: None,
+        }
     }
     use crate::commands::settings::{GitSharingSettings, ShortcutMapping, StikSettings};
 

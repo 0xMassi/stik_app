@@ -21,13 +21,11 @@ use tauri_plugin_global_shortcut::{Code, Modifiers, ShortcutState};
 use windows::{show_command_palette, show_editor, show_postit_with_folder, show_settings};
 
 fn folder_for_opened_note(path: &std::path::Path, stik_root: &std::path::Path) -> String {
-    if let Ok(relative) = path.strip_prefix(stik_root) {
-        let mut components = relative.components();
-        if let (Some(first), Some(_second)) = (components.next(), components.next()) {
-            return first.as_os_str().to_string_lossy().to_string();
-        }
-    }
-    String::new()
+    path.strip_prefix(stik_root)
+        .ok()
+        .and_then(std::path::Path::parent)
+        .map(|parent| parent.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default()
 }
 
 fn handle_opened_files(app: &AppHandle, paths: Vec<std::path::PathBuf>) {
@@ -727,10 +725,10 @@ mod tests {
     }
 
     #[test]
-    fn nested_subfolder_returns_top_level_folder() {
+    fn nested_subfolder_returns_full_relative_folder_path() {
         let root = Path::new("/Users/test/Documents/Stik");
         let path = Path::new("/Users/test/Documents/Stik/Projects/sub/deep/note.md");
-        assert_eq!(folder_for_opened_note(path, root), "Projects");
+        assert_eq!(folder_for_opened_note(path, root), "Projects/sub/deep");
     }
 
     #[test]

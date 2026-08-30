@@ -180,6 +180,7 @@ export interface SemanticResult {
 export interface FolderStats {
   name: string;
   note_count: number;
+  total_note_count: number;
 }
 
 export interface CaptureStreakStatus {

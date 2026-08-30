@@ -603,12 +603,18 @@ fn is_supported_image_ext(ext: &str) -> bool {
     )
 }
 
+fn note_assets_directory(stik_folder: &Path, folder: &str) -> Result<PathBuf, String> {
+    super::folders::validate_folder_path(folder)?;
+    super::path_security::authorize_new_path(
+        stik_folder,
+        &stik_folder.join(folder).join(".assets"),
+    )
+}
+
 /// Save an image (base64-encoded) into the folder's `.assets/` directory.
 /// Returns `(absolute_path, relative_markdown_ref)`.
 #[tauri::command]
 pub fn save_note_image(folder: String, image_data: String) -> Result<(String, String), String> {
-    super::folders::validate_folder_path(&folder)?;
-
     let ext = detect_image_ext(&image_data);
 
     // Strip the data-URL prefix if present
@@ -623,11 +629,11 @@ pub fn save_note_image(folder: String, image_data: String) -> Result<(String, St
         .map_err(|e| format!("Invalid base64: {}", e))?;
 
     let stik_folder = get_stik_folder()?;
-    let folder_path =
-        super::path_security::authorize_new_path(&stik_folder, &stik_folder.join(&folder))?;
+    let assets_dir = note_assets_directory(&stik_folder, &folder)?;
+    let folder_path = assets_dir
+        .parent()
+        .ok_or_else(|| "Assets directory has no parent".to_string())?;
     super::storage::ensure_dir(&folder_path.to_string_lossy())?;
-    let assets_dir =
-        super::path_security::authorize_new_path(&folder_path, &folder_path.join(".assets"))?;
     super::storage::ensure_dir(&assets_dir.to_string_lossy())
         .map_err(|e| format!("Failed to create .assets dir: {}", e))?;
 
@@ -648,8 +654,6 @@ pub fn save_note_image_from_path(
     folder: String,
     file_path: String,
 ) -> Result<(String, String), String> {
-    super::folders::validate_folder_path(&folder)?;
-
     let source_path = PathBuf::from(&file_path);
     if !source_path.is_absolute() {
         return Err("Image path must be absolute".to_string());
@@ -668,11 +672,11 @@ pub fn save_note_image_from_path(
     }
 
     let stik_folder = get_stik_folder()?;
-    let folder_path =
-        super::path_security::authorize_new_path(&stik_folder, &stik_folder.join(&folder))?;
+    let assets_dir = note_assets_directory(&stik_folder, &folder)?;
+    let folder_path = assets_dir
+        .parent()
+        .ok_or_else(|| "Assets directory has no parent".to_string())?;
     super::storage::ensure_dir(&folder_path.to_string_lossy())?;
-    let assets_dir =
-        super::path_security::authorize_new_path(&folder_path, &folder_path.join(".assets"))?;
     super::storage::ensure_dir(&assets_dir.to_string_lossy())
         .map_err(|e| format!("Failed to create .assets dir: {}", e))?;
 
@@ -690,7 +694,8 @@ pub fn save_note_image_from_path(
 #[cfg(test)]
 mod tests {
     use super::{
-        claim_simple_filename, extract_asset_filenames, is_effectively_empty_markdown, note_date,
+        claim_simple_filename, extract_asset_filenames, is_effectively_empty_markdown,
+        note_assets_directory, note_date,
     };
     use chrono::{Local, NaiveDate};
 
@@ -722,6 +727,18 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn note_assets_directory_preserves_nested_folder_identity() {
+        let root = temp_folder("assets-nested");
+
+        assert_eq!(
+            note_assets_directory(&root, "Projects/Work").unwrap(),
+            root.canonicalize().unwrap().join("Projects/Work/.assets")
+        );
+        assert!(note_assets_directory(&root, "Projects/../outside").is_err());
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]

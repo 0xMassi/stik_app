@@ -103,19 +103,7 @@ export default function CommandPalette() {
         invoke<NoteInfo[]>("list_notes", { folder: null }),
       ]);
 
-      // Recount from NoteIndex so root-level notes are included
-      const countByFolder = new Map<string, number>();
-      for (const note of allNotes) {
-        const f = note.folder || "";
-        countByFolder.set(f, (countByFolder.get(f) || 0) + 1);
-      }
-
-      const corrected = stats.map((s) => ({
-        ...s,
-        note_count: countByFolder.get(s.name) || 0,
-      }));
-
-      setFolderStats(corrected);
+      setFolderStats(stats);
       setTotalNoteCount(allNotes.length);
     } catch (error) {
       console.error("Failed to load folder stats:", error);
