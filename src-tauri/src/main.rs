@@ -548,6 +548,10 @@ fn main() {
         .setup(|app| {
             let settings = settings::get_settings().unwrap_or_default();
 
+            if let Err(error) = settings::allow_custom_notes_asset_scope(app.handle(), &settings) {
+                eprintln!("Failed to authorize custom note images: {error}");
+            }
+
             // Build in-memory note index — deferred when iCloud is enabled
             // (needs DarwinKit bridge to resolve the iCloud container path)
             if !settings.icloud.enabled {

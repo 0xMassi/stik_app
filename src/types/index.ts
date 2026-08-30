@@ -92,6 +92,7 @@ export interface StikSettings {
   analytics_enabled: boolean;
   analytics_consent_version: number;
   analytics_notice_dismissed: boolean;
+  load_remote_images: boolean;
   font_size: number;
   custom_templates: CustomTemplate[];
   sidebar_position: string;

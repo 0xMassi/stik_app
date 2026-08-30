@@ -15,6 +15,7 @@ import { t } from "@/i18n";
 import {
   StateField,
   StateEffect,
+  Facet,
   RangeSet,
   type EditorState,
   type Range,
@@ -44,38 +45,126 @@ const hrWidget = new HrWidget();
 
 // ── Inline Image ────────────────────────────────────────────────────
 
+export const remoteImagesAllowed = Facet.define<boolean, boolean>({
+  combine(values) {
+    return values[values.length - 1] ?? false;
+  },
+});
+
+export function isRemoteImageSource(src: string): boolean {
+  const trimmed = src.trim();
+  const looksNetworked = /^(?:https?:)?\/\//i.test(trimmed) || /^https?:/i.test(trimmed);
+  if (!looksNetworked) return false;
+
+  try {
+    const url = new URL(trimmed.startsWith("//") ? `https:${trimmed}` : trimmed);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.hostname !== "asset.localhost"
+    );
+  } catch {
+    // A malformed HTTP(S) URL must fail closed. Assigning it to `img.src`
+    // would let the webview decide whether it is network-capable.
+    return true;
+  }
+}
+
+function remoteImageHost(src: string): string {
+  const trimmed = src.trim();
+  try {
+    return new URL(trimmed.startsWith("//") ? `https:${trimmed}` : trimmed)
+      .hostname;
+  } catch {
+    return t("image.externalServer");
+  }
+}
+
+function appendImage(wrap: HTMLSpanElement, src: string, alt: string) {
+  const img = document.createElement("img");
+  img.src = src;
+  img.alt = alt;
+  img.draggable = false;
+
+  img.onerror = () => {
+    wrap.classList.add("cm-image-error");
+    img.remove();
+    const fallback = document.createElement("span");
+    fallback.className = "cm-image-error-text";
+    fallback.textContent = alt || t("image.failedToLoad");
+    wrap.appendChild(fallback);
+  };
+
+  wrap.appendChild(img);
+}
+
+export function createImageWidgetDom(
+  src: string,
+  alt: string,
+  loadRemoteImages: boolean,
+): HTMLSpanElement {
+  const wrap = document.createElement("span");
+  wrap.className = "cm-image-widget";
+
+  if (isRemoteImageSource(src) && !loadRemoteImages) {
+    const blockedMessage = t("image.remoteBlocked", {
+      domain: remoteImageHost(src),
+    });
+    wrap.classList.add("cm-image-blocked");
+    wrap.setAttribute("role", "group");
+    wrap.setAttribute(
+      "aria-label",
+      alt ? `${blockedMessage}: ${alt}` : blockedMessage,
+    );
+
+    const message = document.createElement("span");
+    message.className = "cm-image-blocked-text";
+    message.textContent = alt ? `${blockedMessage}: ${alt}` : blockedMessage;
+
+    const loadButton = document.createElement("button");
+    loadButton.type = "button";
+    loadButton.className = "cm-image-load-once";
+    loadButton.textContent = t("image.loadOnce");
+    loadButton.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      wrap.replaceChildren();
+      wrap.classList.remove("cm-image-blocked");
+      wrap.removeAttribute("role");
+      wrap.removeAttribute("aria-label");
+      appendImage(wrap, src, alt);
+    };
+
+    wrap.append(message, loadButton);
+    return wrap;
+  }
+
+  appendImage(wrap, src, alt);
+  return wrap;
+}
+
 class ImageWidget extends WidgetType {
   constructor(
     readonly src: string,
     readonly alt: string,
+    readonly loadRemoteImages: boolean,
   ) {
     super();
   }
 
   eq(other: ImageWidget) {
-    return this.src === other.src && this.alt === other.alt;
+    return (
+      this.src === other.src &&
+      this.alt === other.alt &&
+      this.loadRemoteImages === other.loadRemoteImages
+    );
   }
 
   toDOM() {
-    const wrap = document.createElement("span");
-    wrap.className = "cm-image-widget";
-
-    const img = document.createElement("img");
-    img.src = this.src;
-    img.alt = this.alt;
-    img.draggable = false;
-
-    img.onerror = () => {
-      wrap.classList.add("cm-image-error");
-      img.style.display = "none";
-      const fallback = document.createElement("span");
-      fallback.className = "cm-image-error-text";
-      fallback.textContent = this.alt || t("image.failedToLoad");
-      wrap.appendChild(fallback);
-    };
-
-    wrap.appendChild(img);
-    return wrap;
+    return createImageWidgetDom(
+      this.src,
+      this.alt,
+      this.loadRemoteImages,
+    );
   }
 
   ignoreEvent() {
@@ -519,6 +608,7 @@ function getAdjacentCell(
 function buildBlockDecorations(state: EditorState): Range<Decoration>[] {
   const decorations: Range<Decoration>[] = [];
   const [cursor] = state.selection.ranges;
+  const loadRemoteImages = state.facet(remoteImagesAllowed);
 
   syntaxTree(state).iterate({
     enter(node) {
@@ -568,10 +658,9 @@ function buildBlockDecorations(state: EditorState): Range<Decoration>[] {
         }
 
         decorations.push(
-          Decoration.replace({ widget: new ImageWidget(src, alt) }).range(
-            node.from,
-            node.to,
-          ),
+          Decoration.replace({
+            widget: new ImageWidget(src, alt, loadRemoteImages),
+          }).range(node.from, node.to),
         );
         return false;
       }

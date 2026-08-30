@@ -139,6 +139,7 @@ export default function PostIt({
     "auto",
   );
   const [icloudEnabled, setIcloudEnabled] = useState(false);
+  const [loadRemoteImages, setLoadRemoteImages] = useState(false);
   const [zenMode, setZenMode] = useState(false);
   const [dictationActiveModel, setDictationActiveModel] = useState<
     string | null
@@ -289,6 +290,7 @@ export default function PostIt({
           (s.text_direction as "auto" | "ltr" | "rtl") || "auto",
         );
         setIcloudEnabled(s.icloud?.enabled ?? false);
+        setLoadRemoteImages(s.load_remote_images ?? false);
         setZenMode(s.zen_mode_enabled ?? false);
         setDictationActiveModel(s.dictation?.active_model ?? null);
         setDictationLanguage(s.dictation?.active_language ?? null);
@@ -313,6 +315,7 @@ export default function PostIt({
         (event.payload.text_direction as "auto" | "ltr" | "rtl") || "auto",
       );
       setIcloudEnabled(event.payload.icloud?.enabled ?? false);
+      setLoadRemoteImages(event.payload.load_remote_images ?? false);
       setDictationActiveModel(event.payload.dictation?.active_model ?? null);
       setDictationLanguage(event.payload.dictation?.active_language ?? null);
     });
@@ -1865,6 +1868,7 @@ export default function PostIt({
               vimEnabled={vimEnabled}
               showFormatToolbar={zenMode ? false : formatToolbar}
               textDirection={textDirection}
+              loadRemoteImages={loadRemoteImages}
               onVimModeChange={setVimMode}
               onVimSaveAndClose={runVimSaveAndClose}
               onVimCloseWithoutSaving={runVimDiscardAndClose}

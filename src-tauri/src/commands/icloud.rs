@@ -66,7 +66,7 @@ pub async fn icloud_enable(app: tauri::AppHandle) -> Result<ICloudStatus, String
         // Enable iCloud in settings
         let mut settings = settings::load_settings_from_file()?;
         settings.icloud.enabled = true;
-        settings::save_settings(settings.clone())?;
+        settings::save_settings_without_app(settings.clone())?;
 
         // Ensure the iCloud Stik directory exists
         let _ = storage::stik_root()?;
@@ -105,7 +105,7 @@ pub async fn icloud_disable(app: tauri::AppHandle) -> Result<ICloudStatus, Strin
         // Disable iCloud in settings
         let mut settings = settings::load_settings_from_file()?;
         settings.icloud.enabled = false;
-        settings::save_settings(settings)?;
+        settings::save_settings_without_app(settings)?;
 
         // Rebuild index against local root
         let index = app.state::<NoteIndex>();
@@ -148,7 +148,7 @@ pub async fn icloud_migrate_notes(app: tauri::AppHandle) -> Result<MigrationResu
         // Mark as migrated
         let mut settings = settings::load_settings_from_file()?;
         settings.icloud.migrated = true;
-        settings::save_settings(settings)?;
+        settings::save_settings_without_app(settings)?;
 
         // Rebuild indices
         let index = app.state::<NoteIndex>();

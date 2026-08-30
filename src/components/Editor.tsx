@@ -40,7 +40,10 @@ import {
   wikiLinkCompletionSource,
 } from "@/extensions/cm-wiki-link";
 import { slashCommandCompletionSource } from "@/extensions/cm-slash-commands";
-import { blockWidgetPlugin } from "@/extensions/cm-block-widgets";
+import {
+  blockWidgetPlugin,
+  remoteImagesAllowed,
+} from "@/extensions/cm-block-widgets";
 import { bidiSupport } from "@/extensions/cm-bidi";
 import {
   createVimExtension,
@@ -81,6 +84,7 @@ interface EditorProps {
   vimEnabled?: boolean;
   showFormatToolbar?: boolean;
   textDirection?: "auto" | "ltr" | "rtl";
+  loadRemoteImages?: boolean;
   onVimModeChange?: (mode: VimMode) => void;
   onVimSaveAndClose?: () => void;
   onVimCloseWithoutSaving?: () => void;
@@ -109,6 +113,7 @@ export interface EditorRef {
 /// string was current at mount. Switching language then left the old text in
 /// place until the window was recreated.
 const placeholderCompartment = new Compartment();
+const remoteImagesCompartment = new Compartment();
 
 const Editor = forwardRef<EditorRef, EditorProps>(
   (
@@ -119,6 +124,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       vimEnabled,
       showFormatToolbar,
       textDirection = "auto",
+      loadRemoteImages = false,
       onVimModeChange,
       onVimSaveAndClose,
       onVimCloseWithoutSaving,
@@ -545,6 +551,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         taskCheckboxHandler,
         hideMarkersPlugin,
         blockWidgetPlugin,
+        remoteImagesCompartment.of(remoteImagesAllowed.of(loadRemoteImages)),
         headingFoldPlugin,
         autoCloseMarkup,
         formatStateListener,
@@ -613,6 +620,16 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         ),
       });
     }, [placeholderText, accessibleName]);
+
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      view.dispatch({
+        effects: remoteImagesCompartment.reconfigure(
+          remoteImagesAllowed.of(loadRemoteImages),
+        ),
+      });
+    }, [loadRemoteImages]);
     // Parent uses key={vimEnabled} to force remount when vim toggled.
 
     // Tauri native drag-drop fallback (WebKit dataTransfer can be empty for OS-level drops)

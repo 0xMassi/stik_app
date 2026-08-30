@@ -36,9 +36,7 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$DOCUMENT/Stik/**",
           "$DOCUMENT/Stik/**/.assets/**",
-          "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Stik/**",
           "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Stik/**/.assets/**"
         ]
       }

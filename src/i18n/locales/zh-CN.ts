@@ -160,6 +160,10 @@ export const zhCN: Translations = {
   "settings.analytics.yourDeviceId": "你的设备 ID",
   "settings.analytics.resetId": "重置 ID",
   "settings.analytics.idReset": "分析 ID 已重置",
+  "settings.remoteImages.title": "远程图片",
+  "settings.remoteImages.describe":
+    "允许笔记自动连接外部图片服务器。关闭此选项可防止跟踪像素和 IP 地址泄露。",
+  "settings.remoteImages.toggle": "自动加载远程图片",
 
   // ── Settings — durations ──────────────────────────────────────────
   "duration.1minute": "1 分钟",
@@ -318,6 +322,9 @@ export const zhCN: Translations = {
   "lock.authFailed": "验证失败，请重试。",
   "lock.authPrompt": "请验证身份以查看此笔记。",
   "image.failedToLoad": "图片加载失败",
+  "image.remoteBlocked": "为保护隐私，已阻止来自 {domain} 的远程图片",
+  "image.externalServer": "外部服务器",
+  "image.loadOnce": "仅加载一次",
   "format.addLink": "添加链接",
   "format.addLinkHint": "添加链接（请先选中文本）",
   "format.highlight": "高亮",

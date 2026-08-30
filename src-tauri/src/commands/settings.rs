@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use tauri::Manager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShortcutMapping {
@@ -153,6 +154,8 @@ pub struct StikSettings {
     pub analytics_consent_version: u8,
     #[serde(default)]
     pub analytics_notice_dismissed: bool,
+    #[serde(default)]
+    pub load_remote_images: bool,
     #[serde(default = "default_font_size")]
     pub font_size: u32,
     #[serde(default)]
@@ -243,6 +246,7 @@ impl Default for StikSettings {
             analytics_enabled: false,
             analytics_consent_version: 0,
             analytics_notice_dismissed: false,
+            load_remote_images: false,
             font_size: 14,
             viewing_window_size: None,
             viewing_window_position: None,
@@ -376,12 +380,44 @@ pub fn get_settings() -> Result<StikSettings, String> {
     load_settings_from_file()
 }
 
-#[tauri::command]
-pub fn save_settings(settings: StikSettings) -> Result<bool, String> {
+fn custom_notes_asset_root(settings: &StikSettings) -> Option<PathBuf> {
+    let directory = PathBuf::from(settings.notes_directory.trim());
+    if settings.notes_directory.trim().is_empty() || !directory.is_absolute() {
+        return None;
+    }
+
+    Some(if settings.use_directory_as_root {
+        directory
+    } else {
+        directory.join("Stik")
+    })
+}
+
+pub(crate) fn allow_custom_notes_asset_scope(
+    app: &tauri::AppHandle,
+    settings: &StikSettings,
+) -> Result<(), String> {
+    let Some(root) = custom_notes_asset_root(settings) else {
+        return Ok(());
+    };
+    fs::create_dir_all(&root)
+        .map_err(|error| format!("Failed to prepare custom notes directory: {error}"))?;
+    app.asset_protocol_scope()
+        .allow_directory(&root, true)
+        .map_err(|error| format!("Failed to authorize custom note images: {error}"))
+}
+
+pub(crate) fn save_settings_without_app(settings: StikSettings) -> Result<bool, String> {
     save_settings_to_file(&settings)?;
     super::analytics::configure_analytics(settings.analytics_enabled)?;
     git_share::notify_force_sync();
     Ok(true)
+}
+
+#[tauri::command]
+pub fn save_settings(app: tauri::AppHandle, settings: StikSettings) -> Result<bool, String> {
+    allow_custom_notes_asset_scope(&app, &settings)?;
+    save_settings_without_app(settings)
 }
 
 #[cfg(target_os = "macos")]
@@ -569,10 +605,11 @@ pub fn export_theme_file(
 #[cfg(test)]
 mod tests {
     use super::{
-        default_system_shortcuts, normalize_loaded_settings, normalize_system_shortcuts,
-        parse_color_value, ShortcutMapping, StikSettings,
+        custom_notes_asset_root, default_system_shortcuts, normalize_loaded_settings,
+        normalize_system_shortcuts, parse_color_value, ShortcutMapping, StikSettings,
     };
     use std::collections::HashMap;
+    use std::path::PathBuf;
 
     #[test]
     fn a_cleared_system_shortcut_survives_normalization() {
@@ -646,6 +683,38 @@ mod tests {
         let settings = StikSettings::default();
         assert!(!settings.analytics_enabled);
         assert_eq!(settings.analytics_consent_version, 0);
+    }
+
+    #[test]
+    fn remote_images_are_blocked_by_default() {
+        let settings = StikSettings::default();
+        assert!(!settings.load_remote_images);
+    }
+
+    #[test]
+    fn custom_asset_scope_matches_the_selected_vault_layout() {
+        let mut settings = StikSettings::default();
+        settings.notes_directory = "/tmp/My Notes".to_string();
+
+        assert_eq!(
+            custom_notes_asset_root(&settings),
+            Some(PathBuf::from("/tmp/My Notes/Stik"))
+        );
+
+        settings.use_directory_as_root = true;
+        assert_eq!(
+            custom_notes_asset_root(&settings),
+            Some(PathBuf::from("/tmp/My Notes"))
+        );
+    }
+
+    #[test]
+    fn relative_or_empty_custom_directories_never_enter_the_asset_scope() {
+        let mut settings = StikSettings::default();
+        assert_eq!(custom_notes_asset_root(&settings), None);
+
+        settings.notes_directory = "relative/path".to_string();
+        assert_eq!(custom_notes_asset_root(&settings), None);
     }
 
     #[test]

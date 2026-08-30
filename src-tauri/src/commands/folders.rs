@@ -154,14 +154,14 @@ fn sync_settings_after_folder_delete(
 ) -> Result<(), String> {
     let mut settings = super::settings::get_settings()?;
     reconcile_settings_after_folder_delete(&mut settings, deleted_folder, fallback_folder);
-    let _ = super::settings::save_settings(settings)?;
+    let _ = super::settings::save_settings_without_app(settings)?;
     Ok(())
 }
 
 fn sync_settings_after_folder_rename(old_name: &str, new_name: &str) -> Result<(), String> {
     let mut settings = super::settings::get_settings()?;
     reconcile_settings_after_folder_rename(&mut settings, old_name, new_name);
-    let _ = super::settings::save_settings(settings)?;
+    let _ = super::settings::save_settings_without_app(settings)?;
     Ok(())
 }
 

@@ -269,6 +269,40 @@ export const stikEditorTheme = EditorView.theme({
     color: "rgb(var(--color-stone))",
     lineHeight: "1.4",
   },
+  ".cm-image-widget.cm-image-blocked": {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    minHeight: "48px",
+    border: "1px dashed rgb(var(--color-line))",
+    borderRadius: "6px",
+    padding: "8px 12px",
+    lineHeight: "1.4",
+  },
+  ".cm-image-blocked-text": {
+    flex: "1",
+    minWidth: "0",
+    fontSize: "12px",
+    color: "rgb(var(--color-stone))",
+  },
+  ".cm-image-load-once": {
+    flexShrink: "0",
+    border: "1px solid rgb(var(--color-line))",
+    borderRadius: "6px",
+    padding: "4px 8px",
+    backgroundColor: "rgb(var(--color-surface))",
+    color: "rgb(var(--color-ink))",
+    fontSize: "12px",
+    cursor: "pointer",
+  },
+  ".cm-image-load-once:hover": {
+    borderColor: "rgb(var(--color-coral))",
+    color: "rgb(var(--color-coral))",
+  },
+  ".cm-image-load-once:focus-visible": {
+    outline: "2px solid rgb(var(--color-coral))",
+    outlineOffset: "2px",
+  },
   // Fenced code block lines (live preview)
   ".cm-fenced-code": {
     backgroundColor: "var(--editor-code-bg)",

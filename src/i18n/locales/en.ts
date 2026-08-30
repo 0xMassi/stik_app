@@ -158,6 +158,10 @@ export const en = {
   "settings.analytics.yourDeviceId": "Your device ID",
   "settings.analytics.resetId": "Reset ID",
   "settings.analytics.idReset": "Analytics ID reset",
+  "settings.remoteImages.title": "Remote images",
+  "settings.remoteImages.describe":
+    "Allow notes to contact external image servers automatically. Keep this off to prevent tracking pixels and IP-address disclosure.",
+  "settings.remoteImages.toggle": "Load remote images automatically",
 
   // ── Settings — durations ──────────────────────────────────────────
   "duration.1minute": "1 minute",
@@ -316,6 +320,9 @@ export const en = {
   "lock.authFailed": "Authentication failed. Try again.",
   "lock.authPrompt": "Authenticate to view this note.",
   "image.failedToLoad": "Image failed to load",
+  "image.remoteBlocked": "Remote image from {domain} blocked for privacy",
+  "image.externalServer": "an external server",
+  "image.loadOnce": "Load once",
   "format.addLink": "Add link",
   "format.addLinkHint": "Add link (select text first)",
   "format.highlight": "Highlight",

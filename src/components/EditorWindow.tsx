@@ -11,14 +11,18 @@
  * settings.folder_colors / folder_icons. Pin-to-top is localStorage for now.
  */
 import { useState, useEffect, useRef, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { emit } from "@tauri-apps/api/event";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { emit, listen } from "@tauri-apps/api/event";
 import Editor, { type EditorRef } from "./Editor";
 import SettingsModal from "./SettingsModal";
 import ActionToast from "./ActionToast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { getFolderColor, FOLDER_COLORS, FOLDER_COLOR_KEYS } from "@/utils/folderColors";
+import {
+  resolveImagePaths,
+  unresolveImagePaths,
+} from "@/utils/imageMarkdownPaths";
 import type {
   NoteInfo,
   SearchResult,
@@ -118,6 +122,7 @@ export default function EditorWindow() {
   const [confirmFolderDelete, setConfirmFolderDelete] = useState<string | null>(null);
   const [folderColors, setFolderColors] = useState<Record<string, string>>({});
   const [folderIcons, setFolderIcons] = useState<Record<string, string>>({});
+  const [loadRemoteImages, setLoadRemoteImages] = useState(false);
 
   const [notes, setNotes] = useState<NoteInfo[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
@@ -159,14 +164,24 @@ export default function EditorWindow() {
       .then((s) => {
         setFolderColors(s.folder_colors || {});
         setFolderIcons(s.folder_icons || {});
+        setLoadRemoteImages(s.load_remote_images ?? false);
       })
       .catch(() => {});
+
+    const unlisten = listen<StikSettings>("settings-changed", (event) => {
+      setFolderColors(event.payload.folder_colors || {});
+      setFolderIcons(event.payload.folder_icons || {});
+      setLoadRemoteImages(event.payload.load_remote_images ?? false);
+    });
     try {
       setPinned(JSON.parse(localStorage.getItem(PINNED_KEY) || "[]"));
       setExpanded(JSON.parse(localStorage.getItem(EXPANDED_KEY) || "[]"));
     } catch {
       /* ignore */
     }
+    return () => {
+      unlisten.then((dispose) => dispose());
+    };
   }, [loadFolders]);
 
   const refreshNotes = useCallback(async (folder: string) => {
@@ -251,8 +266,10 @@ export default function EditorWindow() {
   const openNote = useCallback(async (path: string) => {
     try {
       const text = await invoke<string>("get_note_content", { path });
+      const separator = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+      const folderPath = separator >= 0 ? path.slice(0, separator) : "";
       setActivePath(path);
-      setContent(text);
+      setContent(resolveImagePaths(text, folderPath, convertFileSrc));
     } catch (e) {
       console.error("Failed to open note:", e);
     }
@@ -267,7 +284,10 @@ export default function EditorWindow() {
         saveTimer.current = null;
         setSaving(true);
         try {
-          await invoke("update_note", { path: activePath, content: next });
+          await invoke("update_note", {
+            path: activePath,
+            content: unresolveImagePaths(next),
+          });
           void refreshNotes(activeFolder);
         } catch (e) {
           console.error("Autosave failed:", e);
@@ -368,7 +388,10 @@ export default function EditorWindow() {
       try {
         const base = path === activePath ? content : await invoke<string>("get_note_content", { path });
         const updated = renameInContent(base, title);
-        await invoke("update_note", { path, content: updated });
+        await invoke("update_note", {
+          path,
+          content: unresolveImagePaths(updated),
+        });
         if (path === activePath) {
           setContent(updated);
           editorRef.current?.setContent(updated);
@@ -816,7 +839,7 @@ export default function EditorWindow() {
               <p className="text-xs">{t("trash.empty")}</p>
             </div>
           ) : activePath ? (
-            <Editor key={activePath} ref={editorRef} initialContent={content} onChange={handleChange} placeholder="Start writing…" showFormatToolbar />
+            <Editor key={activePath} ref={editorRef} initialContent={content} onChange={handleChange} placeholder="Start writing…" showFormatToolbar loadRemoteImages={loadRemoteImages} />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-stone">
               <p className="text-sm">{t("editor.selectOrCreate")}</p>
