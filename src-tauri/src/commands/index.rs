@@ -189,8 +189,12 @@ impl NoteIndex {
             let Some(search) = &indexed.search else {
                 continue;
             };
-            if search.normalized.contains(&query_lower) {
-                let snippet = extract_snippet(&search.original, query, 100);
+            // `contains` rejects misses faster than `find` in our release benchmarks.
+            if !search.normalized.contains(&query_lower) {
+                continue;
+            }
+            if let Some(pos) = search.normalized.find(&query_lower) {
+                let snippet = extract_snippet(&search.original, pos, query.len());
                 results.push((entry.clone(), snippet));
             }
         }
@@ -330,31 +334,19 @@ fn ceil_char_boundary(s: &str, pos: usize) -> usize {
     i
 }
 
-fn extract_snippet(content: &str, query: &str, max_len: usize) -> String {
-    let content_lower = content.to_lowercase();
-    let query_lower = query.to_lowercase();
+fn extract_snippet(content: &str, pos: usize, query_len: usize) -> String {
+    let start = ceil_char_boundary(content, pos.saturating_sub(30));
+    let end = floor_char_boundary(content, (pos + query_len + 50).min(content.len()));
 
-    if let Some(pos) = content_lower.find(&query_lower) {
-        let start = ceil_char_boundary(content, pos.saturating_sub(30));
-        let end = floor_char_boundary(content, (pos + query.len() + 50).min(content.len()));
-
-        let mut snippet = String::new();
-        if start > 0 {
-            snippet.push_str("...");
-        }
-        snippet.push_str(&content[start..end].replace('\n', " "));
-        if end < content.len() {
-            snippet.push_str("...");
-        }
-        snippet
-    } else {
-        let end = floor_char_boundary(content, max_len.min(content.len()));
-        let mut snippet = content[..end].replace('\n', " ");
-        if end < content.len() {
-            snippet.push_str("...");
-        }
-        snippet
+    let mut snippet = String::new();
+    if start > 0 {
+        snippet.push_str("...");
     }
+    snippet.push_str(&content[start..end].replace('\n', " "));
+    if end < content.len() {
+        snippet.push_str("...");
+    }
+    snippet
 }
 
 #[cfg(test)]
@@ -469,6 +461,99 @@ mod tests {
         assert!(indexed.entry.locked);
         assert!(indexed.search.is_none());
         let _ = fs::remove_dir_all(test_dir);
+    }
+
+    #[test]
+    fn search_returns_readable_context_around_the_first_case_insensitive_match() {
+        let test_dir = temp_test_dir("search-snippets");
+        let note_path = test_dir.join("note.md");
+        let index = NoteIndex::new();
+        for (content, query, expected) in [
+            (
+                "Needle\nnext line".into(),
+                "NEEDLE".into(),
+                "Needle next line".into(),
+            ),
+            (
+                format!("{}Needle\n{}", "a".repeat(40), "b".repeat(60)),
+                "needle".into(),
+                format!("...{}Needle {}...", "a".repeat(30), "b".repeat(49)),
+            ),
+            (
+                format!("{}needle", "a".repeat(40)),
+                "needle".into(),
+                format!("...{}needle", "a".repeat(30)),
+            ),
+            (
+                "🌱 Café\nÉQUIPE and more café".into(),
+                "CAFÉ".into(),
+                "🌱 Café ÉQUIPE and more café".into(),
+            ),
+            (
+                format!("{}needle{}", "🌱".repeat(10), "é".repeat(30)),
+                "needle".into(),
+                format!("...{}needle{}...", "🌱".repeat(7), "é".repeat(25)),
+            ),
+            (
+                format!("{}tail", "needle".repeat(20)),
+                "NEEDLE".repeat(20),
+                format!("{}tail", "needle".repeat(20)),
+            ),
+        ] {
+            fs::write(&note_path, content).unwrap();
+            index.add(note_path.to_str().unwrap(), "Inbox");
+
+            let results = index.search(&query, None).unwrap();
+            assert_eq!(results.len(), 1);
+            assert_eq!(results[0].1, expected, "query: {query}");
+        }
+        fs::remove_dir_all(test_dir).unwrap();
+    }
+
+    #[test]
+    fn search_filters_exact_folders_excludes_locked_notes_and_orders_newest_first() {
+        let test_dir = temp_test_dir("search-order");
+        let index = NoteIndex::new();
+        for (number, (name, folder, content)) in [
+            ("older", "Inbox", "A needle in an older note"),
+            ("newer", "Inbox", "A NEEDLE in a newer note"),
+            ("nested", "Inbox/Project", "A needle in a nested folder"),
+            ("other", "Archive", "A needle in another folder"),
+            (
+                "locked",
+                "Inbox",
+                "---stik-locked---\nnonce:needle\ndata:needle",
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let note_path = test_dir.join(format!("{name}.md"));
+            fs::write(&note_path, content).unwrap();
+            fs::File::open(&note_path)
+                .unwrap()
+                .set_times(fs::FileTimes::new().set_modified(
+                    UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000 + number as u64),
+                ))
+                .unwrap();
+            index.add(note_path.to_str().unwrap(), folder);
+        }
+
+        let filenames = |folder| {
+            index
+                .search("needle", folder)
+                .unwrap()
+                .into_iter()
+                .map(|(entry, _)| entry.filename)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            filenames(None),
+            ["other.md", "nested.md", "newer.md", "older.md"]
+        );
+        assert_eq!(filenames(Some("Inbox")), ["newer.md", "older.md"]);
+        assert!(filenames(Some("Missing")).is_empty());
+        fs::remove_dir_all(test_dir).unwrap();
     }
 
     #[test]
