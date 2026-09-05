@@ -735,7 +735,9 @@ pub fn run() {
 
             start_deferred_services(app.handle().clone(), startup_plan);
             if dev_session {
-                show_postit_with_folder(app.handle(), &settings.default_folder);
+                // The empty capture window auto-hides on blur, leaving native
+                // QA connectors without a window to address. Keep QA visible.
+                show_editor(app.handle());
             }
             eprintln!(
                 "[startup] capture-critical setup completed in {} ms",

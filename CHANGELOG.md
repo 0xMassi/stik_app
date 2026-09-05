@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Startup prioritizes shortcut/capture readiness and defers indexing, embeddings, updater, sync, and other services.
 - Window-specific surfaces and editor language support load lazily; CI enforces an entry-bundle budget.
 - macOS 14 (Sonoma) is now the minimum across the app bundle, DarwinKit, CI, documentation, and Homebrew.
-- npm is the sole JavaScript package manager; vulnerable `nanoid` and `quick-xml` dependency paths were upgraded.
+- Bun 1.4.1 is the sole JavaScript package manager; Node and Vitest remain the application tooling and test runner. Vulnerable dependency paths were upgraded.
 
 ### Fixed
 
@@ -32,10 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Note deletion is recoverable, and rename/create races can no longer silently overwrite another note.
 - Primary native-command failures now show actionable messages instead of disappearing into the console.
 - Rust tests no longer compile and run twice through duplicate library/binary module trees.
+- Pending editor drafts are saved before switching notes, file actions, closing the editor, or orderly app quit; failed saves keep the draft visible.
+- Editing a temporarily blank note no longer sends it to Trash, and concurrent writes and same-name moves cannot overwrite one another's temporary files or destination notes.
+- Locked viewing notes retain encrypted storage when edited; pinning a decrypted copy now requires explicitly unlocking the note first.
+- Folder renames update descendant settings and search paths immediately, and deleted notes stay out of search when filesystem events arrive.
 
 ### Developer experience
 
-- CI now blocks on frontend, Rust, and Swift tests, strict formatting/Clippy, bundle/platform checks, and npm/Cargo security audits.
+- CI now blocks on frontend, Rust, and Swift tests, strict formatting/Clippy, bundle/platform checks, and Bun/Cargo security audits. Beta and stable draft builds reuse these gates.
+- Beta tags identify the built revision; Homebrew and landing-page updates wait for stable release publication.
 - Dependabot now covers npm, Cargo, Swift, and GitHub Actions; release automation emits current Homebrew cask syntax.
 - Added a stable release checklist covering data recovery, privacy, accessibility, performance, signing, notarization, updater, and Homebrew verification.
 
