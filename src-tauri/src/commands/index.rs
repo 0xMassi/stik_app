@@ -10,6 +10,10 @@ use super::folders::get_stik_folder;
 
 const PREVIEW_LENGTH: usize = 150;
 
+#[cfg(test)]
+#[path = "index_benchmarks.rs"]
+mod benchmarks;
+
 #[derive(Debug, Clone)]
 pub struct NoteEntry {
     pub path: String,
