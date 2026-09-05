@@ -106,6 +106,8 @@ The debug-only profile pins the notes root and disables normal global shortcuts,
 
 For native automation, select the running `src-tauri/target/<host-triple>/debug/bundle/macos/Stik Dev.app` by its full path. A bare hot-reload executable may not be discoverable by native automation. Do not double-click that bundle later without the launcher: the launcher supplies the isolated profile. The existing `build` mode remains the ordinary unsigned local build and does not launch it.
 
+If native automation cannot read the app or times out, report UI QA as unverified and perform the flow manually; a successful build, startup log, or backend test does not establish UI correctness.
+
 Representative manual flow: type a distinctive note in capture, save/close, find it through Browse Notes, open and edit it, reopen to confirm persistence, then trash/restore the disposable note. Check capture, sticked, and viewing windows when shared editor behavior changes. Verify the Markdown file under the printed profile and inspect logs; a rendered window alone is not acceptance.
 
 ### Debugging and common failures
