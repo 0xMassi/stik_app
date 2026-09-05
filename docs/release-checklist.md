@@ -45,6 +45,7 @@ cargo deny --manifest-path src-tauri/Cargo.toml check advisories
 Use a scratch notes directory. Stable and beta builds can share settings, so never point a test build at irreplaceable data.
 
 - [ ] Create, edit, rename, move, and delete notes in local, nested, and custom folders.
+- [ ] Type and immediately close the editor, use Cmd+Q/application-menu Quit, tray Quit, Dock Quit, and log out of a disposable macOS account. Confirm the final draft survives each supported orderly shutdown; a pending-save failure must keep the app open. Dock Quit/logout need separate verification because the current native runtime can bypass Tauri's `ExitRequested` event.
 - [ ] Restore a note from Trash and confirm a name conflict never overwrites an existing note.
 - [ ] Paste and move image assets; confirm crafted `../`, absolute, and symlinked paths cannot escape the configured vault.
 - [ ] Edit a note from another app and confirm Stik refreshes without displaying a partial write.

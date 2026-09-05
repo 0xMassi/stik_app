@@ -36,11 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Editing a temporarily blank note no longer sends it to Trash, and concurrent writes and same-name moves cannot overwrite one another's temporary files or destination notes.
 - Locked viewing notes retain encrypted storage when edited; pinning a decrypted copy now requires explicitly unlocking the note first.
 - Folder renames update descendant settings and search paths immediately, and deleted notes stay out of search when filesystem events arrive.
+- Application-menu Quit and Cmd+Q now use the editor save handshake; a nonempty Trash no longer displays an empty-state message.
 
 ### Developer experience
 
 - CI now blocks on frontend, Rust, and Swift tests, strict formatting/Clippy, bundle/platform checks, and Bun/Cargo security audits. Beta and stable draft builds reuse these gates.
 - Beta tags identify the built revision; Homebrew and landing-page updates wait for stable release publication.
+- Stable distribution rejects missing/empty architecture assets, failed checksums, and failed landing-page webhooks. Native development bundles refuse to launch without an isolated profile.
 - Dependabot now covers npm, Cargo, Swift, and GitHub Actions; release automation emits current Homebrew cask syntax.
 - Added a stable release checklist covering data recovery, privacy, accessibility, performance, signing, notarization, updater, and Homebrew verification.
 

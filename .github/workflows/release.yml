@@ -201,13 +201,25 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
 
           # Only published assets may become Homebrew download targets.
           GH_TOKEN="$GITHUB_TOKEN" gh release download "$GITHUB_REF_NAME" \
             --pattern "*.dmg" --dir "$RUNNER_TEMP"
+          for ARCH in aarch64 x64; do
+            ASSET="$RUNNER_TEMP/Stik_${VERSION}_${ARCH}.dmg"
+            if [ ! -s "$ASSET" ]; then
+              echo "::error::Required release asset is missing or empty: $ASSET"
+              exit 1
+            fi
+          done
           SHA_ARM=$(shasum -a 256 "$RUNNER_TEMP/Stik_${VERSION}_aarch64.dmg" | cut -d' ' -f1)
           SHA_INTEL=$(shasum -a 256 "$RUNNER_TEMP/Stik_${VERSION}_x64.dmg" | cut -d' ' -f1)
+          if [[ ! "$SHA_ARM" =~ ^[[:xdigit:]]{64}$ || ! "$SHA_INTEL" =~ ^[[:xdigit:]]{64}$ ]]; then
+            echo "::error::Release asset checksums must be valid SHA-256 values"
+            exit 1
+          fi
 
           # Generate updated cask formula
           cat > "$RUNNER_TEMP/stik.rb" <<CASKEOF
@@ -253,4 +265,4 @@ jobs:
         if: success()
         env:
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: curl -s -X POST "$VERCEL_DEPLOY_HOOK"
+        run: curl --fail --silent --show-error --max-time 30 -X POST "$VERCEL_DEPLOY_HOOK"
