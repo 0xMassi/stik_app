@@ -38,6 +38,7 @@ import { formatShortcutDisplay } from "./ShortcutRecorder";
 import { loadGoogleFont, loadCustomFont } from "@/utils/fonts";
 import SyncIndicator from "./SyncIndicator";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useAppQuit } from "@/hooks/useAppQuit";
 
 interface PostItProps {
   folder: string;
@@ -116,6 +117,7 @@ export default function PostIt({
   const [showPicker, setShowPicker] = useState(false);
   const [suggestedFolder, setSuggestedFolder] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveComplete, setSaveComplete] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [copyMode, setCopyMode] = useState<CopyMode | null>(null);
@@ -167,6 +169,13 @@ export default function PostIt({
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
   const foldersRef = useRef<string[]>([]);
   const contentRef = useRef(content);
+  const pendingSaveRef = useRef<Promise<string | undefined> | null>(null);
+  const closeSaveRef = useRef<Promise<void> | null>(null);
+  const lastSavedContentRef = useRef(initialContent);
+  const savedDraftPathRef = useRef<string | undefined>(undefined);
+  const pinnedClosedRef = useRef(false);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cursorSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingCursorRef = useRef<{ head: number; anchor: number } | null>(
     null,
@@ -436,6 +445,7 @@ export default function PostIt({
     });
     editorRef.current?.clear();
     contentRef.current = "";
+    savedDraftPathRef.current = undefined;
   }, [isSticked, onContentChange]);
 
   // New shortcut-triggered capture session: reset transient slash/folder-picker state.
@@ -543,58 +553,124 @@ export default function PostIt({
     return contentRef.current;
   }, []);
 
+  const clearCapture = useCallback(() => {
+    savedDraftPathRef.current = undefined;
+    setContent("");
+    contentRef.current = "";
+    onContentChange?.("");
+    setShowPicker(false);
+    editorRef.current?.clear();
+  }, [onContentChange]);
+
+  // All save callers share one operation. If content changes while IPC is in
+  // flight (for example dictation), drain the newer text before acknowledging.
+  const persistDraft = useCallback((): Promise<string | undefined> => {
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    if (pendingSaveRef.current) return pendingSaveRef.current;
+    pendingSaveRef.current = (async () => {
+      let savedPath: string | undefined;
+      while (true) {
+        const currentContent = getLiveContent();
+        const updatePath = originalPath || savedDraftPathRef.current;
+        if (isSticked && isPinned && currentStickedId && !pinnedClosedRef.current) {
+          await invoke("update_sticked_note", {
+            id: currentStickedId, content: currentContent,
+            folder: null, position: null, size: null,
+          });
+        } else if (updatePath) {
+          if (currentContent !== lastSavedContentRef.current) {
+            const locked = await invoke<boolean>("is_note_locked", { path: updatePath });
+            if (locked) {
+              await invoke("save_locked_note", { path: updatePath, content: currentContent });
+            } else {
+              await invoke("update_note", { path: updatePath, content: currentContent, preserveEmpty: true });
+            }
+          }
+          savedPath = updatePath;
+        } else {
+          if (isMarkdownEffectivelyEmpty(currentContent) || (!isSticked && isCaptureSlashQuery(currentContent))) return savedPath;
+          const targetFolder = await resolveFolderForAction();
+          const path = await onSave(currentContent, targetFolder);
+          savedPath = typeof path === "string" ? path : undefined;
+          // Keep the created file across pending input and failed retries;
+          // subsequent snapshots update it instead of creating duplicate notes.
+          savedDraftPathRef.current = savedPath;
+        }
+        lastSavedContentRef.current = currentContent;
+        if (getLiveContent() === currentContent) {
+          // A successful capture is consumed even if another window cancels
+          // app quit. Never clear text that arrived during the pending save.
+          if (!isSticked) clearCapture();
+          return savedPath;
+        }
+      }
+    })().finally(() => { pendingSaveRef.current = null; });
+    return pendingSaveRef.current;
+  }, [isSticked, isPinned, currentStickedId, isViewing, originalPath, getLiveContent, resolveFolderForAction, onSave, clearCapture]);
+
+  useAppQuit(async () => {
+    if ((window as unknown as { __stikDictationHoldOpen?: boolean }).__stikDictationHoldOpen) {
+      throw new Error(t("postit.finishDictationBeforeQuit"));
+    }
+    if (closeSaveRef.current) await closeSaveRef.current;
+    await persistDraft();
+    if ((window as unknown as { __stikDictationHoldOpen?: boolean }).__stikDictationHoldOpen) {
+      throw new Error(t("postit.finishDictationBeforeQuit"));
+    }
+  }, (error) => setToast(errorMessage(error, t("postit.saveFailed"))));
+
+  useEffect(() => () => {
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+  }, []);
+
   const handleSaveAndClose = useCallback(async () => {
-    const currentContent = getLiveContent();
-    const isTransientSlashQuery =
-      !isSticked && isCaptureSlashQuery(currentContent);
-    if (isTransientSlashQuery || isMarkdownEffectivelyEmpty(currentContent)) {
-      flushSync(() => {
-        setContent("");
-        onContentChange?.("");
-        setShowPicker(false);
-      });
-      editorRef.current?.clear();
-      contentRef.current = "";
+    if (closeSaveRef.current || isSaving) return;
+    const idToClose = currentStickedId || stickedId;
+    if (isSticked && !idToClose) return;
+    const emptyCapture = !isSticked && (isMarkdownEffectivelyEmpty(getLiveContent()) || isCaptureSlashQuery(getLiveContent()));
+    if (emptyCapture) {
+      clearCapture();
       await onClose();
       return;
     }
-
-    try {
-      const targetFolder = await resolveFolderForAction();
-
-      setIsSaving(true);
-      const savedPath = await onSave(currentContent, targetFolder);
-
-      // Save cursor position under the note's file path so Cmd+Shift+L
-      // can restore it when reopening the note in viewing mode.
+    setIsSaving(true);
+    setSaveComplete(false);
+    closeSaveRef.current = (async () => {
+      let savedPath = await persistDraft();
+      if (isSticked && isPinned && currentStickedId && !pinnedClosedRef.current) {
+        savedPath = await invoke<string>("close_sticked_note", {
+          id: currentStickedId, saveToFolder: true,
+        });
+        pinnedClosedRef.current = true;
+        savedDraftPathRef.current = savedPath || undefined;
+      }
       if (savedPath && pendingCursorRef.current) {
         const { head, anchor } = pendingCursorRef.current;
-        invoke("save_cursor_position", { id: savedPath, head, anchor }).catch(
-          () => {},
-        );
+        invoke("save_cursor_position", { id: savedPath, head, anchor }).catch(() => {});
       }
-
-      setTimeout(async () => {
-        setIsSaving(false);
-        setContent("");
-        onContentChange?.("");
-        editorRef.current?.clear();
-        await onClose();
+    })();
+    try {
+      await closeSaveRef.current;
+      setSaveComplete(true);
+      closeTimerRef.current = setTimeout(async () => {
+        try {
+          if (isSticked) await invoke("close_sticked_window", { id: idToClose });
+          else await onClose();
+        } catch (error) {
+          setToast(errorMessage(error, t("postit.saveFailed")));
+        } finally {
+          setIsSaving(false);
+          setSaveComplete(false);
+        }
       }, 600);
     } catch (error) {
-      console.error("Failed to save note:", error);
       setIsSaving(false);
       setToast(errorMessage(error, t("postit.saveFailed")));
+    } finally {
+      closeSaveRef.current = null;
     }
-  }, [
-    isSticked,
-    onSave,
-    onClose,
-    onContentChange,
-    resolveFolderForAction,
-    getLiveContent,
-    t,
-  ]);
+  }, [isSaving, isSticked, isPinned, currentStickedId, stickedId, getLiveContent, clearCapture, onClose, persistDraft, t]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -643,18 +719,12 @@ export default function PostIt({
           isPinning,
         })
       ) {
-        if (isSticked && !isPinned) {
-          handleSaveAndCloseSticked();
-        } else {
-          handleSaveAndClose();
-        }
+        void handleSaveAndClose();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-    // Note: handleSaveAndCloseSticked is intentionally omitted — it reads live
-    // content from the editor view ref, so a stale closure still saves correctly.
   }, [
     showPicker,
     isSaving,
@@ -705,6 +775,7 @@ export default function PostIt({
     const shortcutStr = systemShortcuts.dictation ?? "Cmd+Shift+D";
     if (!shortcutStr) return;
     const handleDictation = (e: KeyboardEvent) => {
+      if (document.body.inert) return;
       if (!matchesShortcut(shortcutStr, e)) return;
 
       e.preventDefault();
@@ -720,10 +791,12 @@ export default function PostIt({
   // before focus transition completes) still land correctly.
   useEffect(() => {
     const unlisten = listen("start-dictation", () => {
+      if (document.body.inert) return;
       // Small delay to make sure the window is focused and the editor
       // has committed its mount before we toggle the mic — without it,
       // the cursor position captured by getInsertOrigin can be stale.
       window.setTimeout(() => {
+        if (document.body.inert) return;
         speechRef.current?.toggle();
       }, 80);
     });
@@ -913,15 +986,14 @@ export default function PostIt({
         content,
         folder: targetFolder,
       });
-      setContent("");
-      editorRef.current?.clear();
+      clearCapture();
     } catch (error) {
       console.error("Failed to pin note:", error);
       showToast(errorMessage(error, t("common.somethingWentWrong")));
     } finally {
       setIsPinning(false);
     }
-  }, [content, isPinning, resolveFolderForAction, showToast, t]);
+  }, [content, isPinning, resolveFolderForAction, showToast, clearCapture, t]);
 
   // Toggle pin state for sticked notes
   const handleTogglePin = useCallback(async () => {
@@ -990,78 +1062,6 @@ export default function PostIt({
       }
     }
   }, [currentStickedId, stickedId, isPinned, content, folder, isViewing, originalPath, showToast, t]);
-
-  // Save & Close sticked note (saves content to folder file)
-  // Read from contentRef — React state in the closure can be one render behind
-  // if the user typed and pressed Escape before React flushed.
-  const handleSaveAndCloseSticked = useCallback(async () => {
-    const idToClose = currentStickedId || stickedId;
-    if (!idToClose) return;
-
-    const currentContent = getLiveContent();
-
-    // Only show save animation if there's content
-    if (!isMarkdownEffectivelyEmpty(currentContent)) {
-      setIsSaving(true);
-      try {
-        let savedNotePath: string | undefined;
-
-        // If still pinned, close from sticked notes
-        if (isPinned && currentStickedId) {
-          savedNotePath = await invoke<string>("close_sticked_note", {
-            id: currentStickedId,
-            saveToFolder: true,
-          });
-        } else if (isViewing && originalPath) {
-          const locked = await invoke<boolean>("is_note_locked", { path: originalPath });
-          await invoke(locked ? "save_locked_note" : "update_note", {
-            path: originalPath,
-            content: currentContent,
-          });
-          savedNotePath = originalPath;
-        } else {
-          // If unpinned (not viewing), save as new file
-          const result = await invoke<{ path: string }>("save_note", {
-            folder,
-            content: currentContent,
-          });
-          savedNotePath = result.path;
-        }
-
-        // Save cursor position under the file path so Cmd+Shift+L restores it.
-        if (savedNotePath && pendingCursorRef.current) {
-          const { head, anchor } = pendingCursorRef.current;
-          invoke("save_cursor_position", {
-            id: savedNotePath,
-            head,
-            anchor,
-          }).catch(() => {});
-        }
-        // Wait for save animation before closing
-        setTimeout(async () => {
-          await invoke("close_sticked_window", { id: idToClose });
-        }, 600);
-      } catch (error) {
-        console.error("Failed to save and close sticked note:", error);
-        setIsSaving(false);
-        showToast(errorMessage(error, t("postit.saveFailed")));
-      }
-    } else {
-      // No content, just close without animation
-      try {
-        if (isPinned && currentStickedId) {
-          await invoke("close_sticked_note", {
-            id: currentStickedId,
-            saveToFolder: false,
-          });
-        }
-        await invoke("close_sticked_window", { id: idToClose });
-      } catch (error) {
-        console.error("Failed to close sticked note:", error);
-        showToast(errorMessage(error, t("common.somethingWentWrong")));
-      }
-    }
-  }, [stickedId, currentStickedId, isPinned, isViewing, originalPath, folder, getLiveContent, showToast, t]);
 
   // Close without saving
   const handleCloseWithoutSaving = useCallback(async () => {
@@ -1136,34 +1136,8 @@ export default function PostIt({
     editorRef.current?.focus();
   }, []);
 
-  const runVimSaveAndClose = useCallback(() => {
-    const currentContent = getLiveContent();
-    if (!isMarkdownEffectivelyEmpty(currentContent)) {
-      if (isSticked) {
-        void handleSaveAndCloseSticked();
-      } else {
-        void handleSaveAndClose();
-      }
-    } else if (isSticked) {
-      void handleCloseWithoutSaving();
-    } else {
-      void onClose();
-    }
-  }, [
-    isSticked,
-    handleSaveAndCloseSticked,
-    handleSaveAndClose,
-    handleCloseWithoutSaving,
-    onClose,
-    getLiveContent,
-  ]);
-
   const runVimDiscardAndClose = useCallback(() => {
-    setContent("");
-    contentRef.current = "";
-    onContentChange?.("");
-    setShowPicker(false);
-    editorRef.current?.clear();
+    clearCapture();
     editorRef.current?.setVimMode("normal");
     setVimCommand("");
     setVimCommandError("");
@@ -1173,7 +1147,7 @@ export default function PostIt({
     } else {
       void onClose();
     }
-  }, [isSticked, handleCloseWithoutSaving, onClose, onContentChange]);
+  }, [isSticked, handleCloseWithoutSaving, onClose, clearCapture]);
 
   const executeVimCommand = useCallback(
     (cmd: string) => {
@@ -1182,7 +1156,7 @@ export default function PostIt({
       switch (trimmed) {
         case "wq":
         case "x": // save and close
-          runVimSaveAndClose();
+          void handleSaveAndClose();
           break;
         case "q!": // discard and close (no save)
           runVimDiscardAndClose();
@@ -1195,7 +1169,7 @@ export default function PostIt({
       setVimCommand("");
       setVimCommandError("");
     },
-    [runVimSaveAndClose, runVimDiscardAndClose],
+    [handleSaveAndClose, runVimDiscardAndClose],
   );
 
   // Focus command input when command mode opens
@@ -1399,26 +1373,16 @@ export default function PostIt({
     };
   }, [isSticked]);
 
-  // Autosave content for pinned sticked notes (prevents content loss on quit)
+  // Pinned autosave shares the serialized write used by explicit save and quit.
   useEffect(() => {
-    if (!isSticked || !currentStickedId || !isPinned) return;
+    if (!isSticked || !currentStickedId || !isPinned || isSaving || pinnedClosedRef.current) return;
 
-    const timer = setTimeout(async () => {
-      try {
-        await invoke("update_sticked_note", {
-          id: currentStickedId,
-          content,
-          folder: null,
-          position: null,
-          size: null,
-        });
-      } catch (error) {
-        console.error("Failed to autosave content:", error);
-      }
+    autosaveTimerRef.current = setTimeout(() => {
+      void persistDraft().catch((error) => setToast(errorMessage(error, t("postit.saveFailed"))));
     }, 1000);
 
-    return () => clearTimeout(timer);
-  }, [isSticked, currentStickedId, isPinned, content]);
+    return () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); };
+  }, [isSticked, currentStickedId, isPinned, content, isSaving, persistDraft, t]);
 
   // Folder suggestion (capture mode only, debounced 1.5s)
   useEffect(() => {
@@ -1513,10 +1477,10 @@ export default function PostIt({
     [folder],
   );
 
-  // Show save animation
-  if (isSaving) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-bg rounded-[14px]">
+  // Keep the editor mounted so a failed write retains its document and undo
+  // history. Only announce Saved after durable storage has acknowledged it.
+  const savedOverlay = saveComplete ? (
+      <div className="fixed inset-0 z-[240] flex items-center justify-center bg-bg rounded-[14px]" role="status">
         <div className="flex flex-col items-center gap-3">
           <svg
             className="save-checkmark text-coral"
@@ -1546,12 +1510,14 @@ export default function PostIt({
           <p className="save-text text-coral font-semibold text-sm">{t("common.saved")}</p>
         </div>
       </div>
-    );
-  }
+    ) : null;
 
   return (
     <>
+      {savedOverlay}
       <div
+        inert={isSaving}
+        aria-busy={isSaving}
         className={`w-full h-full rounded-[14px] overflow-hidden flex flex-col ${
           isSticked && isPinned ? "sticked-note" : ""
         } ${zenMode ? "zen-mode" : ""}`}
@@ -1835,7 +1801,7 @@ export default function PostIt({
                       {t("common.close")}
                     </button>
                     <button
-                      onClick={handleSaveAndCloseSticked}
+                      onClick={handleSaveAndClose}
                       disabled={!hasMeaningfulContent}
                       className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
                         hasMeaningfulContent
@@ -1853,7 +1819,7 @@ export default function PostIt({
                   </div>
                 ) : isSticked ? (
                   <button
-                    onClick={handleSaveAndCloseSticked}
+                    onClick={handleSaveAndClose}
                     className="px-2.5 py-1.5 bg-coral-light text-coral rounded-lg text-[10px] font-semibold hover:bg-coral hover:text-white transition-colors cursor-pointer"
                     title={t("postit.saveAndClose")}
                   >
@@ -1903,7 +1869,7 @@ export default function PostIt({
               textDirection={textDirection}
               loadRemoteImages={loadRemoteImages}
               onVimModeChange={setVimMode}
-              onVimSaveAndClose={runVimSaveAndClose}
+              onVimSaveAndClose={handleSaveAndClose}
               onVimCloseWithoutSaving={runVimDiscardAndClose}
               onImagePaste={handleImagePaste}
               onImageDropPath={handleImageDropPath}

@@ -7,7 +7,8 @@ import EditorWindow from "./EditorWindow";
 const native = vi.hoisted(() => ({
   closeHandler: undefined as undefined | ((event: { preventDefault: () => void }) => void | Promise<void>),
   closed: false,
-  quitHandler: undefined as undefined | (() => void | Promise<void>),
+  quitHandler: undefined as undefined | ((event: { payload: { id: number } }) => void | Promise<void>),
+  cancelQuitHandler: undefined as undefined | ((event: { payload: { id: number } }) => void),
   quitApproved: false,
 }));
 
@@ -20,8 +21,12 @@ async function requestClose() {
 vi.mock("@tauri-apps/api/core", () => ({ convertFileSrc: (path: string) => path, invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(async (name, handler) => {
-    if (name === "editor-quit-requested") native.quitHandler = handler;
-    return () => { if (name === "editor-quit-requested") native.quitHandler = undefined; };
+    if (name === "app-quit-requested") native.quitHandler = handler;
+    if (name === "app-quit-cancelled") native.cancelQuitHandler = handler;
+    return () => {
+      if (name === "app-quit-requested") native.quitHandler = undefined;
+      if (name === "app-quit-cancelled") native.cancelQuitHandler = undefined;
+    };
   }),
   emit: vi.fn().mockResolvedValue(undefined),
 }));
@@ -62,8 +67,10 @@ beforeEach(() => {
   native.quitHandler = undefined;
   native.closeHandler = undefined;
   vi.mocked(invoke).mockReset().mockImplementation(async (command, args) => {
-    if (command === "complete_editor_quit") {
-      native.quitApproved = (args as { saved: boolean }).saved;
+    if (command === "complete_app_quit") {
+      const { id, saved } = args as { id: number; saved: boolean };
+      native.quitApproved = saved;
+      if (!saved) native.cancelQuitHandler?.({ payload: { id } });
       return null;
     }
     if (command === "list_folders") return ["Inbox", "Other"];
@@ -146,13 +153,13 @@ describe("full editor persistence", () => {
   });
 
   it("flushes before approving app quit and prevents further editing until exit", async () => {
-    const { container } = render(<EditorWindow />);
+    render(<EditorWindow />);
     await open("Alpha");
     edit("Before quitting");
-    await act(async () => { await native.quitHandler?.(); });
+    await act(async () => { await native.quitHandler?.({ payload: { id: 1 } }); });
     expect(files.get(alpha)).toBe("Before quitting");
     expect(native.quitApproved).toBe(true);
-    expect(container.firstElementChild).toHaveAttribute("inert");
+    expect(document.body.inert).toBe(true);
   });
 
   it("rejects app quit on save failure and keeps the draft editable", async () => {
@@ -160,11 +167,12 @@ describe("full editor persistence", () => {
     await open("Alpha");
     edit("Keep this draft");
     failSaves = true;
-    await act(async () => { await native.quitHandler?.(); });
-    expect(vi.mocked(invoke)).toHaveBeenCalledWith("complete_editor_quit", { saved: false });
+    await act(async () => { await native.quitHandler?.({ payload: { id: 1 } }); });
+    expect(vi.mocked(invoke)).toHaveBeenCalledWith("complete_app_quit", { id: 1, saved: false });
     expect(native.quitApproved).toBe(false);
     expect(documentText()).toContain("Keep this draft");
     expect(container.firstElementChild).not.toHaveAttribute("inert");
+    expect(document.body.inert).toBe(false);
   });
 
   it("keeps the note and window open when saving fails, then retries on close", async () => {

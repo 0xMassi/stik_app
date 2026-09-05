@@ -5,6 +5,7 @@ use crate::commands::{
     file_watcher, folders, git_share, health, icloud, index, macos_notify, note_lock, notes,
     on_this_day, settings, share, stats, sticked_notes, storage, trash,
 };
+use crate::quit;
 use crate::shortcuts::{self, shortcut_to_string};
 use crate::state::AppState;
 use crate::tray;
@@ -624,7 +625,8 @@ pub fn run() {
             windows::open_manager,
             windows::open_settings,
             windows::open_editor,
-            tray::complete_editor_quit,
+            quit::register_quit_participant,
+            quit::complete_app_quit,
             windows::transfer_to_capture,
             windows::reopen_last_note,
             shortcuts::reload_shortcuts,
@@ -713,6 +715,8 @@ pub fn run() {
             }
 
             tray::setup_tray(app)?;
+            #[cfg(target_os = "macos")]
+            quit::install(app.handle())?;
 
             // Apply tray icon visibility from settings
             if settings.hide_tray_icon {
@@ -761,9 +765,17 @@ pub fn run() {
         })
         .run(|app, event| {
             if let RunEvent::ExitRequested { api, .. } = &event {
-                if tray::defer_exit_for_editor(app) {
+                if quit::defer_exit(app) {
                     api.prevent_exit();
                 }
+            }
+            if let RunEvent::WindowEvent {
+                label,
+                event: tauri::WindowEvent::Destroyed,
+                ..
+            } = &event
+            {
+                quit::window_destroyed(app, label);
             }
             if let RunEvent::Opened { urls } = event {
                 let paths = urls

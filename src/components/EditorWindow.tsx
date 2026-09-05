@@ -19,6 +19,7 @@ import SettingsModal from "./SettingsModal";
 import ActionToast from "./ActionToast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useAppQuit } from "@/hooks/useAppQuit";
 import { getFolderColor, FOLDER_COLORS, FOLDER_COLOR_KEYS } from "@/utils/folderColors";
 import {
   resolveImagePaths,
@@ -153,7 +154,6 @@ export default function EditorWindow() {
   const editorRef = useRef<EditorRef | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mutationInProgress = useRef(false);
-  const quitting = useRef(false);
   const rowMenuRef = useRef<HTMLDivElement | null>(null);
   const saveTimer = useRef<number | null>(null);
   const searchRequestGate = useRef(createLatestRequestGate());
@@ -243,10 +243,8 @@ export default function EditorWindow() {
       return true;
     } finally {
       mutationInProgress.current = false;
-      if (!quitting.current) {
-        setBusy(false);
-        if (rootRef.current) rootRef.current.inert = false;
-      }
+      setBusy(false);
+      if (rootRef.current) rootRef.current.inert = false;
     }
   }, [flushSave]);
 
@@ -265,26 +263,9 @@ export default function EditorWindow() {
     };
   }, [withSavedNote, t]);
 
-  useEffect(() => {
-    const unlisten = listen("editor-quit-requested", async () => {
-      if (quitting.current) return;
-      try {
-        const handled = await withSavedNote(async () => {
-          quitting.current = true;
-          try { await invoke("complete_editor_quit", { saved: true }); }
-          catch (error) { quitting.current = false; throw error; }
-        });
-        if (!handled) {
-          setToast(t("common.saving"));
-          await invoke("complete_editor_quit", { saved: false });
-        }
-      } catch (error) {
-        setToast(errorMessage(error, t("postit.saveFailed")));
-        await invoke("complete_editor_quit", { saved: false }).catch(console.error);
-      }
-    });
-    return () => { unlisten.then((dispose) => dispose()); };
-  }, [withSavedNote, t]);
+  useAppQuit(async () => {
+    if (!await withSavedNote(async () => {})) throw new Error(t("common.saving"));
+  }, (error) => setToast(errorMessage(error, t("postit.saveFailed"))));
 
   useEffect(() => {
     return () => {

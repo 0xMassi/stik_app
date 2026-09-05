@@ -1,5 +1,6 @@
 mod app;
 mod commands;
+mod quit;
 mod shortcuts;
 pub mod state;
 mod tray;

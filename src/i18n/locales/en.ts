@@ -390,6 +390,7 @@ export const en = {
   "postit.hideFormatButtons": "Hide format buttons",
   "postit.showFormatButtons": "Show format buttons",
   "postit.saveFailed": "Failed to save note",
+  "postit.finishDictationBeforeQuit": "Finish dictation or close its setup before quitting.",
   "postit.nothingToCopy": "Nothing to copy",
   "postit.copiedRichText": "Copied as rich text",
   "postit.copiedMarkdown": "Copied as markdown",

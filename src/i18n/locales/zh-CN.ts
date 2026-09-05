@@ -391,6 +391,7 @@ export const zhCN: Translations = {
   "postit.hideFormatButtons": "隐藏格式按钮",
   "postit.showFormatButtons": "显示格式按钮",
   "postit.saveFailed": "保存笔记失败",
+  "postit.finishDictationBeforeQuit": "请先完成听写或关闭听写设置，然后再退出。",
   "postit.nothingToCopy": "没有可复制的内容",
   "postit.copiedRichText": "已复制为富文本",
   "postit.copiedMarkdown": "已复制为 Markdown",
