@@ -50,7 +50,9 @@ jobs:
 
   swift:
     name: Swift
-    runs-on: macos-14
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

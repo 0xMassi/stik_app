@@ -15,7 +15,7 @@ Stik is a **macOS-only** app. You need a Mac to develop and test.
 | Tool | Version | Install |
 |------|---------|---------|
 | macOS | 14+ | -- |
-| Xcode CLT | Latest | `xcode-select --install` |
+| Xcode | 26+ (Swift 6.2+) | Select a compatible Xcode with `xcode-select` or `DEVELOPER_DIR`; the build host must support that Xcode. |
 | Rust | Stable | [rustup.rs](https://rustup.rs/) |
 | Protobuf compiler | `protoc` on PATH | `brew install protobuf` |
 | Node.js | 20+ | [nodejs.org](https://nodejs.org/) |
@@ -41,7 +41,7 @@ cd stik_app
 
 > **Note:** The DarwinKit sidecar (Swift NLP) lives at `src-tauri/darwinkit/` as a git submodule. If you cloned without `--recurse-submodules`, run `git submodule update --init`.
 
-`setup` initializes that submodule automatically. `doctor` checks prerequisites without installing anything. Install Rust's checks with `rustup component add clippy rustfmt` if needed. Xcode must provide a working Swift/macOS SDK; no signing certificate, runtime login, or API key is needed for local QA.
+`setup` initializes that submodule automatically. `doctor` checks prerequisites without installing anything. Install Rust's checks with `rustup component add clippy rustfmt` if needed. Xcode must provide Swift 6.2+ and a working macOS SDK; no signing certificate, runtime login, or API key is needed for local QA. Swift CI/build jobs pin Xcode 26.3 on macOS 15; Rust CI still runs on the app's macOS 14 minimum.
 
 Bun 1.4.1 and `bun.lock` are the canonical JavaScript dependency source. The version is pinned in `.bun-version` and `package.json`; CI reads `.bun-version`. Do not commit npm, Yarn, pnpm, or legacy `bun.lockb` lockfiles.
 

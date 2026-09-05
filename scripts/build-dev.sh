@@ -136,6 +136,15 @@ main() {
   require_command rustc "Install Rust with rustup."
   require_command cargo "Install Rust with rustup."
   require_command swift "Install the Xcode command-line tools."
+  node --input-type=module -e '
+    import {execFileSync} from "node:child_process";
+    const version = execFileSync("swift", ["--version"], {encoding:"utf8"});
+    const match = version.match(/Swift version (\d+)\.(\d+)/);
+    if (!match || Number(match[1]) < 6 || (Number(match[1]) === 6 && Number(match[2]) < 2)) {
+      console.error("Swift 6.2+ is required by DarwinKit dependencies. Select Xcode 26+ using xcode-select or DEVELOPER_DIR.");
+      process.exit(1);
+    }
+  '
   require_command protoc "Install protobuf with: brew install protobuf"
   require_command git "Install the Xcode command-line tools."
   cargo clippy --version >/dev/null || fail "Install Clippy: rustup component add clippy"

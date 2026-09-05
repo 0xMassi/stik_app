@@ -53,18 +53,21 @@ await Promise.all([
   ),
   requireText(
     ".github/workflows/release.yml",
-    expectedRunner,
+    "runs-on: macos-15",
     "the release runner",
   ),
   requireText(
     ".github/workflows/beta.yml",
-    expectedRunner,
+    "runs-on: macos-15",
     "the beta runner",
   ),
   ...["beta", "release"].flatMap((workflow) => [
     requireText(`.github/workflows/${workflow}.yml`, "uses: ./.github/workflows/ci.yml", "the shared quality gates"),
     requireText(`.github/workflows/${workflow}.yml`, "needs: checks", "verification before publication"),
   ]),
+  ...["ci", "beta", "release"].map((workflow) =>
+    requireText(`.github/workflows/${workflow}.yml`, "DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer", "a compatible pinned Swift build toolchain"),
+  ),
   requireText(".github/workflows/beta.yml", '--target "$GITHUB_SHA"', "the exact beta build revision"),
   requireText(".github/workflows/release.yml", "if: github.event_name == 'release' && !github.event.release.prerelease", "published stable assets before distribution updates"),
 ]);
