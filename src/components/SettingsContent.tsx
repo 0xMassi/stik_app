@@ -2173,7 +2173,6 @@ export default function SettingsContent({
                 <button
                   type="button"
                   onClick={async () => {
-                    const { invoke } = await import("@tauri-apps/api/core");
                     try {
                       const result = await invoke<{
                         files_copied: number;

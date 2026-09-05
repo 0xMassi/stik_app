@@ -456,9 +456,6 @@ export default function App() {
           </div>
           <button
             onClick={async () => {
-              const { getCurrentWindow } = await import(
-                "@tauri-apps/api/window"
-              );
               await getCurrentWindow().close();
             }}
             className="mt-2 px-4 py-2 text-xs bg-line hover:bg-line/70 text-ink rounded-lg transition-colors"

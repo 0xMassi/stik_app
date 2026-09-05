@@ -1,8 +1,5 @@
 /**
  * CodeMirror 6 editor for Stik — raw markdown editing with syntax highlighting.
- *
- * Same EditorRef/EditorProps interface as the old TipTap editor so PostIt.tsx
- * can swap in with minimal changes.
  */
 
 import {
@@ -68,7 +65,6 @@ import {
   shouldShowCmdLinkCursor,
 } from "@/utils/externalLinkHitTest";
 import { markdownToHtml, markdownToPlainText } from "@/utils/markdownToHtml";
-import { createVimCommandCallbacks } from "@/utils/vimCommandBridge";
 import { hasNamedFencedCodeBlock } from "@/utils/fencedCodeLanguage";
 import FormattingToolbar from "@/components/FormattingToolbar";
 import LinkPopover from "@/components/LinkPopover";
@@ -634,20 +630,13 @@ const Editor = forwardRef<EditorRef, EditorProps>(
       // Setup vim mode listener after view is created
       if (vimEnabled) {
         setupVimModeListener(view, (mode) => {
-          if (mode === "normal") {
-            // Check if the vim status shows ":" command
-            // The vim plugin handles command mode internally
-          }
           onVimModeChangeRef.current?.(mode);
         });
 
-        registerVimCommands(
-          createVimCommandCallbacks({
-            onSaveAndClose: () => onVimSaveAndCloseRef.current?.(),
-            onCloseWithoutSaving: () => onVimCloseWithoutSavingRef.current?.(),
-            onModeChange: (mode: VimMode) => onVimModeChangeRef.current?.(mode),
-          })
-        );
+        registerVimCommands({
+          onSaveAndClose: () => onVimSaveAndCloseRef.current?.(),
+          onCloseWithoutSaving: () => onVimCloseWithoutSavingRef.current?.(),
+        });
       }
 
       return () => {

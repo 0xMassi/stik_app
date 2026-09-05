@@ -45,31 +45,22 @@ export function setupVimModeListener(
   });
 }
 
-/** Register :wq, :x, :q! commands */
+/** Register :wq, :x, :q, and :q! commands. */
 export function registerVimCommands(callbacks: {
   onSaveAndClose: () => void;
   onCloseWithoutSaving: () => void;
-  onCommandMode: () => void;
 }) {
   // :wq — save and close
-  Vim.defineEx("wq", "wq", () => {
-    callbacks.onSaveAndClose();
-  });
+  Vim.defineEx("wq", "wq", callbacks.onSaveAndClose);
 
   // :x — same as :wq
-  Vim.defineEx("x", "x", () => {
-    callbacks.onSaveAndClose();
-  });
+  Vim.defineEx("x", "x", callbacks.onSaveAndClose);
 
   // :q! — close without saving
-  Vim.defineEx("q!", "q!", () => {
-    callbacks.onCloseWithoutSaving();
-  });
+  Vim.defineEx("q!", "q!", callbacks.onCloseWithoutSaving);
 
   // :q — close (same as :q! for simplicity, since we auto-save)
-  Vim.defineEx("q", "q", () => {
-    callbacks.onCloseWithoutSaving();
-  });
+  Vim.defineEx("q", "q", callbacks.onCloseWithoutSaving);
 }
 
 const VIM_ARROW_KEYMAP: Record<string, string> = {

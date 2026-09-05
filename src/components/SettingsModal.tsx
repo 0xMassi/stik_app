@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import SettingsContent from "./SettingsContent";
 import SettingsFooterLinks from "./SettingsFooterLinks";
 import type { SettingsTab } from "./SettingsContent";
@@ -461,7 +462,6 @@ export default function SettingsModal({
     }
     await saveQueueRef.current.flush();
     if (isWindow) {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().close();
     } else {
       onClose();
