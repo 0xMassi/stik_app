@@ -55,7 +55,46 @@ pub fn complete_editor_quit(
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
+fn install_orderly_quit_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri::menu::PredefinedMenuItem;
+
+    // Native Quit invokes NSApplication terminate: directly, bypassing
+    // ExitRequested. Keep the native menu but route Cmd+Q through app.exit.
+    let menu = app.menu().ok_or("Application menu is unavailable")?;
+    let quit_text = PredefinedMenuItem::quit(app, None)?.text()?;
+    for item in menu.items()? {
+        if let Some(submenu) = item.as_submenu() {
+            for (position, item) in submenu.items()?.iter().enumerate() {
+                if let Some(native) = item.as_predefined_menuitem() {
+                    if native.text()? == quit_text {
+                        let quit = MenuItem::with_id(
+                            app,
+                            "stik-orderly-quit",
+                            &quit_text,
+                            true,
+                            Some("Cmd+Q"),
+                        )?;
+                        submenu.remove(native)?;
+                        submenu.insert(&quit, position)?;
+                        app.on_menu_event(|app, event| {
+                            if event.id.as_ref() == "stik-orderly-quit" {
+                                app.exit(0);
+                            }
+                        });
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    }
+    Err("Cannot replace native Quit with safe editor shutdown".into())
+}
+
 pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(target_os = "macos")]
+    install_orderly_quit_menu(app)?;
+
     let streak_days = stats::calculate_and_persist_capture_streak().unwrap_or_else(|e| {
         eprintln!("Failed to compute capture streak: {}", e);
         0

@@ -458,6 +458,13 @@ fn start_deferred_services(app: AppHandle, plan: StartupPlan) {
     });
 }
 
+fn validate_dev_launch(identifier: &str, dev_session: bool) -> Result<(), &'static str> {
+    if identifier == "com.stik.dev" && !dev_session {
+        return Err("Stik Dev requires STIK_DEV_ROOT; launch with scripts/build-dev.sh qa or dev");
+    }
+    Ok(())
+}
+
 pub fn run() {
     if let Err(error) = crate::commands::paths::dev_root() {
         eprintln!("Cannot start isolated development session: {error}");
@@ -678,6 +685,7 @@ pub fn run() {
         .setup(|app| {
             let setup_started = std::time::Instant::now();
             let dev_session = crate::commands::paths::dev_root()?.is_some();
+            validate_dev_launch(&app.config().identifier, dev_session)?;
             let settings = if dev_session {
                 settings::get_settings()?
             } else {
@@ -770,8 +778,15 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{folder_for_opened_note, StartupPlan};
+    use super::{folder_for_opened_note, validate_dev_launch, StartupPlan};
     use std::path::Path;
+
+    #[test]
+    fn dev_bundle_refuses_to_start_without_an_isolated_profile() {
+        assert!(validate_dev_launch("com.stik.dev", false).is_err());
+        assert!(validate_dev_launch("com.stik.dev", true).is_ok());
+        assert!(validate_dev_launch("com.0xmassi.stik", false).is_ok());
+    }
 
     #[test]
     fn file_in_stik_subfolder_returns_folder_name() {

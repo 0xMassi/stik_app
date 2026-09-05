@@ -1039,7 +1039,7 @@ export default function EditorWindow() {
                 <Trash />
               </span>
               <p className="text-sm font-medium text-ink">{t("trash.title")}</p>
-              <p className="text-xs">{t("trash.empty")}</p>
+              {trashedNotes.length === 0 && <p className="text-xs">{t("trash.empty")}</p>}
             </div>
           ) : activePath ? (
             <Editor key={activePath} ref={editorRef} initialContent={content} onChange={handleChange} placeholder="Start writing…" showFormatToolbar loadRemoteImages={loadRemoteImages} />

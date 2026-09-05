@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
 import { describe, expect, it, vi } from "vitest";
 import EditorWindow from "./EditorWindow";
 
@@ -45,6 +46,20 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 }));
 
 describe("EditorWindow accessibility", () => {
+  it("does not announce an empty Trash while recoverable notes exist", async () => {
+    const original = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => command === "list_trashed_notes"
+      ? [{ id: "trash-note", filename: "Recoverable note.md", original_relative_path: "Inbox/note.md", folder: "Inbox", deleted_at: "2026-09-05" }]
+      : original(command, args));
+    try {
+      render(<EditorWindow />);
+      fireEvent.click(await screen.findByRole("button", { name: "Trash" }));
+      expect(await screen.findByRole("button", { name: "Restore" })).toBeInTheDocument();
+      expect(screen.queryByText("Trash is empty.")).not.toBeInTheDocument();
+    } finally {
+      vi.mocked(invoke).mockImplementation(original);
+    }
+  });
   it("keeps row actions keyboard-visible and exposes a named menu trigger", async () => {
     render(<EditorWindow />);
 
