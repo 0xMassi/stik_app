@@ -111,6 +111,65 @@ jobs:
       - name: Test
         run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
 
+  intel:
+    name: Intel artifact
+    runs-on: macos-15-intel
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install protobuf compiler
+        run: brew install protobuf
+
+      - name: Verify with the real native Intel sidecar
+        run: |
+          test "$(uname -m)" = x86_64
+          ./scripts/verify.sh
+
+      - name: Build and inspect the Intel release app
+        run: |
+          set -euo pipefail
+          swift build --package-path src-tauri/darwinkit \
+            -c release --arch x86_64 --disable-automatic-resolution
+          install -m 755 \
+            src-tauri/darwinkit/.build/x86_64-apple-macosx/release/darwinkit \
+            src-tauri/binaries/darwinkit-x86_64-apple-darwin
+          bun run tauri build --target x86_64-apple-darwin --bundles app \
+            --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          APP="src-tauri/target/x86_64-apple-darwin/release/bundle/macos/Stik.app"
+          node scripts/check-macos-artifact.mjs "$APP" x86_64
+          # Preserve executable permissions and bundle metadata in the artifact.
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "$RUNNER_TEMP/Stik-Intel-ci.zip"
+
+      - name: Upload non-release Intel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stik-intel-${{ github.sha }}
+          path: ${{ runner.temp }}/Stik-Intel-ci.zip
+          if-no-files-found: error
+          retention-days: 7
+
   dependency-security:
     name: Dependency security
     runs-on: ubuntu-latest

@@ -110,7 +110,7 @@ print_success "CHANGELOG.md updated"
 
 # Update Cargo.lock
 print_step "Updating Cargo.lock..."
-cd src-tauri && cargo check --quiet 2>/dev/null && cd ..
+cargo check --manifest-path src-tauri/Cargo.toml --quiet
 print_success "Cargo.lock updated"
 
 # Git commit
