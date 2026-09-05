@@ -47,6 +47,9 @@ pub fn current_mode() -> StorageMode {
 /// Resolve the configured root without creating it. Diagnostics use this to
 /// report a missing or moved vault instead of silently creating a new one.
 pub fn configured_stik_root() -> Result<PathBuf, String> {
+    if let Some(root) = super::paths::dev_root()? {
+        return Ok(root.join("notes"));
+    }
     match current_mode() {
         StorageMode::ICloud => {
             let drive = icloud_container_path()?;

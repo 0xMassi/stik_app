@@ -149,8 +149,7 @@ impl KeyStore for KeychainKeyStore {
 }
 
 fn legacy_key_path() -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
-    Ok(home.join(".stik").join("note-key"))
+    Ok(super::paths::config_dir()?.join("note-key"))
 }
 
 fn key_from_bytes(data: &[u8], source: &str) -> Result<[u8; 32], String> {
@@ -203,6 +202,11 @@ where
 }
 
 fn get_or_create_key() -> Result<[u8; 32], String> {
+    if super::paths::dev_root()?.is_some() {
+        return Err(
+            "Keychain note locking is unavailable in the isolated development profile".into(),
+        );
+    }
     let legacy = legacy_key_path()?;
     get_or_create_key_with(&KeychainKeyStore, &legacy, || {
         let mut key = [0u8; 32];

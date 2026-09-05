@@ -4,7 +4,7 @@ Thanks for your interest in contributing to Stik! This guide covers everything y
 
 ## Before You Start
 
-**Open an issue first.** Whether it's a bug fix, new feature, or refactor -- please [open an issue](https://github.com/0xMassi/stik_app/issues) before writing code. This lets us discuss the approach and avoid duplicate work. Small typo fixes or doc improvements can go straight to a PR.
+For unsolicited contributions, please [open an issue](https://github.com/0xMassi/stik_app/issues) first to discuss the approach and avoid duplicate work. Small typo fixes and directly assigned local work do not require a new issue. Agents must not post remotely without authorization.
 
 Check the [Ideas Board](https://www.stik.ink/ideas) to see what the community is asking for and the [Roadmap](ROADMAP.md) for planned work.
 
@@ -17,6 +17,7 @@ Stik is a **macOS-only** app. You need a Mac to develop and test.
 | macOS | 14+ | -- |
 | Xcode CLT | Latest | `xcode-select --install` |
 | Rust | Stable | [rustup.rs](https://rustup.rs/) |
+| Protobuf compiler | `protoc` on PATH | `brew install protobuf` |
 | Node.js | 20+ | [nodejs.org](https://nodejs.org/) |
 | Bun | 1.4.1 | [bun.com/docs/installation](https://bun.com/docs/installation) |
 | Tauri CLI | 2.x | Installed via `bun install` |
@@ -28,17 +29,19 @@ Stik is a **macOS-only** app. You need a Mac to develop and test.
 git clone --recurse-submodules https://github.com/0xMassi/stik_app.git
 cd stik_app
 
-# Install frontend dependencies
-bun install --frozen-lockfile
+# Initialize submodules, install locked dependencies, build DarwinKit + frontend
+./scripts/build-dev.sh setup
 
-# Run in development mode (hot reload)
+# Run with temporary data and hot reload
 ./scripts/build-dev.sh dev
 
-# Local app bundle for testing
-./scripts/build-dev.sh build
+# Native app bundle with temporary data (also usable by UI automation)
+./scripts/build-dev.sh qa
 ```
 
 > **Note:** The DarwinKit sidecar (Swift NLP) lives at `src-tauri/darwinkit/` as a git submodule. If you cloned without `--recurse-submodules`, run `git submodule update --init`.
+
+`setup` initializes that submodule automatically. `doctor` checks prerequisites without installing anything. Install Rust's checks with `rustup component add clippy rustfmt` if needed. Xcode must provide a working Swift/macOS SDK; no signing certificate, runtime login, or API key is needed for local QA.
 
 Bun 1.4.1 and `bun.lock` are the canonical JavaScript dependency source. The version is pinned in `.bun-version` and `package.json`; CI reads `.bun-version`. Do not commit npm, Yarn, pnpm, or legacy `bun.lockb` lockfiles.
 
@@ -75,6 +78,46 @@ Stik is a **Tauri 2.0** app with three layers:
 - **DarwinKit**: Swift CLI sidecar for on-device NLP (embeddings, language detection, sentiment) via JSON-RPC over stdio. Communicates with the Rust backend as a managed child process.
 
 ## Development Workflow
+
+### Repeatable agent verification
+
+```bash
+./scripts/verify.sh
+```
+
+This runs setup, the frontend build/tests/platform/bundle gates, Rust formatting/strict Clippy/all-feature tests, and Swift tests. Native tests use a fresh `STIK_DEV_ROOT` instead of personal settings. CI also runs network-dependent dependency audits; do not treat local verification as a substitute for those. Keep the usual gates intact.
+
+After setup, use targeted checks while iterating:
+
+| Change | Command |
+| --- | --- |
+| Editor component | `bun run test src/components/Editor.test.tsx` |
+| Rust index | `cargo test --manifest-path src-tauri/Cargo.toml commands::index::tests --locked` |
+| Real save/read/search/update/trash workflow | `cargo test --manifest-path src-tauri/Cargo.toml --test note_workflow --all-features --locked -- --nocapture` |
+| Swift NLP handler | `swift test --package-path src-tauri/darwinkit --filter NLPHandlerTests` |
+
+The storage integration test creates its own process-local data, checks real files and returned results, and deletes only its generated data on success. Failures retain the printed directory. It is backend integration coverage, not a replacement for UI QA.
+
+### Isolated development and UI QA
+
+`dev` and `qa` create a new temporary profile and print its location. To resume a session, pass an existing absolute directory: `STIK_DEV_ROOT=/absolute/session ./scripts/build-dev.sh qa`. Notes live under `notes/`, application settings/caches under `config/`, and native/Vite output under `logs/dev.log`. Stop with **Ctrl-C**; data remains for inspection. These modes use `com.stik.dev`/`Stik Dev`, separate from the regular app. `qa` needs no HTTP server; `dev` binds only to `127.0.0.1`, default port 1420. If occupied, use `STIK_DEV_PORT=1422 ./scripts/build-dev.sh dev`; never terminate an unrelated listener.
+
+The debug-only profile pins the notes root and disables normal global shortcuts, analytics, updates, AI, dictation, iCloud/Git workers, Apple Notes import, and production Keychain access. Do not copy personal data or credentials into it. This is **not a security sandbox**: explicit file pickers, external-file editing, and shell/OS actions still require care. Test real OS/account integrations separately with explicit authorization and development data. Release builds reject `STIK_DEV_ROOT` rather than silently using personal state.
+
+For native automation, select the running `src-tauri/target/<host-triple>/debug/bundle/macos/Stik Dev.app` by its full path. A bare hot-reload executable may not be discoverable by native automation. Do not double-click that bundle later without the launcher: the launcher supplies the isolated profile. The existing `build` mode remains the ordinary unsigned local build and does not launch it.
+
+Representative manual flow: type a distinctive note in capture, save/close, find it through Browse Notes, open and edit it, reopen to confirm persistence, then trash/restore the disposable note. Check capture, sticked, and viewing windows when shared editor behavior changes. Verify the Markdown file under the printed profile and inspect logs; a rendered window alone is not acceptance.
+
+### Debugging and common failures
+
+- Missing `Package.swift`: use `setup`, not copied build artifacts. CI checks out submodules in every job that reads DarwinKit.
+- Wrong Bun/Node/protoc or missing Rust components: run `doctor`; fix the named prerequisite, not the lockfile. Node 20 matches CI; newer supported Node versions can emit extra warnings.
+- Missing sidecar or `dist` in a direct Cargo check: run `setup` first. A stub is suitable only for CI compilation, not runtime/sidecar QA.
+- Vite in a normal browser cannot exercise Tauri IPC. Use the actual native app; unit-test bridge mocks are not end-to-end proof.
+- Tauri ignores DarwinKit's generated `.build/` directory through `.taurignore`, so Swift tests do not continuously restart the app. Re-run `dev` after changing/rebuilding Swift source.
+- Rust panic: rerun the failing command with `RUST_BACKTRACE=1`. Native logs include startup timing; frontend errors are in the window's Web Inspector (right-click → Inspect Element in debug builds).
+- Unreadable/malformed isolated settings fail startup instead of falling back to normal app settings. Start a new temporary session to compare; preserve the failed one for diagnosis.
+- No account permissions are requested by automated QA. Full Disk Access, microphone/Accessibility permission, biometric auth, signing/notarization, and remote Git access are manual/authorized integration steps, not setup prerequisites.
 
 ### Frontend changes
 

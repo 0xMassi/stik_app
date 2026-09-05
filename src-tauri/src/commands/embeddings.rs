@@ -35,9 +35,7 @@ impl Default for EmbeddingIndex {
 // ── Persistence ────────────────────────────────────────────────────
 
 fn embeddings_path() -> Result<std::path::PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
-    let config_dir = home.join(".stik");
-    fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+    let config_dir = super::paths::config_dir()?;
     Ok(config_dir.join("embeddings.json"))
 }
 

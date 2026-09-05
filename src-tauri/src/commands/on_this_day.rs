@@ -181,9 +181,7 @@ fn should_notify_today(last_notified_date: Option<&str>, today: NaiveDate) -> bo
 }
 
 fn get_state_path() -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Could not find home directory")?;
-    let stik_config = home.join(".stik");
-    fs::create_dir_all(&stik_config).map_err(|e| e.to_string())?;
+    let stik_config = super::paths::config_dir()?;
     Ok(stik_config.join("on_this_day.json"))
 }
 

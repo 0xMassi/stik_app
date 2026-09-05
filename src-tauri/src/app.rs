@@ -370,6 +370,9 @@ fn start_deferred_services(app: AppHandle, plan: StartupPlan) {
     spawn_background("stik-service-bootstrap", move || {
         // Register before launching the bridge so no early push notification is
         // lost. Bridge process startup itself happens on its own worker thread.
+        if crate::commands::paths::dev_root().ok().flatten().is_some() {
+            return; // Isolated QA does not start services with OS/account access.
+        }
         dictation::register_notifications(&service_handle);
         let notification_handle = service_handle.clone();
         darwinkit::register_notification_handler(move |method, params| {
@@ -456,6 +459,10 @@ fn start_deferred_services(app: AppHandle, plan: StartupPlan) {
 }
 
 pub fn run() {
+    if let Err(error) = crate::commands::paths::dev_root() {
+        eprintln!("Cannot start isolated development session: {error}");
+        std::process::exit(1);
+    }
     tauri::Builder::default()
         .manage(AppState::new())
         .manage(NoteIndex::new())
@@ -669,7 +676,12 @@ pub fn run() {
         ])
         .setup(|app| {
             let setup_started = std::time::Instant::now();
-            let settings = settings::get_settings().unwrap_or_default();
+            let dev_session = crate::commands::paths::dev_root()?.is_some();
+            let settings = if dev_session {
+                settings::get_settings()?
+            } else {
+                settings::get_settings().unwrap_or_default()
+            };
             let startup_plan =
                 StartupPlan::new(settings.icloud.enabled, settings.ai_features_enabled);
 
@@ -721,6 +733,9 @@ pub fn run() {
             }
 
             start_deferred_services(app.handle().clone(), startup_plan);
+            if dev_session {
+                show_postit_with_folder(app.handle(), &settings.default_folder);
+            }
             eprintln!(
                 "[startup] capture-critical setup completed in {} ms",
                 setup_started.elapsed().as_millis()

@@ -16,6 +16,7 @@ pub mod note_lock;
 pub mod notes;
 pub mod on_this_day;
 pub mod path_security;
+pub mod paths;
 pub mod settings;
 pub mod share;
 pub mod stats;

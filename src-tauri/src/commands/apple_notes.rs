@@ -35,6 +35,9 @@ fn notes_db_path() -> String {
 }
 
 fn open_readonly_connection() -> Result<Connection, String> {
+    if super::paths::dev_root()?.is_some() {
+        return Err("Apple Notes import is unavailable in the isolated development profile".into());
+    }
     let path = notes_db_path();
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
 

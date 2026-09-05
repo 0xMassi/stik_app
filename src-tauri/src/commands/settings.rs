@@ -342,23 +342,37 @@ fn normalize_loaded_settings(mut settings: StikSettings) -> StikSettings {
 }
 
 fn get_settings_path() -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Could not find home directory")?;
-    let stik_config = home.join(".stik");
-    fs::create_dir_all(&stik_config).map_err(|e| e.to_string())?;
-    Ok(stik_config.join("settings.json"))
+    Ok(super::paths::config_dir()?.join("settings.json"))
 }
 
 pub(crate) fn load_settings_from_file() -> Result<StikSettings, String> {
     let path = get_settings_path()?;
 
-    match versioning::load_versioned::<StikSettings>(&path)? {
-        Some(settings) => Ok(normalize_loaded_settings(settings)),
+    let mut settings = match versioning::load_versioned::<StikSettings>(&path)? {
+        Some(settings) => normalize_loaded_settings(settings),
         None => {
             let default_settings = StikSettings::default();
             save_settings_to_file(&default_settings)?;
-            Ok(default_settings)
+            default_settings
         }
+    };
+    if let Some(root) = super::paths::dev_root()? {
+        settings.notes_directory = root.join("notes").to_string_lossy().into_owned();
+        settings.use_directory_as_root = true;
+        settings.icloud.enabled = false;
+        settings.git_sharing.enabled = false;
+        settings.analytics_enabled = false;
+        settings.analytics_notice_dismissed = true;
+        settings.ai_features_enabled = false;
+        settings.auto_update_enabled = false;
+        settings.dictation.enabled = false;
+        settings.shortcut_mappings.clear();
+        settings
+            .system_shortcuts
+            .values_mut()
+            .for_each(String::clear);
     }
+    Ok(settings)
 }
 
 fn save_settings_to_file(settings: &StikSettings) -> Result<(), String> {
@@ -761,8 +775,7 @@ fn font_mime(ext: &str) -> &'static str {
 }
 
 fn fonts_dir() -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
-    let dir = home.join(".stik").join("fonts");
+    let dir = super::paths::config_dir()?.join("fonts");
     fs::create_dir_all(&dir).map_err(|e| format!("Failed to create fonts directory: {}", e))?;
     Ok(dir)
 }

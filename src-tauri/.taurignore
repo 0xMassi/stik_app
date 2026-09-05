@@ -1,0 +1,2 @@
+# Swift build output must not restart the Rust app while checks run.
+darwinkit/.build/

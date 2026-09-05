@@ -126,6 +126,9 @@ pub async fn icloud_disable(app: tauri::AppHandle) -> Result<ICloudStatus, Strin
 
 #[tauri::command]
 pub async fn icloud_migrate_notes(app: tauri::AppHandle) -> Result<MigrationResult, String> {
+    if super::paths::dev_root()?.is_some() {
+        return Err("iCloud migration is unavailable in the isolated development profile".into());
+    }
     tauri::async_runtime::spawn_blocking(move || {
         let mut result = MigrationResult {
             files_copied: 0,
