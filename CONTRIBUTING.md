@@ -18,7 +18,8 @@ Stik is a **macOS-only** app. You need a Mac to develop and test.
 | Xcode CLT | Latest | `xcode-select --install` |
 | Rust | Stable | [rustup.rs](https://rustup.rs/) |
 | Node.js | 20+ | [nodejs.org](https://nodejs.org/) |
-| Tauri CLI | 2.x | Installed via `npm install` |
+| Bun | 1.4.1 | [bun.com/docs/installation](https://bun.com/docs/installation) |
+| Tauri CLI | 2.x | Installed via `bun install` |
 
 ## Getting Started
 
@@ -28,7 +29,7 @@ git clone --recurse-submodules https://github.com/0xMassi/stik_app.git
 cd stik_app
 
 # Install frontend dependencies
-npm ci
+bun install --frozen-lockfile
 
 # Run in development mode (hot reload)
 ./scripts/build-dev.sh dev
@@ -39,7 +40,9 @@ npm ci
 
 > **Note:** The DarwinKit sidecar (Swift NLP) lives at `src-tauri/darwinkit/` as a git submodule. If you cloned without `--recurse-submodules`, run `git submodule update --init`.
 
-npm and `package-lock.json` are the canonical JavaScript dependency source. Do not commit Bun, Yarn, or pnpm lockfiles.
+Bun 1.4.1 and `bun.lock` are the canonical JavaScript dependency source. The version is pinned in `.bun-version` and `package.json`; CI reads `.bun-version`. Do not commit npm, Yarn, pnpm, or legacy `bun.lockb` lockfiles.
+
+Use `bun add` and `bun remove` for dependency changes, and commit the resulting `package.json` and `bun.lock` together. Use `bun run <script>` for package scripts and `bunx` for package executables. Keep Node installed: Vite, TypeScript, and Vitest retain their Node runtime. Do not use `bun test` or `bun run --bun`; this migration changes the package manager, not the test runner or application runtime.
 
 ## Project Structure
 
@@ -77,10 +80,10 @@ Stik is a **Tauri 2.0** app with three layers:
 
 ```bash
 # Type check
-npx tsc --noEmit
+bunx tsc --noEmit
 
 # Run tests
-npm test
+bun run test
 
 # Dev server with hot reload and the correct DarwinKit sidecar
 ./scripts/build-dev.sh dev
@@ -121,7 +124,7 @@ cargo test
 
 ### TypeScript / React
 
-- Run `npx tsc --noEmit` before committing -- zero errors required
+- Run `bunx tsc --noEmit` before committing -- zero errors required
 - Use functional components with hooks
 - Keep components focused -- one file, one responsibility
 - Prefer `useCallback` and `useRef` for stable references passed to the editor
@@ -157,7 +160,7 @@ Keep the subject line under 72 characters. Use the body for details when needed.
 1. **Branch from `main`**. Use a descriptive branch name (`feat/formatting-toolbar`, `fix/highlight-persistence`).
 2. **Keep PRs focused.** One feature or fix per PR. If you find unrelated issues while working, open separate issues for them.
 3. **Verify before submitting:**
-   - `npm run build`, `npm test`, `npm run check:bundle`, and `npm run check:platform` pass
+   - `bun install --frozen-lockfile`, `bun run build`, `bun run test`, `bun run check:bundle`, and `bun run check:platform` pass
    - `cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check` passes
    - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` passes
    - `cargo test --manifest-path src-tauri/Cargo.toml --all-features` passes
@@ -167,7 +170,7 @@ Keep the subject line under 72 characters. Use the body for details when needed.
 
 ## Testing
 
-- **Frontend**: `npm test` runs Vitest. Add tests for utility functions and non-trivial logic.
+- **Frontend**: `bun run test` runs Vitest on Node. Add tests for utility functions and non-trivial logic.
 - **Backend**: `cargo test` in `src-tauri/`. Add tests for new command logic, especially parsing and file operations.
 - **Manual**: Always test across all window types (capture, sticked, viewing) since they share components but have different behaviors.
 

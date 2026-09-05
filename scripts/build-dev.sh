@@ -94,18 +94,19 @@ main() {
   [[ "$(uname -s)" == "Darwin" ]] || fail "Stik development builds require macOS"
 
   require_command node "Install Node.js 20 or newer."
-  require_command npm "Install npm with Node.js."
+  require_command bun "Install the Bun version in .bun-version."
+  local -r bun_version="$(<"${REPO_ROOT}/.bun-version")"
+  [[ "$(bun --version)" == "$bun_version" ]] ||
+    fail "Bun ${bun_version} is required (see .bun-version)."
   require_command rustc "Install Rust with rustup."
   require_command cargo "Install Rust with rustup."
   require_command swift "Install the Xcode command-line tools."
   require_command protoc "Install protobuf with: brew install protobuf"
 
   cd "$REPO_ROOT"
-  npm run check:platform
-  if [[ ! -d node_modules ]]; then
-    log "Installing npm dependencies"
-    npm ci
-  fi
+  bun run check:platform
+  log "Installing locked frontend dependencies"
+  bun install --frozen-lockfile
 
   resolve_architecture
 
@@ -113,12 +114,12 @@ main() {
     dev)
       build_sidecar debug
       log "Starting Tauri development mode (${RUST_TARGET})"
-      exec npm run tauri -- dev --target "$RUST_TARGET"
+      exec bun run tauri dev --target "$RUST_TARGET"
       ;;
     build)
       build_sidecar debug
       log "Building local Stik.app (${RUST_TARGET})"
-      npm run tauri -- build \
+      bun run tauri build \
         --debug \
         --target "$RUST_TARGET" \
         --bundles app \

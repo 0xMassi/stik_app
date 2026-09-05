@@ -21,10 +21,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
 
       - name: Check release configuration
-        run: npm run check:platform
+        run: bun run check:platform
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -80,8 +84,8 @@ jobs:
       - name: Install protobuf compiler
         run: brew install protobuf
 
-      - name: Install npm dependencies
-        run: npm ci
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
 
       - name: Build and release (aarch64)
         uses: tauri-apps/tauri-action@v0
@@ -97,7 +101,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
         with:
-          tauriScript: npm run tauri
+          tauriScript: bun run tauri
           tagName: v__VERSION__
           releaseName: 'Stik v__VERSION__'
           releaseBody: 'See [CHANGELOG](https://github.com/0xMassi/stik_app/blob/main/CHANGELOG.md) for details.'
@@ -122,7 +126,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
         with:
-          tauriScript: npm run tauri
+          tauriScript: bun run tauri
           tagName: v__VERSION__
           releaseName: 'Stik v__VERSION__'
           releaseDraft: true

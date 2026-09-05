@@ -43,10 +43,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
 
       - name: Check release configuration
-        run: npm run check:platform
+        run: bun run check:platform
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -137,8 +141,8 @@ jobs:
         # prost-build shells out to protoc; without it the Rust build fails.
         run: brew install protobuf
 
-      - name: Install npm dependencies
-        run: npm ci
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
 
       # Two mutually exclusive build steps rather than one with conditional
       # env vars: tauri decides to notarize based on APPLE_ID being *present*,
@@ -156,7 +160,7 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
         with:
-          tauriScript: npm run tauri
+          tauriScript: bun run tauri
           # No tagName: tauri-action builds only. The prerelease is created
           # below, so beta artifacts never enter the stable release flow.
           args: --target aarch64-apple-darwin --bundles app
@@ -178,7 +182,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
         with:
-          tauriScript: npm run tauri
+          tauriScript: bun run tauri
           args: --target aarch64-apple-darwin --bundles app
 
       - name: Package DMG

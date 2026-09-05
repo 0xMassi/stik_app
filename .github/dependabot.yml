@@ -4,7 +4,7 @@ version: 2
 # until an advisory forces a large jump. Everything here is grouped so a week's
 # updates arrive as one reviewable PR per ecosystem rather than a dozen.
 updates:
-  - package-ecosystem: npm
+  - package-ecosystem: bun
     directory: "/"
     schedule:
       interval: weekly

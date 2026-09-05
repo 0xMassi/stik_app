@@ -3,7 +3,7 @@
   "version": "0.8.0",
   "description": "Instant thought capture. One shortcut, post-it appears, type, close.",
   "type": "module",
-  "packageManager": "npm@10.9.9",
+  "packageManager": "bun@1.4.1",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

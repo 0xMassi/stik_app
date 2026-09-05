@@ -148,13 +148,14 @@ All shortcuts are customizable in Settings.
 - [Xcode Command Line Tools](https://developer.apple.com/xcode/resources/) (`xcode-select --install`)
 - [Rust](https://rustup.rs/) stable
 - [Node.js](https://nodejs.org/) 20+
+- [Bun](https://bun.com/docs/installation) 1.4.1 (pinned in `.bun-version`)
 
 ### Build
 
 ```bash
 git clone --recurse-submodules https://github.com/0xMassi/stik_app.git
 cd stik_app
-npm ci
+bun install --frozen-lockfile
 ./scripts/build-dev.sh dev    # Development with hot reload
 ./scripts/build-dev.sh build  # Local .app bundle for testing
 ```
@@ -170,7 +171,7 @@ npm ci
 
 ## Contributing
 
-Contributions are welcome. npm is the canonical JavaScript package manager; keep `package-lock.json` current and do not add a second lockfile. Please open an issue first to discuss what you'd like to change.
+Contributions are welcome. Bun 1.4.1 is the canonical JavaScript package manager; keep `bun.lock` current and do not add a second lockfile. Node and Vitest remain the build-tool runtime and test runner. Please open an issue first to discuss what you'd like to change.
 
 ```bash
 # Check Rust code
@@ -180,16 +181,16 @@ cd src-tauri && cargo check
 cd src-tauri && cargo fmt
 
 # Type check frontend
-npm run build
+bun run build
 
 # Run tests
-npm test
+bun run test
 cd src-tauri && cargo test
 ```
 
 Maintainers preparing a stable build should follow the [release checklist](docs/release-checklist.md).
 
-**Translations.** Every string lives in [`src/i18n/locales/`](src/i18n/locales/). Copy `en.ts`, translate the values, and add your locale to `LOCALES` in `src/i18n/index.ts`. The catalogue is typed against English, so a missing key breaks the build instead of shipping a blank label, and `npm test` checks both catalogues for drift. Corrections to [`zh-CN.ts`](src/i18n/locales/zh-CN.ts) are welcome: read it top to bottom without opening a single component.
+**Translations.** Every string lives in [`src/i18n/locales/`](src/i18n/locales/). Copy `en.ts`, translate the values, and add your locale to `LOCALES` in `src/i18n/index.ts`. The catalogue is typed against English, so a missing key breaks the build instead of shipping a blank label, and `bun run test` checks both catalogues for drift. Corrections to [`zh-CN.ts`](src/i18n/locales/zh-CN.ts) are welcome: read it top to bottom without opening a single component.
 
 ## Ideas Board
 

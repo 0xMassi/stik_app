@@ -16,7 +16,7 @@ Closes #
 
 ## Test plan
 
-- [ ] `npx tsc --noEmit` passes
+- [ ] `bunx tsc --noEmit` passes
 - [ ] `cd src-tauri && cargo check` passes
 - [ ] `cd src-tauri && cargo fmt -- --check` has no diffs
 - [ ] Tested in capture window

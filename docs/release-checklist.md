@@ -13,12 +13,12 @@ Use this checklist for stable releases. Beta builds may skip the Homebrew and up
 ## 2. Run automated gates
 
 ```bash
-npm ci
-npm audit --audit-level=high
-npm run check:platform
-npm run build
-npm run check:bundle
-npm test
+bun install --frozen-lockfile
+bun audit --audit-level=high
+bun run check:platform
+bun run build
+bun run check:bundle
+bun run test
 
 swift test --package-path src-tauri/darwinkit
 

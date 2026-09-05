@@ -23,24 +23,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
-      - run: npm ci
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - run: bun install --frozen-lockfile
 
       - name: Audit dependencies
-        run: npm audit --audit-level=high
+        run: bun audit --audit-level=high
 
       - name: Check platform declarations
-        run: npm run check:platform
+        run: bun run check:platform
 
       - name: Typecheck and build
-        run: npm run build
+        run: bun run build
 
       - name: Enforce bundle budget
-        run: npm run check:bundle
+        run: bun run check:bundle
 
       - name: Test
-        run: npm test
+        run: bun run test
 
   swift:
     name: Swift
@@ -62,7 +65,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -84,8 +90,8 @@ jobs:
 
       - name: Build the frontend
         run: |
-          npm ci
-          npm run build
+          bun install --frozen-lockfile
+          bun run build
 
       - name: Formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check

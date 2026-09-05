@@ -33,7 +33,7 @@ scripts/dev-rebuild.sh
 scripts/setup-local-cert.sh
 scripts/test-speech.sh
 
-# Agent skills (installed via npx skills add)
+# Agent skills (installed via bunx skills add)
 .agent/
 .agents/
 .claude/
