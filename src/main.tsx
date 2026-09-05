@@ -7,7 +7,7 @@ import "./styles/globals.css";
 
 globalThis.performance?.mark?.("stik:frontend-start");
 
-const GlobalOverlays = lazy(() => import("./components/GlobalOverlays"));
+const CommandMenu = lazy(() => import("./components/CommandMenu"));
 
 // In production, block the context menu and devtools shortcuts.
 //
@@ -46,7 +46,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <ThemeProvider>
         <App />
         <Suspense fallback={null}>
-          <GlobalOverlays />
+          <CommandMenu />
         </Suspense>
       </ThemeProvider>
     </ErrorBoundary>
