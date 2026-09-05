@@ -32,6 +32,12 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
   emit: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    onCloseRequested: vi.fn().mockResolvedValue(() => {}),
+    destroy: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
 vi.mock("@tauri-apps/plugin-shell", () => ({ open: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: vi.fn(),

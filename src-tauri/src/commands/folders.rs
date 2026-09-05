@@ -94,6 +94,17 @@ fn uses_folder_root_layout(settings: &StikSettings) -> bool {
         .eq_ignore_ascii_case("stik_root")
 }
 
+fn folder_suffix<'a>(path: &'a str, parent: &str) -> Option<&'a str> {
+    path.strip_prefix(parent)
+        .filter(|suffix| suffix.is_empty() || suffix.starts_with('/'))
+}
+
+fn rename_folder_reference(path: &mut String, old_name: &str, new_name: &str) {
+    if let Some(suffix) = folder_suffix(path, old_name) {
+        *path = format!("{new_name}{suffix}");
+    }
+}
+
 fn reconcile_settings_after_folder_delete(
     settings: &mut StikSettings,
     deleted_folder: &str,
@@ -101,22 +112,28 @@ fn reconcile_settings_after_folder_delete(
 ) {
     let fallback = fallback_folder.unwrap_or_default();
 
-    if settings.default_folder == deleted_folder {
+    if folder_suffix(&settings.default_folder, deleted_folder).is_some() {
         settings.default_folder = fallback.to_string();
     }
 
     for mapping in &mut settings.shortcut_mappings {
-        if mapping.folder == deleted_folder {
+        if folder_suffix(&mapping.folder, deleted_folder).is_some() {
             mapping.folder = fallback.to_string();
         }
     }
 
-    if uses_folder_root_layout(settings) && settings.git_sharing.shared_folder == deleted_folder {
+    if uses_folder_root_layout(settings)
+        && folder_suffix(&settings.git_sharing.shared_folder, deleted_folder).is_some()
+    {
         settings.git_sharing.shared_folder = fallback.to_string();
     }
 
-    settings.folder_colors.remove(deleted_folder);
-    settings.folder_icons.remove(deleted_folder);
+    settings
+        .folder_colors
+        .retain(|name, _| folder_suffix(name, deleted_folder).is_none());
+    settings
+        .folder_icons
+        .retain(|name, _| folder_suffix(name, deleted_folder).is_none());
 }
 
 fn reconcile_settings_after_folder_rename(
@@ -124,26 +141,29 @@ fn reconcile_settings_after_folder_rename(
     old_name: &str,
     new_name: &str,
 ) {
-    if settings.default_folder == old_name {
-        settings.default_folder = new_name.to_string();
-    }
+    rename_folder_reference(&mut settings.default_folder, old_name, new_name);
 
     for mapping in &mut settings.shortcut_mappings {
-        if mapping.folder == old_name {
-            mapping.folder = new_name.to_string();
+        rename_folder_reference(&mut mapping.folder, old_name, new_name);
+    }
+
+    if uses_folder_root_layout(settings) {
+        rename_folder_reference(&mut settings.git_sharing.shared_folder, old_name, new_name);
+    }
+
+    for map in [&mut settings.folder_colors, &mut settings.folder_icons] {
+        let renamed: Vec<_> = map
+            .keys()
+            .filter(|name| folder_suffix(name, old_name).is_some())
+            .cloned()
+            .collect();
+        for name in renamed {
+            if let Some(value) = map.remove(&name) {
+                let mut destination = name;
+                rename_folder_reference(&mut destination, old_name, new_name);
+                map.insert(destination, value);
+            }
         }
-    }
-
-    if uses_folder_root_layout(settings) && settings.git_sharing.shared_folder == old_name {
-        settings.git_sharing.shared_folder = new_name.to_string();
-    }
-
-    if let Some(color) = settings.folder_colors.remove(old_name) {
-        settings.folder_colors.insert(new_name.to_string(), color);
-    }
-
-    if let Some(icon) = settings.folder_icons.remove(old_name) {
-        settings.folder_icons.insert(new_name.to_string(), icon);
     }
 }
 
@@ -296,7 +316,21 @@ pub fn delete_folder(
 }
 
 #[tauri::command]
-pub fn rename_folder(old_name: String, new_name: String) -> Result<bool, String> {
+pub fn rename_folder(
+    old_name: String,
+    new_name: String,
+    index: tauri::State<'_, super::index::NoteIndex>,
+    emb_index: tauri::State<'_, super::embeddings::EmbeddingIndex>,
+) -> Result<bool, String> {
+    rename_folder_inner(old_name, new_name, &index, &emb_index)
+}
+
+pub fn rename_folder_inner(
+    old_name: String,
+    new_name: String,
+    index: &super::index::NoteIndex,
+    emb_index: &super::embeddings::EmbeddingIndex,
+) -> Result<bool, String> {
     validate_folder_path(&old_name)?;
     validate_folder_path(&new_name)?;
 
@@ -316,6 +350,13 @@ pub fn rename_folder(old_name: String, new_name: String) -> Result<bool, String>
         return Err("A folder with that name already exists".to_string());
     }
 
+    let indexed_notes = index.list(None)?;
+    emb_index.ensure_loaded();
+    let canonical_root = stik_folder
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
+    let requested_old_path = stik_folder.join(&old_name);
+
     // Ensure the destination's parent exists (renaming into a nested path).
     if let Some(parent) = new_path.parent() {
         super::storage::ensure_dir(&parent.to_string_lossy())?;
@@ -324,6 +365,24 @@ pub fn rename_folder(old_name: String, new_name: String) -> Result<bool, String>
     // Rename folder
     super::storage::move_file(&old_path.to_string_lossy(), &new_path.to_string_lossy())
         .map_err(|e| format!("Failed to rename folder: {}", e))?;
+
+    // Directory-only filesystem events do not identify every descendant note.
+    // Keep search and cached embeddings correct before returning to the UI.
+    for note in indexed_notes {
+        let relative = Path::new(&note.path)
+            .strip_prefix(&old_path)
+            .or_else(|_| Path::new(&note.path).strip_prefix(&requested_old_path));
+        if let Ok(relative) = relative {
+            let destination = new_path.join(relative);
+            let folder = note_folder(&canonical_root, &destination);
+            let destination = destination.to_string_lossy();
+            index.move_entry(&note.path, &destination, &folder);
+            emb_index.move_entry(&note.path, &destination);
+        }
+    }
+    if let Err(error) = emb_index.save() {
+        eprintln!("Folder renamed, but its embedding cache could not be saved: {error}");
+    }
     sync_settings_after_folder_rename(&old_name, &new_name)?;
 
     Ok(true)
@@ -511,5 +570,65 @@ mod tests {
         assert_eq!(settings.shortcut_mappings[0].folder, "Notes");
         assert_eq!(settings.shortcut_mappings[1].folder, "Work");
         assert_eq!(settings.git_sharing.shared_folder, "Notes");
+    }
+
+    #[test]
+    fn parent_rename_reconciles_descendants_without_matching_siblings() {
+        let mut settings = sample_settings();
+        settings.default_folder = "Inbox/Work".into();
+        settings.shortcut_mappings[0].folder = "Inbox/Work/Deep".into();
+        settings.shortcut_mappings[1].folder = "InboxOther".into();
+        settings.git_sharing.shared_folder = "Inbox/Shared".into();
+        settings
+            .folder_colors
+            .insert("Inbox/Work".into(), "coral".into());
+        settings
+            .folder_colors
+            .insert("InboxOther".into(), "blue".into());
+        settings
+            .folder_icons
+            .insert("Inbox/Work/Deep".into(), "star".into());
+
+        reconcile_settings_after_folder_rename(&mut settings, "Inbox", "Notes");
+
+        assert_eq!(settings.default_folder, "Notes/Work");
+        assert_eq!(settings.shortcut_mappings[0].folder, "Notes/Work/Deep");
+        assert_eq!(settings.shortcut_mappings[1].folder, "InboxOther");
+        assert_eq!(settings.git_sharing.shared_folder, "Notes/Shared");
+        assert_eq!(settings.folder_colors.get("Notes/Work").unwrap(), "coral");
+        assert!(!settings.folder_colors.contains_key("Inbox/Work"));
+        assert_eq!(settings.folder_colors.get("InboxOther").unwrap(), "blue");
+        assert_eq!(
+            settings.folder_icons.get("Notes/Work/Deep").unwrap(),
+            "star"
+        );
+    }
+
+    #[test]
+    fn parent_delete_clears_descendants_without_matching_siblings() {
+        let mut settings = sample_settings();
+        settings.default_folder = "Inbox/Work".into();
+        settings.shortcut_mappings[0].folder = "Inbox/Work/Deep".into();
+        settings.shortcut_mappings[1].folder = "InboxOther".into();
+        settings.git_sharing.shared_folder = "Inbox/Shared".into();
+        settings
+            .folder_colors
+            .insert("Inbox/Work".into(), "coral".into());
+        settings
+            .folder_colors
+            .insert("InboxOther".into(), "blue".into());
+        settings
+            .folder_icons
+            .insert("Inbox/Work/Deep".into(), "star".into());
+
+        reconcile_settings_after_folder_delete(&mut settings, "Inbox", Some("Notes"));
+
+        assert_eq!(settings.default_folder, "Notes");
+        assert_eq!(settings.shortcut_mappings[0].folder, "Notes");
+        assert_eq!(settings.shortcut_mappings[1].folder, "InboxOther");
+        assert_eq!(settings.git_sharing.shared_folder, "Notes");
+        assert!(!settings.folder_colors.contains_key("Inbox/Work"));
+        assert_eq!(settings.folder_colors.get("InboxOther").unwrap(), "blue");
+        assert!(settings.folder_icons.is_empty());
     }
 }

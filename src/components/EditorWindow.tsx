@@ -13,6 +13,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import Editor, { type EditorRef } from "./Editor";
 import SettingsModal from "./SettingsModal";
 import ActionToast from "./ActionToast";
@@ -24,6 +25,7 @@ import {
   unresolveImagePaths,
 } from "@/utils/imageMarkdownPaths";
 import { createLatestRequestGate } from "@/utils/latestRequest";
+import { createNoteSaveQueue } from "@/utils/noteSaveQueue";
 import { errorMessage } from "@/utils/appError";
 import type {
   NoteInfo,
@@ -57,7 +59,7 @@ const ICONS: Record<string, React.ReactNode> = {
 };
 const ICON_KEYS = Object.keys(ICONS);
 
-type Row = { path: string; title: string; subtitle: string; created: string };
+type Row = { path: string; title: string; subtitle: string; created: string; locked: boolean };
 type TreeNode = { name: string; path: string; children: TreeNode[] };
 
 const ico = "none";
@@ -130,6 +132,8 @@ export default function EditorWindow() {
   const [activePath, setActivePath] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [loadingNote, setLoadingNote] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const [trashedNotes, setTrashedNotes] = useState<TrashedNote[]>([]);
@@ -147,14 +151,27 @@ export default function EditorWindow() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const editorRef = useRef<EditorRef | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const mutationInProgress = useRef(false);
+  const quitting = useRef(false);
   const rowMenuRef = useRef<HTMLDivElement | null>(null);
   const saveTimer = useRef<number | null>(null);
   const searchRequestGate = useRef(createLatestRequestGate());
+  const noteRequestGate = useRef(createLatestRequestGate());
+  const folderRequestGate = useRef(createLatestRequestGate());
+  const listRequestGate = useRef(createLatestRequestGate());
+  const activeFolderRef = useRef(activeFolder);
+  activeFolderRef.current = activeFolder;
+  const saveQueue = useRef(createNoteSaveQueue(async (draft) => {
+    await invoke("update_note", { ...draft, preserveEmpty: true });
+  }));
 
   const loadFolders = useCallback(async (): Promise<string[]> => {
+    const gate = folderRequestGate.current;
+    const token = gate.begin();
     try {
       const f = await invoke<string[]>("list_folders");
-      setFolders(f);
+      if (gate.isLatest(token)) setFolders(f);
       return f;
     } catch {
       return [];
@@ -188,14 +205,94 @@ export default function EditorWindow() {
   }, [loadFolders]);
 
   const refreshNotes = useCallback(async (folder: string) => {
-    if (!folder) return;
+    const gate = listRequestGate.current;
+    const token = gate.begin();
+    if (!folder) { setNotes([]); return; }
     try {
       const list = await invoke<NoteInfo[]>("list_notes", { folder });
       list.sort((a, b) => (a.created < b.created ? 1 : -1));
-      setNotes(list);
+      if (gate.isLatest(token) && activeFolderRef.current === folder) setNotes(list);
     } catch {
-      setNotes([]);
+      if (gate.isLatest(token) && activeFolderRef.current === folder) setNotes([]);
     }
+  }, []);
+
+  const flushSave = useCallback(async () => {
+    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    setSaving(true);
+    try {
+      await saveQueue.current.flush();
+      void refreshNotes(activeFolderRef.current);
+    } finally {
+      setSaving(false);
+    }
+  }, [refreshNotes]);
+
+  // Mutations must not race typing, another mutation, or a late note read.
+  const withSavedNote = useCallback(async (action: () => Promise<void>) => {
+    if (mutationInProgress.current) return false;
+    mutationInProgress.current = true;
+    noteRequestGate.current.invalidate();
+    setLoadingNote(false);
+    setBusy(true);
+    if (rootRef.current) rootRef.current.inert = true;
+    try {
+      await flushSave();
+      await action();
+      return true;
+    } finally {
+      mutationInProgress.current = false;
+      if (!quitting.current) {
+        setBusy(false);
+        if (rootRef.current) rootRef.current.inert = false;
+      }
+    }
+  }, [flushSave]);
+
+  useEffect(() => {
+    const currentWindow = getCurrentWindow();
+    const unlisten = currentWindow.onCloseRequested(async (event) => {
+      event.preventDefault();
+      try {
+        await withSavedNote(() => currentWindow.destroy());
+      } catch (error) {
+        setToast(errorMessage(error, t("postit.saveFailed")));
+      }
+    });
+    return () => {
+      unlisten.then((dispose) => dispose());
+    };
+  }, [withSavedNote, t]);
+
+  useEffect(() => {
+    const unlisten = listen("editor-quit-requested", async () => {
+      if (quitting.current) return;
+      try {
+        const handled = await withSavedNote(async () => {
+          quitting.current = true;
+          try { await invoke("complete_editor_quit", { saved: true }); }
+          catch (error) { quitting.current = false; throw error; }
+        });
+        if (!handled) {
+          setToast(t("common.saving"));
+          await invoke("complete_editor_quit", { saved: false });
+        }
+      } catch (error) {
+        setToast(errorMessage(error, t("postit.saveFailed")));
+        await invoke("complete_editor_quit", { saved: false }).catch(console.error);
+      }
+    });
+    return () => { unlisten.then((dispose) => dispose()); };
+  }, [withSavedNote, t]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+      noteRequestGate.current.invalidate();
+      folderRequestGate.current.invalidate();
+      listRequestGate.current.invalidate();
+    };
   }, []);
 
   const loadTrash = useCallback(async () => {
@@ -279,60 +376,67 @@ export default function EditorWindow() {
     [expanded, persistLocal],
   );
 
-  const openNote = useCallback(async (path: string) => {
+  const openNote = useCallback(async (note: Row) => {
+    if (mutationInProgress.current) return;
+    if (note.locked) { setToast(t("editor.lockedNoteUnsupported")); return; }
+    const { path } = note;
+    const gate = noteRequestGate.current;
+    const token = gate.begin();
+    setLoadingNote(true);
     try {
+      await flushSave();
+      if (!gate.isLatest(token)) return;
       const text = await invoke<string>("get_note_content", { path });
+      if (!gate.isLatest(token)) return;
+      // A file may have been locked after the list was loaded.
+      if (text.startsWith("---stik-locked---")) throw new Error(t("editor.lockedNoteUnsupported"));
       const separator = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
       const folderPath = separator >= 0 ? path.slice(0, separator) : "";
       setActivePath(path);
       setContent(resolveImagePaths(text, folderPath, convertFileSrc));
     } catch (e) {
-      console.error("Failed to open note:", e);
-      setToast(errorMessage(e, t("note.failedToLoad")));
+      if (gate.isLatest(token)) setToast(errorMessage(e, t("note.failedToLoad")));
+    } finally {
+      if (gate.isLatest(token)) setLoadingNote(false);
     }
-  }, [t]);
+  }, [flushSave, t]);
 
   const handleChange = useCallback(
     (next: string) => {
       setContent(next);
       if (!activePath) return;
+      saveQueue.current.stage({ path: activePath, content: unresolveImagePaths(next) });
       if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
       saveTimer.current = window.setTimeout(async () => {
-        saveTimer.current = null;
-        setSaving(true);
         try {
-          await invoke("update_note", {
-            path: activePath,
-            content: unresolveImagePaths(next),
-          });
-          void refreshNotes(activeFolder);
+          await flushSave();
         } catch (e) {
           console.error("Autosave failed:", e);
           setToast(errorMessage(e, t("postit.saveFailed")));
-        } finally {
-          setSaving(false);
         }
       }, AUTOSAVE_DELAY_MS);
     },
-    [activePath, activeFolder, refreshNotes, t],
+    [activePath, flushSave, t],
   );
 
   const handleNewNote = useCallback(async () => {
     if (!activeFolder) return;
     const seed = "# Untitled\n\n";
     try {
-      const res = await invoke<{ path: string }>("save_note", { folder: activeFolder, content: seed });
-      await refreshNotes(activeFolder);
-      if (res.path) {
-        setActivePath(res.path);
-        setContent(seed);
-        setTimeout(() => editorRef.current?.focus(), 50);
-      }
+      await withSavedNote(async () => {
+        const res = await invoke<{ path: string }>("save_note", { folder: activeFolder, content: seed });
+        await refreshNotes(activeFolder);
+        if (res.path) {
+          setActivePath(res.path);
+          setContent(seed);
+          setTimeout(() => editorRef.current?.focus(), 50);
+        }
+      });
     } catch (e) {
       console.error("Failed to create note:", e);
       setToast(errorMessage(e, t("postit.saveFailed")));
     }
-  }, [activeFolder, refreshNotes, t]);
+  }, [activeFolder, refreshNotes, withSavedNote, t]);
 
   const commitNewFolder = useCallback(async () => {
     const name = newFolder.trim();
@@ -356,30 +460,32 @@ export default function EditorWindow() {
   const deleteFolder = useCallback(
     async (path: string) => {
       try {
-        await invoke("delete_folder", { name: path });
-        const f = await loadFolders();
-        if (activeFolder === path || activeFolder.startsWith(`${path}/`)) {
-          setActiveFolder(f[0] || "");
-        }
-        if (activePath && activePath.includes(`/${path}/`)) {
-          setActivePath(null);
-          setContent("");
-        }
-        try {
-          const s2 = await invoke<StikSettings>("get_settings");
-          setFolderColors(s2.folder_colors || {});
-          setFolderIcons(s2.folder_icons || {});
-        } catch {
-          /* ignore */
-        }
-        setEditingFolder(null);
-        setConfirmFolderDelete(null);
+        await withSavedNote(async () => {
+          await invoke("delete_folder", { name: path });
+          const f = await loadFolders();
+          if (activeFolder === path || activeFolder.startsWith(`${path}/`)) {
+            setActiveFolder(f[0] || "");
+          }
+          if (activePath && activePath.includes(`/${path}/`)) {
+            setActivePath(null);
+            setContent("");
+          }
+          try {
+            const s2 = await invoke<StikSettings>("get_settings");
+            setFolderColors(s2.folder_colors || {});
+            setFolderIcons(s2.folder_icons || {});
+          } catch {
+            /* ignore */
+          }
+          setEditingFolder(null);
+          setConfirmFolderDelete(null);
+        });
       } catch (e) {
         console.error("Delete folder failed:", e);
         setToast(errorMessage(e, t("common.unknownError")));
       }
     },
-    [activeFolder, activePath, loadFolders, t],
+    [activeFolder, activePath, loadFolders, withSavedNote, t],
   );
 
   const closeMenus = useCallback(() => {
@@ -413,11 +519,12 @@ export default function EditorWindow() {
     [pinned, persistLocal, closeMenus],
   );
 
-  const startRename = useCallback((path: string, current: string) => {
-    setRenaming(path);
-    setRenameValue(current);
+  const startRename = useCallback((note: Row) => {
     closeMenus();
-  }, [closeMenus]);
+    if (note.locked) { setToast(t("editor.lockedNoteUnsupported")); return; }
+    setRenaming(note.path);
+    setRenameValue(note.title);
+  }, [closeMenus, t]);
 
   const commitRename = useCallback(
     async (path: string) => {
@@ -425,58 +532,66 @@ export default function EditorWindow() {
       setRenaming(null);
       if (!title) return;
       try {
-        const base = path === activePath ? content : await invoke<string>("get_note_content", { path });
-        const updated = renameInContent(base, title);
-        await invoke("update_note", {
-          path,
-          content: unresolveImagePaths(updated),
+        await withSavedNote(async () => {
+          const base = path === activePath ? content : await invoke<string>("get_note_content", { path });
+          if (base.startsWith("---stik-locked---")) throw new Error(t("editor.lockedNoteUnsupported"));
+          const updated = renameInContent(base, title);
+          await invoke("update_note", {
+            path,
+            content: unresolveImagePaths(updated),
+            preserveEmpty: true,
+          });
+          if (path === activePath) {
+            setContent(updated);
+            editorRef.current?.setContent(updated);
+          }
+          await refreshNotes(activeFolder);
         });
-        if (path === activePath) {
-          setContent(updated);
-          editorRef.current?.setContent(updated);
-        }
-        await refreshNotes(activeFolder);
       } catch (e) {
         console.error("Rename failed:", e);
         setToast(errorMessage(e, t("common.unknownError")));
       }
     },
-    [renameValue, activePath, content, activeFolder, refreshNotes, t],
+    [renameValue, activePath, content, activeFolder, refreshNotes, withSavedNote, t],
   );
 
   const archiveNote = useCallback(
     async (path: string) => {
       closeMenus();
       try {
-        await invoke("move_note", { path, targetFolder: ARCHIVE_FOLDER });
-        if (path === activePath) {
-          setActivePath(null);
-          setContent("");
-        }
-        await loadFolders();
-        await refreshNotes(activeFolder);
+        await withSavedNote(async () => {
+          await invoke("move_note", { path, targetFolder: ARCHIVE_FOLDER });
+          if (path === activePath) {
+            setActivePath(null);
+            setContent("");
+          }
+          await loadFolders();
+          await refreshNotes(activeFolder);
+        });
       } catch (e) {
         console.error("Archive failed:", e);
         setToast(errorMessage(e, t("common.unknownError")));
       }
     },
-    [activePath, activeFolder, refreshNotes, loadFolders, closeMenus, t],
+    [activePath, activeFolder, refreshNotes, loadFolders, closeMenus, withSavedNote, t],
   );
 
   const deleteNote = useCallback(
     async (path: string) => {
       try {
-        const trashed = await invoke<TrashedNote>("delete_note", { path });
-        setLastTrashed(trashed);
-        setToast(t("trash.noteMoved"));
-        if (path === activePath) {
-          setActivePath(null);
-          setContent("");
-        }
-        if (pinned.includes(path)) persistLocal(PINNED_KEY, pinned.filter((p) => p !== path), setPinned);
-        closeMenus();
-        await refreshNotes(activeFolder);
-        if (trashOpen) await loadTrash();
+        await withSavedNote(async () => {
+          const trashed = await invoke<TrashedNote>("delete_note", { path });
+          setLastTrashed(trashed);
+          setToast(t("trash.noteMoved"));
+          if (path === activePath) {
+            setActivePath(null);
+            setContent("");
+          }
+          if (pinned.includes(path)) persistLocal(PINNED_KEY, pinned.filter((p) => p !== path), setPinned);
+          closeMenus();
+          await refreshNotes(activeFolder);
+          if (trashOpen) await loadTrash();
+        });
       } catch (e) {
         console.error("Delete failed:", e);
         setToast(errorMessage(e, t("common.unknownError")));
@@ -491,6 +606,7 @@ export default function EditorWindow() {
       closeMenus,
       trashOpen,
       loadTrash,
+      withSavedNote,
       t,
     ],
   );
@@ -532,7 +648,7 @@ export default function EditorWindow() {
 
   const searching = query.trim().length > 0;
   const rows: Row[] = searching
-    ? results.map((r) => ({ path: r.path, title: r.title || r.filename.replace(/\.md$/, ""), subtitle: r.snippet, created: r.created }))
+    ? results.map((r) => ({ path: r.path, title: r.title || r.filename.replace(/\.md$/, ""), subtitle: r.snippet, created: r.created, locked: r.locked ?? false }))
     : [...notes]
         .sort((a, b) => {
           const ap = pinned.includes(a.path);
@@ -540,7 +656,7 @@ export default function EditorWindow() {
           if (ap !== bp) return ap ? -1 : 1;
           return a.created < b.created ? 1 : -1;
         })
-        .map((n) => ({ path: n.path, title: noteTitle(n.content, n.filename), subtitle: n.content?.replace(/^#+\s*/, "").trim() || "Empty note", created: n.created }));
+        .map((n) => ({ path: n.path, title: noteTitle(n.content, n.filename), subtitle: n.content?.replace(/^#+\s*/, "").trim() || "Empty note", created: n.created, locked: n.locked ?? false }));
 
   const tree = buildTree(folders);
 
@@ -619,11 +735,17 @@ export default function EditorWindow() {
               <Caret open={isOpen} />
             </button>
             <button
-              onClick={() => {
-                setActiveFolder(node.path);
-                setFolderMenuOpen(false);
-                setEditingFolder(null);
-                setQuery("");
+              onClick={async () => {
+                try {
+                  await withSavedNote(async () => {
+                    setActiveFolder(node.path);
+                    setFolderMenuOpen(false);
+                    setEditingFolder(null);
+                    setQuery("");
+                  });
+                } catch (error) {
+                  setToast(errorMessage(error, t("postit.saveFailed")));
+                }
               }}
               className="flex-1 min-w-0 flex items-center gap-2 text-left"
             >
@@ -683,7 +805,7 @@ export default function EditorWindow() {
   );
 
   return (
-    <div className="w-full h-screen flex flex-col bg-bg text-ink overflow-hidden">
+    <div ref={rootRef} inert={busy} className="w-full h-screen flex flex-col bg-bg text-ink overflow-hidden">
       {/* Top bar — drag region; pl clears native traffic lights */}
       <header data-tauri-drag-region className="h-11 shrink-0 flex items-center gap-1 pl-[80px] pr-3 border-b border-line bg-line/20">
         <div data-tauri-drag-region className="flex-1 h-full" />
@@ -819,7 +941,7 @@ export default function EditorWindow() {
                         className="w-full px-3 py-2 bg-transparent text-[13px] font-medium text-ink outline-none border-b border-coral"
                       />
                     ) : (
-                      <button onClick={() => openNote(r.path)} className="w-full text-left px-3 py-2 pr-8">
+                      <button onClick={() => openNote(r)} className="w-full text-left px-3 py-2 pr-8">
                         <div className="flex items-center gap-1.5">
                           {isPinned && <span className="text-coral/70 shrink-0"><PinIcon /></span>}
                           <span className="truncate text-[13px] font-medium text-ink">{r.title}</span>
@@ -868,7 +990,7 @@ export default function EditorWindow() {
                           className="absolute top-8 right-1.5 min-w-[160px] bg-bg rounded-[10px] shadow-stik border border-line/50 overflow-hidden z-20 py-1"
                         >
                           <MenuItem onClick={() => togglePin(r.path)} icon={<PinIcon />} label={isPinned ? "Unpin" : "Pin to top"} />
-                          <MenuItem onClick={() => startRename(r.path, r.title)} icon={<Pencil />} label="Rename" />
+                          <MenuItem onClick={() => startRename(r)} icon={<Pencil />} label="Rename" />
                           <MenuItem onClick={() => archiveNote(r.path)} icon={<ArchiveIcon />} label="Archive" />
                           <div className="my-1 border-t border-line/60" />
                           {confirmDelete === r.path ? (
@@ -910,7 +1032,7 @@ export default function EditorWindow() {
           </footer>
         </aside>
 
-        <main className="flex-1 min-w-0 flex flex-col">
+        <main inert={loadingNote} aria-busy={loadingNote} className="flex-1 min-w-0 flex flex-col">
           {trashOpen ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 text-stone">
               <span className="text-coral" aria-hidden="true">

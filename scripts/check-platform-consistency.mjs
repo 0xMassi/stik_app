@@ -61,14 +61,20 @@ await Promise.all([
     expectedRunner,
     "the beta runner",
   ),
+  ...["beta", "release"].flatMap((workflow) => [
+    requireText(`.github/workflows/${workflow}.yml`, "uses: ./.github/workflows/ci.yml", "the shared quality gates"),
+    requireText(`.github/workflows/${workflow}.yml`, "needs: checks", "verification before publication"),
+  ]),
+  requireText(".github/workflows/beta.yml", '--target "$GITHUB_SHA"', "the exact beta build revision"),
+  requireText(".github/workflows/release.yml", "if: github.event_name == 'release' && !github.event.release.prerelease", "published stable assets before distribution updates"),
 ]);
 
 if (failures.length > 0) {
-  console.error("macOS support declarations disagree:\n");
+  console.error("Release configuration checks failed:\n");
   for (const failure of failures) {
     console.error(`- ${failure}`);
   }
   process.exit(1);
 }
 
-console.log("macOS support is consistently set to 14 (Sonoma).");
+console.log("macOS 14 (Sonoma) support and release safety declarations are consistent.");

@@ -313,6 +313,18 @@ pub fn update_note(
     content: String,
     index: State<'_, NoteIndex>,
     emb_index: State<'_, EmbeddingIndex>,
+    preserve_empty: Option<bool>,
+) -> Result<NoteSaved, String> {
+    update_note_inner(path, content, &index, &emb_index, preserve_empty)
+}
+
+/// Shared file mutation logic, also exercised by isolated backend QA.
+pub fn update_note_inner(
+    path: String,
+    content: String,
+    index: &NoteIndex,
+    emb_index: &EmbeddingIndex,
+    preserve_empty: Option<bool>,
 ) -> Result<NoteSaved, String> {
     let stik_folder = get_stik_folder()?;
     let note_path = PathBuf::from(&path);
@@ -347,8 +359,14 @@ pub fn update_note(
         return Err("Note file does not exist".to_string());
     }
 
+    let existing_content = super::storage::read_file(&effective_path.to_string_lossy())?;
+    if super::note_lock::is_locked_content(&existing_content) {
+        return Err("Locked notes require an authenticated encrypted save".into());
+    }
+
     // In Stik-managed notes, empty content deletes the note.
-    if in_stik_folder && is_effectively_empty_markdown(&content) {
+    if in_stik_folder && !preserve_empty.unwrap_or(false) && is_effectively_empty_markdown(&content)
+    {
         super::trash::trash_managed_note(&stik_folder, effective_path)?;
         index.remove(&path);
         emb_index.remove_entry(&path);
@@ -433,6 +451,16 @@ pub fn move_note(
     index: State<'_, NoteIndex>,
     emb_index: State<'_, EmbeddingIndex>,
 ) -> Result<NoteInfo, String> {
+    move_note_inner(path, target_folder, &index, &emb_index)
+}
+
+/// Move a managed note using the same path for IPC and backend QA.
+pub fn move_note_inner(
+    path: String,
+    target_folder: String,
+    index: &NoteIndex,
+    emb_index: &EmbeddingIndex,
+) -> Result<NoteInfo, String> {
     let stik_folder = get_stik_folder()?;
     let source_path =
         super::path_security::authorize_existing_path(&stik_folder, &PathBuf::from(&path))?;
@@ -459,16 +487,21 @@ pub fn move_note(
     // Read content before moving
     let content = super::storage::read_file(&authorized_source)?;
 
-    // Move referenced .assets/ images to the target folder
-    if source_folder != target_folder {
-        let source_folder_path = source_path.parent().unwrap_or(&stik_folder).to_path_buf();
-        move_note_assets(&content, &source_folder_path, &target_folder_path);
+    if super::storage::path_exists(&target_path.to_string_lossy()) {
+        return Err("A note already exists in the destination folder".into());
     }
 
     // Move the file
     let target_path = super::path_security::authorize_new_path(&stik_folder, &target_path)?;
     super::storage::move_file(&authorized_source, &target_path.to_string_lossy())
         .map_err(|e| format!("Failed to move note: {}", e))?;
+
+    // Only touch assets after the exclusive move succeeds. A concurrent note
+    // arriving at the destination must leave the source note and assets intact.
+    if source_folder != target_folder {
+        let source_folder_path = source_path.parent().unwrap_or(&stik_folder).to_path_buf();
+        move_note_assets(&content, &source_folder_path, &target_folder_path);
+    }
 
     let new_path_str = target_path.to_string_lossy().to_string();
     index.move_entry(&path, &new_path_str, &target_folder);

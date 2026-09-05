@@ -1,5 +1,12 @@
 # Stik release checklist
 
+CI is reused by both build workflows: a failed quality/security job blocks beta
+publication and stable draft builds. Beta tags point to the exact tested SHA.
+Stable tag pushes build a draft only; Homebrew and the landing page update on
+the stable release's `published` event, after its assets are public. Publish
+manually or with an authorized user token (events created by `GITHUB_TOKEN`
+do not start another workflow).
+
 Use this checklist for stable releases. Beta builds may skip the Homebrew and updater-feed steps, but they must pass the same code, privacy, storage, and accessibility gates.
 
 ## 1. Prepare the release

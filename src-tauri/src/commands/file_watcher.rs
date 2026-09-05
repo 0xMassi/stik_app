@@ -100,10 +100,16 @@ fn run(app: AppHandle, root: PathBuf) {
 /// Shared handler: update NoteIndex, EmbeddingIndex, emit frontend event.
 /// Used by both the local file watcher and iCloud notification handler.
 pub fn handle_changes(app: &AppHandle, paths: &[String]) {
+    let Ok(root) = super::folders::get_stik_folder() else {
+        return;
+    };
     // Our own saves already updated the index, so re-handling them would
     // re-embed and re-broadcast every keystroke the app itself wrote.
     let external: Vec<String> = paths
         .iter()
+        .filter(|path| {
+            super::path_security::is_visible_note_path(&root, std::path::Path::new(path))
+        })
         .filter(|p| !storage::take_self_write(p))
         .cloned()
         .collect();

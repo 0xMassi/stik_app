@@ -37,7 +37,7 @@ impl TrashStorage for LocalTrashStorage {
     }
 
     fn move_path(&self, source: &Path, destination: &Path) -> Result<(), String> {
-        fs::rename(source, destination).map_err(|error| error.to_string())
+        super::storage::move_local_path(source, destination)
     }
 
     fn delete(&self, path: &Path) -> Result<(), String> {

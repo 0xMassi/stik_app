@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "editor-close",
+  "description": "Allow the editor to close after pending note saves finish.",
+  "windows": ["editor"],
+  "permissions": ["core:window:allow-destroy"]
+}

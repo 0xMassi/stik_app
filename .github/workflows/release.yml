@@ -1,12 +1,22 @@
 name: Release
 
 on:
+  release:
+    types: [published]
   push:
     tags:
       - 'v*'
 
 jobs:
+  checks:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build-and-release:
+    if: github.event_name == 'push'
+    needs: checks
     runs-on: macos-14
     permissions:
       contents: write
@@ -175,6 +185,14 @@ jobs:
             gh release upload "v${VERSION}" "$DMG_PATH" --clobber
           done
 
+  publish-distribution:
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    runs-on: macos-14
+    permissions:
+      contents: read
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
       - name: Update Homebrew tap
         if: success()
         env:
@@ -183,12 +201,9 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
 
-          # Download DMGs using repo-scoped GITHUB_TOKEN.
-          # --skip-existing: the "Build signed DMGs and upload to release"
-          # step already placed identical copies in $RUNNER_TEMP, so we
-          # just reuse them rather than re-downloading.
+          # Only published assets may become Homebrew download targets.
           GH_TOKEN="$GITHUB_TOKEN" gh release download "$GITHUB_REF_NAME" \
-            --pattern "*.dmg" --dir "$RUNNER_TEMP" --skip-existing
+            --pattern "*.dmg" --dir "$RUNNER_TEMP"
           SHA_ARM=$(shasum -a 256 "$RUNNER_TEMP/Stik_${VERSION}_aarch64.dmg" | cut -d' ' -f1)
           SHA_INTEL=$(shasum -a 256 "$RUNNER_TEMP/Stik_${VERSION}_x64.dmg" | cut -d' ' -f1)
 

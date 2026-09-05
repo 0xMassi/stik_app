@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -136,13 +137,25 @@ fn atomic_write(path: &str, data: &[u8]) -> Result<(), String> {
 
     // Leading dot and a .tmp extension keep the partial file out of both the
     // note index (skips dot-entries) and the watcher (matches .md only).
-    let tmp = dir.join(format!(".{}.tmp", name));
-
-    fs::write(&tmp, data).map_err(|e| format!("Failed to write {}: {}", tmp.display(), e))?;
-    fs::rename(&tmp, target).map_err(|e| {
+    let tmp = dir.join(format!(".{}.{}.tmp", name, uuid::Uuid::new_v4()));
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options
+        .open(&tmp)
+        .map_err(|e| format!("Failed to create {}: {}", tmp.display(), e))?;
+    let result = file
+        .write_all(data)
+        .and_then(|_| fs::rename(&tmp, target))
+        .map_err(|e| format!("Failed to replace {}: {}", path, e));
+    if result.is_err() {
         let _ = fs::remove_file(&tmp);
-        format!("Failed to replace {}: {}", path, e)
-    })
+    }
+    result
 }
 
 // ── Self-Write Suppression ────────────────────────────────────────
@@ -239,9 +252,41 @@ pub fn delete_file(path: &str) -> Result<(), String> {
     }
 }
 
+/// Rename without replacing another note, directory, or symlink. Fail closed
+/// on filesystems without exclusive-rename support instead of check-then-rename.
+#[cfg(target_os = "macos")]
+pub(crate) fn move_local_path(src: &Path, dst: &Path) -> Result<(), String> {
+    use std::ffi::CString;
+    use std::os::unix::ffi::OsStrExt;
+    unsafe extern "C" {
+        fn renamex_np(
+            src: *const std::ffi::c_char,
+            dst: *const std::ffi::c_char,
+            flags: u32,
+        ) -> i32;
+    }
+    // macOS SDK sys/stdio.h; available since macOS 10.12.
+    const RENAME_EXCL: u32 = 0x00000004;
+    let src = CString::new(src.as_os_str().as_bytes()).map_err(|e| e.to_string())?;
+    let dst = CString::new(dst.as_os_str().as_bytes()).map_err(|e| e.to_string())?;
+    // SAFETY: both pointers are valid NUL-terminated strings for this call.
+    if unsafe { renamex_np(src.as_ptr(), dst.as_ptr(), RENAME_EXCL) } == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error().to_string())
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn move_local_path(_src: &Path, _dst: &Path) -> Result<(), String> {
+    Err("Exclusive note moves require macOS".into())
+}
+
 pub fn move_file(src: &str, dst: &str) -> Result<(), String> {
     match current_mode() {
         StorageMode::ICloud => {
+            // DarwinKit coordinates FileManager.moveItem, whose contract refuses
+            // an existing destination; unlike copy_file it never removes it first.
             darwinkit::call_with_timeout(
                 "icloud.move",
                 Some(serde_json::json!({ "source": src, "destination": dst })),
@@ -249,7 +294,7 @@ pub fn move_file(src: &str, dst: &str) -> Result<(), String> {
             )?;
             Ok(())
         }
-        _ => fs::rename(src, dst).map_err(|e| e.to_string()),
+        _ => move_local_path(Path::new(src), Path::new(dst)),
     }
 }
 
@@ -496,6 +541,31 @@ mod tests {
     #[test]
     fn atomic_write_rejects_a_path_with_no_filename() {
         assert!(atomic_write("/", b"x").is_err());
+    }
+
+    #[test]
+    fn concurrent_atomic_writers_each_publish_a_complete_note() {
+        let dir = unique_temp_dir("writers");
+        let note = dir.join("note.md");
+        let barrier = std::sync::Barrier::new(4);
+        std::thread::scope(|scope| {
+            for byte in b'a'..=b'd' {
+                let note = &note;
+                let barrier = &barrier;
+                scope.spawn(move || {
+                    let body = vec![byte; 256 * 1024];
+                    barrier.wait();
+                    for _ in 0..40 {
+                        atomic_write(note.to_str().unwrap(), &body).unwrap();
+                    }
+                });
+            }
+        });
+        let content = fs::read(&note).unwrap();
+        assert_eq!(content.len(), 256 * 1024);
+        assert!(content.iter().all(|byte| *byte == content[0]));
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 1);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

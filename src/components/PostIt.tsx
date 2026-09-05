@@ -956,6 +956,12 @@ export default function PostIt({
     } else {
       // Pin: create new sticked note entry and proper window
       try {
+        // Pinned notes persist plaintext in settings; never copy decrypted
+        // viewing content there implicitly.
+        if (isViewing && originalPath && await invoke<boolean>("is_note_locked", { path: originalPath })) {
+          showToast(t("postit.lockedPinBlocked"));
+          return;
+        }
         const window = getCurrentWindow();
         const position = await window.outerPosition();
         const oldId = currentStickedId || stickedId;
@@ -983,7 +989,7 @@ export default function PostIt({
         showToast(errorMessage(error, t("common.somethingWentWrong")));
       }
     }
-  }, [currentStickedId, stickedId, isPinned, content, folder, isViewing, showToast, t]);
+  }, [currentStickedId, stickedId, isPinned, content, folder, isViewing, originalPath, showToast, t]);
 
   // Save & Close sticked note (saves content to folder file)
   // Read from contentRef — React state in the closure can be one render behind
@@ -1007,8 +1013,8 @@ export default function PostIt({
             saveToFolder: true,
           });
         } else if (isViewing && originalPath) {
-          // Viewing note - update the existing file
-          await invoke("update_note", {
+          const locked = await invoke<boolean>("is_note_locked", { path: originalPath });
+          await invoke(locked ? "save_locked_note" : "update_note", {
             path: originalPath,
             content: currentContent,
           });
@@ -1055,7 +1061,7 @@ export default function PostIt({
         showToast(errorMessage(error, t("common.somethingWentWrong")));
       }
     }
-  }, [stickedId, currentStickedId, isPinned, folder, getLiveContent, showToast, t]);
+  }, [stickedId, currentStickedId, isPinned, isViewing, originalPath, folder, getLiveContent, showToast, t]);
 
   // Close without saving
   const handleCloseWithoutSaving = useCallback(async () => {

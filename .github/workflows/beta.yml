@@ -28,7 +28,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   beta:
+    needs: checks
     runs-on: macos-14
     permissions:
       contents: write
@@ -245,6 +251,7 @@ jobs:
         run: |
           set -euo pipefail
           gh release create "$TAG" "$DMG_PATH" \
+            --target "$GITHUB_SHA" \
             --prerelease \
             --title "Stik Beta ${VERSION}" \
             --notes-file "${RUNNER_TEMP}/notes.md"

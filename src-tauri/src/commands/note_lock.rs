@@ -396,11 +396,26 @@ pub fn save_locked_note(path: String, content: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Check if a note at the given path is locked.
+/// Check managed-note lock status. External Finder documents are not managed
+/// by Stik locking; report false without reading their contents.
 #[tauri::command]
 pub fn is_note_locked(path: String) -> Result<bool, String> {
-    let path = managed_note_path(&path)?;
-    let content = storage::read_file(&path)?;
+    let root = super::folders::get_stik_folder()?;
+    let requested = Path::new(&path);
+    if !requested.is_absolute() {
+        return Err("Note path must be absolute".into());
+    }
+    let canonical_root = root.canonicalize().map_err(|error| error.to_string())?;
+    let canonical_path = requested
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
+    if !canonical_path.starts_with(&canonical_root) {
+        if requested.starts_with(&root) || requested.starts_with(&canonical_root) {
+            return Err("Path is outside the authorized root".into());
+        }
+        return Ok(false);
+    }
+    let content = storage::read_file(&canonical_path.to_string_lossy())?;
     Ok(is_locked_content(&content))
 }
 

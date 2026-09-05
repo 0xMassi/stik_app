@@ -617,6 +617,7 @@ pub fn run() {
             windows::open_manager,
             windows::open_settings,
             windows::open_editor,
+            tray::complete_editor_quit,
             windows::transfer_to_capture,
             windows::reopen_last_note,
             shortcuts::reload_shortcuts,
@@ -749,6 +750,11 @@ pub fn run() {
             std::process::exit(1);
         })
         .run(|app, event| {
+            if let RunEvent::ExitRequested { api, .. } = &event {
+                if tray::defer_exit_for_editor(app) {
+                    api.prevent_exit();
+                }
+            }
             if let RunEvent::Opened { urls } = event {
                 let paths = urls
                     .into_iter()

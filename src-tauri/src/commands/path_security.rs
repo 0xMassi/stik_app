@@ -1,5 +1,17 @@
 use std::path::{Component, Path, PathBuf};
 
+/// The same visible-note boundary applies to full scans and watcher updates,
+/// including deleted paths that can no longer be canonicalized.
+pub(crate) fn is_visible_note_path(root: &Path, path: &Path) -> bool {
+    let Ok(relative) = path.strip_prefix(root) else {
+        return false;
+    };
+    path.extension().and_then(|extension| extension.to_str()) == Some("md")
+        && relative.components().all(|component| {
+            matches!(component, Component::Normal(name) if !name.to_string_lossy().starts_with('.'))
+        })
+}
+
 /// Accept only one ordinary filename component. IPC and Markdown inputs must
 /// never be able to add path structure below an authorized directory.
 pub fn validate_filename_component(value: &str) -> Result<&str, String> {

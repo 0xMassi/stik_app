@@ -114,7 +114,7 @@ impl NoteIndex {
             let path = PathBuf::from(path_str);
 
             // Only index .md files within the Stik root
-            if !path.starts_with(&stik_folder) || !path_str.ends_with(".md") {
+            if !super::path_security::is_visible_note_path(&stik_folder, &path) {
                 continue;
             }
 
@@ -223,7 +223,7 @@ fn index_dir(stik_root: &Path, dir: &Path, into: &mut HashMap<String, IndexedNot
                 continue;
             }
             index_dir(stik_root, &dir.join(&e.name), into);
-        } else if e.name.ends_with(".md") {
+        } else if super::path_security::is_visible_note_path(stik_root, &dir.join(&e.name)) {
             let path = dir.join(&e.name);
             let folder = super::folders::note_folder(stik_root, &path);
             if let Some(indexed) = read_indexed_note(&path, &folder) {
