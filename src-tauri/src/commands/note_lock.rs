@@ -551,6 +551,41 @@ mod tests {
     }
 
     #[test]
+    fn decrypts_legacy_locked_note_fixture() {
+        // Fixed AES-256-GCM vector (key [42; 32], nonce 0..11), verified with
+        // aes-gcm 0.10 before upgrading. Never regenerate with the tested version.
+        let locked = "---stik-locked---\nnonce: AAECAwQFBgcICQoL\nbw0YLftCQEe+XWmft7aPwEyMUSa56ybEuu8mgqNZgtskqSer8cPxACTw/gitno5vzg1WuPJnLPzFMvIy2g==";
+        assert_eq!(
+            decrypt(locked, &[42; 32]).unwrap(),
+            "# Legacy note\n\nCafé 🔒 — stays readable."
+        );
+        assert!(decrypt(locked, &[99; 32]).is_err());
+        let tampered = locked.replace("bw0YL", "aw0YL");
+        assert!(decrypt(&tampered, &[42; 32]).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_nonce_lengths() {
+        for length in [0, 11, 13, 24] {
+            let locked = format!(
+                "{LOCKED_HEADER}\nnonce: {}\nAA==",
+                B64.encode(vec![0; length])
+            );
+            assert_eq!(
+                decrypt(&locked, &[42; 32]).unwrap_err(),
+                "Invalid nonce length"
+            );
+        }
+    }
+
+    #[test]
+    fn repeated_encryption_uses_distinct_nonces() {
+        let first = encrypt("same note", &[42; 32]).unwrap();
+        let second = encrypt("same note", &[42; 32]).unwrap();
+        assert_ne!(first.lines().nth(1), second.lines().nth(1));
+    }
+
+    #[test]
     fn test_encrypt_decrypt_roundtrip() {
         let key = [42u8; 32];
         let plaintext = "# My secret note\n\nThis is confidential.";

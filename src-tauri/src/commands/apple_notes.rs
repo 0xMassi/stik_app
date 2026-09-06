@@ -171,8 +171,12 @@ pub fn import_apple_note_inner(note_id: i64) -> Result<String, String> {
             }
         })?;
 
-    // Decompress gzip
-    let mut decoder = GzDecoder::new(&compressed[..]);
+    decode_apple_note_data(&compressed)
+}
+
+fn decode_apple_note_data(compressed: &[u8]) -> Result<String, String> {
+    // Keep the wire-format boundary independent of access to the user's database.
+    let mut decoder = GzDecoder::new(compressed);
     let mut decompressed = Vec::new();
     decoder
         .read_to_end(&mut decompressed)
@@ -400,6 +404,40 @@ pub fn check_apple_notes_access() -> Result<bool, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::Engine;
+
+    // Synthetic proto2 bytes encoded by protoc, gzipped and frozen before the
+    // prost/flate2 upgrade. No personal Apple Notes data or new-version encoder.
+    const LEGACY_COMPRESSED_NOTE: &str =
+        "H4sIAAAAAAAAExNSkVISEvNJTU9MrlRITkw7vJLLKT8nRaEktaJEi4mDR4uFg1ODEQCSqQAfJgAAAA==";
+
+    #[test]
+    fn legacy_compressed_note_preserves_text_and_formatting() {
+        let compressed = base64::engine::general_purpose::STANDARD
+            .decode(LEGACY_COMPRESSED_NOTE)
+            .unwrap();
+        assert_eq!(
+            decode_apple_note_data(&compressed).unwrap(),
+            "Legacy café\n**Bold text**"
+        );
+        assert!(decode_apple_note_data(&compressed[..compressed.len() - 8])
+            .unwrap_err()
+            .starts_with("Failed to decompress note data:"));
+    }
+
+    #[test]
+    fn malformed_compressed_notes_report_the_failing_stage() {
+        assert!(decode_apple_note_data(b"not gzip")
+            .unwrap_err()
+            .starts_with("Failed to decompress note data:"));
+        // A valid gzip stream whose payload is the invalid protobuf byte 0xff.
+        let invalid_proto = [
+            31, 139, 8, 0, 0, 0, 0, 0, 0, 19, 251, 15, 0, 0, 0, 0, 255, 1, 0, 0, 0,
+        ];
+        assert!(decode_apple_note_data(&invalid_proto)
+            .unwrap_err()
+            .starts_with("Failed to decode protobuf:"));
+    }
 
     fn make_note(text: &str, runs: Vec<proto::AttributeRun>) -> proto::Note {
         proto::Note {
