@@ -1,5 +1,6 @@
 use crate::commands::{notes, settings, sticked_notes};
 use crate::state::{AppState, LastSavedNote};
+use base64::Engine;
 use sticked_notes::StickedNote;
 use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition, TitleBarStyle, WebviewUrl, WebviewWindowBuilder,
@@ -459,6 +460,14 @@ pub async fn pin_capture_note(
     Ok(note)
 }
 
+fn viewing_note_id(path: &str) -> String {
+    // Preserve path identity without introducing URL or window-label delimiters.
+    format!(
+        "view-{}",
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(path)
+    )
+}
+
 #[tauri::command]
 pub async fn open_note_for_viewing(
     app: AppHandle,
@@ -471,7 +480,7 @@ pub async fn open_note_for_viewing(
         remember_last_note(&state, &path, &folder);
     }
 
-    let id = format!("view-{}", path.replace(['/', '\\', '.', ' '], "-"));
+    let id = viewing_note_id(&path);
     let window_label = format!("sticked-{}", id);
 
     if app.get_webview_window(&window_label).is_some() {
@@ -679,8 +688,31 @@ pub fn restore_sticked_notes(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::{remember_last_note, SETTINGS_WINDOW_MIN_WIDTH, SETTINGS_WINDOW_WIDTH};
+    use super::{
+        remember_last_note, viewing_note_id, SETTINGS_WINDOW_MIN_WIDTH, SETTINGS_WINDOW_WIDTH,
+    };
     use crate::state::AppState;
+
+    #[test]
+    fn viewing_ids_keep_similarly_named_files_in_separate_windows() {
+        let paths = [
+            "/notes/a.b.md",
+            "/notes/a b.md",
+            "/notes/a-b.md",
+            "/notes/a/b.md",
+            "/notes/a\\b.md",
+        ];
+        let ids: std::collections::HashSet<_> = paths.into_iter().map(viewing_note_id).collect();
+        assert_eq!(ids.len(), paths.len());
+    }
+
+    #[test]
+    fn viewing_ids_are_safe_in_window_labels_and_url_parameters() {
+        let id = viewing_note_id("/notes/你好 & question?#.md");
+        assert!(id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'));
+    }
 
     #[test]
     fn remember_last_note_updates_state_for_shortcuts() {

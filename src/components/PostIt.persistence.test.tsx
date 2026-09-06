@@ -124,6 +124,36 @@ async function openCapture(onSave = vi.fn().mockResolvedValue("/vault/Inbox/capt
   return { onSave, onClose };
 }
 
+describe("settings changes preserve live drafts", () => {
+  it.each(["capture", "pinned", "viewing", "cleared viewing"])(
+    "retains and saves %s content when direction and Vim mode change",
+    async (mode) => {
+      const onSave = vi.fn().mockResolvedValue("/vault/Inbox/capture.md");
+      const draft = mode === "cleared viewing" ? "" : "Latest unsaved draft";
+      if (mode === "capture") await openCapture(onSave);
+      else if (mode === "pinned") await openPinnedNote();
+      else await openViewingNote();
+      edit(draft);
+
+      for (const settings of [
+        { vim_mode_enabled: false, text_direction: "rtl" },
+        { vim_mode_enabled: true, text_direction: "rtl" },
+        { vim_mode_enabled: false, text_direction: "auto" },
+      ]) {
+        await act(async () => {
+          native.handlers.get("settings-changed")!({ payload: settings });
+        });
+        expect(text()).toBe(draft);
+      }
+
+      await requestQuit();
+      if (mode === "capture") expect(onSave).toHaveBeenCalledWith(draft, "Inbox");
+      else if (mode === "pinned") expect(pinnedContent).toBe(draft);
+      else expect(files.get(path)).toBe(draft);
+    },
+  );
+});
+
 describe("viewing note persistence", () => {
   it("routes an edited locked note through authenticated encrypted storage", async () => {
     await openViewingNote();

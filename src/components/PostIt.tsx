@@ -266,14 +266,15 @@ export default function PostIt({
 
   // Resolve image paths for display when loading content with existing images
   const baseInitialContent = initialContent || "";
+  // Settings remount the editor; seed it from the live draft, even when empty.
   const resolvedInitialContent =
-    notesDir && baseInitialContent
+    notesDir && content
       ? resolveImagePaths(
-          baseInitialContent,
+          content,
           `${notesDir}/${folder}`,
           convertFileSrc,
         )
-      : baseInitialContent;
+      : content;
   const hasResolvableAssetImages =
     /(?:\]\(\.assets\/|src=["']\.assets\/|asset:\/\/localhost\/|asset\.localhost\/|file:\/\/\/)/.test(
       baseInitialContent,
@@ -1863,7 +1864,7 @@ export default function PostIt({
                     ? t("postit.stickedPlaceholder")
                     : t("postit.typePlaceholder")
               }
-              initialContent={resolvedInitialContent || initialContent}
+              initialContent={resolvedInitialContent}
               vimEnabled={vimEnabled}
               showFormatToolbar={zenMode ? false : formatToolbar}
               textDirection={textDirection}
