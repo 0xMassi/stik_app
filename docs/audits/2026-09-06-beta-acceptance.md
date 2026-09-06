@@ -21,6 +21,10 @@ does not claim exhaustive OS, account integration, architecture, or UX coverage.
   rather than remounting the editor with its original text. Viewing-window IDs
   now preserve distinct file paths, including spaces, periods, nested folders,
   Unicode, and URL delimiters, using the existing base64 dependency.
+- `04f12eb`: the full editor refreshes folder/note navigation and active search
+  on native focus and external-file/iCloud events, without replacing its live
+  draft. Native QA had shown an old title after another window saved. The new
+  title now appears on returning to the editor, without restarting.
 
 The old editor-only coordinator's two tests were replaced by five coordinator
 tests retaining authentication and failed-save retry coverage and adding
@@ -79,6 +83,67 @@ An independent source review found no new startup/image or persisted-ID contract
 regression in these two fixes. This is not native acceptance of the unexplained
 first-open blank viewer.
 
+### Cross-window refresh verification
+
+The four navigation regression cases failed on `9687563`, then passed with the
+fix: native focus, local-file events, iCloud events, and an active search. The
+first three also retain and subsequently save a live CodeMirror draft. No test
+was removed. An independent review identified an unnecessary overlapping Trash
+refresh; that addition was omitted rather than expanding this fix. Navigation
+refresh does not reload the active document or resolve concurrent edits to the
+same file.
+
+Full verification passed in 37 seconds: **234 frontend, 141 Rust, and 43 Swift
+tests** (418 total), plus build/platform/bundle/format/strict-Clippy gates. After
+omitting the unrelated Trash refresh, all 21 affected editor tests passed again.
+The complete suite then passed again on exact `04f12eb` source in 31 seconds.
+Logs: `.internal/beta090-refresh-{red,green,verification}.log` and
+`.internal/beta090-04f12eb-verification.log`.
+
+The actual `develop` worktree was fast-forwarded to `04f12eb`, built using
+`STIK_DEV_ROOT=…/.internal/beta090-profile ./scripts/build-dev.sh qa`, and passed
+`codesign --verify --deep --strict`. This is an ad-hoc-signed debug bundle, not a
+notarized release. Build/startup evidence is in
+`.internal/beta090-refresh-native.log`; startup reported 63 ms on this local Mac.
+
+## Native acceptance on September 6
+
+All data below is disposable and confined to `.internal/beta090-profile/`.
+
+| Flow | Observed result |
+| --- | --- |
+| Full editor, edit then immediate native Cmd+Q | Final Markdown persisted; relaunch listed the correct title/body (`9687563`) |
+| Viewing note, change Vim and text direction | Edited text survived both remounts, then Esc saved the correct Markdown (`9687563`) |
+| Finder Open With, explicitly selected Dev bundle | Nonempty scratch Markdown opened with the correct content; file association was not changed (`9687563`) |
+| Full editor list after viewing-window save | Old title reproduced on `9687563`; new title appeared without restarting on `04f12eb` |
+| Trash and restore | Scratch note disappeared into recoverable Trash, restored, and reopened with the exact original body (`04f12eb`) |
+| Pin, edit then immediate Cmd+Q with full editor open | Process exited successfully; pinned JSON and restored native window contained the final draft (`04f12eb`) |
+| Unpin to capture | Text transferred intact; pinned record removed (`04f12eb`) |
+| Capture, edit then immediate Cmd+Q with full editor open | Process exited successfully; a new Markdown file contained the final text and reopened in the full editor (`04f12eb`) |
+| Failed-save Quit and retry | Scratch folder mode 555 caused Permission denied; Quit cancelled, draft remained editable, old file stayed intact. Restoring the original mode 755 and editing again saved the newer text on Quit (`04f12eb`) |
+
+Additional logs: `.internal/beta090-refresh-relaunch.log` and
+`.internal/beta090-final-qa.log`. Exact scratch content can be inspected in
+`notes/Beta QA/` and `config/sticked_notes.json` under the profile. The pinned
+store is empty after successful unpinning. Native checks exercised each window
+type, but not every combination of simultaneous dirty windows or OS integration.
+
+Automation occasionally returned stale accessibility indexes or left a native
+menu open. Refreshing state, dismissing the menu through its accessibility
+action, selecting the running bundle ID, and using keyboard menu navigation
+allowed testing to continue. These errors do not establish another person was
+interfering. One failed Finder menu action created a ZIP of the disposable
+fixture; it remains in the ignored scratch directory, not the repository or
+personal notes.
+
+CI and the signed/notarized Apple Silicon beta build at `9687563` completed:
+[develop CI](https://github.com/0xMassi/stik_app/actions/runs/34033567322),
+[PR CI](https://github.com/0xMassi/stik_app/actions/runs/34033568992),
+[beta build](https://github.com/0xMassi/stik_app/actions/runs/34033567522), and
+[beta-44](https://github.com/0xMassi/stik_app/releases/tag/beta-44).
+Beta-44 predates the navigation fix. CI/beta runs for `04f12eb` were still running
+when this section was written; check the PR before treating them as passed.
+
 ## Prior native checks and unresolved observation
 
 The September 5 session observed these checks on isolated data:
@@ -107,10 +172,11 @@ documentation did not. September 6 tests use a new persistent scratch profile.
 
 - Reproduce and explain or fix the empty Finder-view observation; verify file
   content before and after opening, editing, saving, and relaunching.
-- Resume native UI testing in an uninterrupted computer-use window. On September
-  6, Finder changed between automation steps and returned stale-element errors;
-  UI interaction was paused to avoid interfering with another person or task.
-- Complete native multi-window shutdown checks and record final-revision CI.
+- September 6 Finder/search/viewing and relaunch checks passed, but the old
+  September 5 blank-view observation lacks diagnostic evidence and a confirmed
+  explanation. Do not claim it fixed solely from non-reproduction.
+- Record final-revision CI and beta artifact inspection. The native checks above
+  are representative acceptance, not exhaustive coverage of all window states.
 - Obtain an approving maintainer review for
   [PR #101](https://github.com/0xMassi/stik_app/pull/101); required review is not
   bypassed by local ownership or an agent's review.
