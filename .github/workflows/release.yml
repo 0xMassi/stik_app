@@ -1,13 +1,25 @@
 name: Release
 
 on:
+  release:
+    types: [published]
   push:
     tags:
       - 'v*'
 
 jobs:
+  checks:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build-and-release:
-    runs-on: macos-latest
+    if: github.event_name == 'push'
+    needs: checks
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     permissions:
       contents: write
 
@@ -21,7 +33,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Check release configuration
+        run: bun run check:platform
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -77,11 +96,8 @@ jobs:
       - name: Install protobuf compiler
         run: brew install protobuf
 
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Remove bun to prevent tauri-action misdetection
-        run: brew uninstall --ignore-dependencies bun || true
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
 
       - name: Build and release (aarch64)
         uses: tauri-apps/tauri-action@v0
@@ -97,7 +113,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
         with:
-          tauriScript: npm run tauri
+          tauriScript: bun run tauri
           tagName: v__VERSION__
           releaseName: 'Stik v__VERSION__'
           releaseBody: 'See [CHANGELOG](https://github.com/0xMassi/stik_app/blob/main/CHANGELOG.md) for details.'
@@ -122,7 +138,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
         with:
-          tauriScript: npm run tauri
+          tauriScript: bun run tauri
           tagName: v__VERSION__
           releaseName: 'Stik v__VERSION__'
           releaseDraft: true
@@ -171,22 +187,39 @@ jobs:
             gh release upload "v${VERSION}" "$DMG_PATH" --clobber
           done
 
+  publish-distribution:
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    runs-on: macos-14
+    permissions:
+      contents: read
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
       - name: Update Homebrew tap
         if: success()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
 
-          # Download DMGs using repo-scoped GITHUB_TOKEN.
-          # --skip-existing: the "Build signed DMGs and upload to release"
-          # step already placed identical copies in $RUNNER_TEMP, so we
-          # just reuse them rather than re-downloading.
+          # Only published assets may become Homebrew download targets.
           GH_TOKEN="$GITHUB_TOKEN" gh release download "$GITHUB_REF_NAME" \
-            --pattern "*.dmg" --dir "$RUNNER_TEMP" --skip-existing
+            --pattern "*.dmg" --dir "$RUNNER_TEMP"
+          for ARCH in aarch64 x64; do
+            ASSET="$RUNNER_TEMP/Stik_${VERSION}_${ARCH}.dmg"
+            if [ ! -s "$ASSET" ]; then
+              echo "::error::Required release asset is missing or empty: $ASSET"
+              exit 1
+            fi
+          done
           SHA_ARM=$(shasum -a 256 "$RUNNER_TEMP/Stik_${VERSION}_aarch64.dmg" | cut -d' ' -f1)
           SHA_INTEL=$(shasum -a 256 "$RUNNER_TEMP/Stik_${VERSION}_x64.dmg" | cut -d' ' -f1)
+          if [[ ! "$SHA_ARM" =~ ^[[:xdigit:]]{64}$ || ! "$SHA_INTEL" =~ ^[[:xdigit:]]{64}$ ]]; then
+            echo "::error::Release asset checksums must be valid SHA-256 values"
+            exit 1
+          fi
 
           # Generate updated cask formula
           cat > "$RUNNER_TEMP/stik.rb" <<CASKEOF
@@ -202,7 +235,7 @@ jobs:
             desc "Instant thought capture - one shortcut, post-it appears, type, close"
             homepage "https://github.com/0xMassi/stik_app"
 
-            depends_on macos: ">= :catalina"
+            depends_on macos: :sonoma
 
             app "Stik.app"
 
@@ -232,4 +265,4 @@ jobs:
         if: success()
         env:
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: curl -s -X POST "$VERCEL_DEPLOY_HOOK"
+        run: curl --fail --silent --show-error --max-time 30 -X POST "$VERCEL_DEPLOY_HOOK"

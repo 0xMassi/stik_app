@@ -3,9 +3,12 @@
   "version": "0.8.0",
   "description": "Instant thought capture. One shortcut, post-it appears, type, close.",
   "type": "module",
+  "packageManager": "bun@1.4.1",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "check:bundle": "node scripts/check-bundle-size.mjs",
+    "check:platform": "node scripts/check-platform-consistency.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "release": "./scripts/release.sh",
@@ -24,15 +27,13 @@
     "@replit/codemirror-vim": "^6.2.0",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.6.0",
-    "@tauri-apps/plugin-global-shortcut": "^2.2.0",
     "@tauri-apps/plugin-shell": "^2.3.5",
     "@tauri-apps/plugin-updater": "^2.10.0",
     "cmdk": "^1.1.1",
     "codemirror": "^6.0.0",
     "marked": "^17.0.2",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "sonner": "^2.0.7"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",

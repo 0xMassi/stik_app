@@ -66,7 +66,7 @@ brew tap 0xMassi/stik
 brew install --cask stik
 ```
 
-> Requires **macOS 10.15+**. On first launch, grant Accessibility permissions when prompted (needed for global shortcuts).
+> Requires **macOS 14+ (Sonoma)**. On first launch, grant Accessibility permissions when prompted (needed for global shortcuts).
 
 ### Update
 
@@ -136,7 +136,7 @@ All shortcuts are customizable in Settings.
 
 - Notes are **plain markdown files** in `~/Documents/Stik/` -- open them in any editor
 - All AI runs **on-device** via Apple frameworks -- nothing is sent anywhere
-- No account, no cloud, no tracking, no telemetry
+- No account and no cloud service. Anonymous analytics are off by default and run only after you explicitly opt in; note content, titles, folders, and paths are never collected.
 - Settings stored locally in `~/.stik/`
 - Want sync? Just enable iCloud Drive for your Documents folder. Stik works automatically with iCloud, Dropbox, Syncthing, or anything that syncs `~/Documents`
 
@@ -144,19 +144,20 @@ All shortcuts are customizable in Settings.
 
 ### Prerequisites
 
-- macOS 10.15+
+- macOS 14+ (Sonoma)
 - [Xcode Command Line Tools](https://developer.apple.com/xcode/resources/) (`xcode-select --install`)
-- [Rust](https://rustup.rs/) 1.70+
-- [Node.js](https://nodejs.org/) 18+
+- [Rust](https://rustup.rs/) stable
+- [Node.js](https://nodejs.org/) 20+
+- [Bun](https://bun.com/docs/installation) 1.4.1 (pinned in `.bun-version`)
 
 ### Build
 
 ```bash
-git clone https://github.com/0xMassi/stik_app.git
+git clone --recurse-submodules https://github.com/0xMassi/stik_app.git
 cd stik_app
-npm install
-npm run tauri dev      # Development with hot reload
-npm run tauri build    # Production .app bundle
+bun install --frozen-lockfile
+./scripts/build-dev.sh dev    # Development with hot reload
+./scripts/build-dev.sh build  # Local .app bundle for testing
 ```
 
 ## Tech Stack
@@ -170,7 +171,7 @@ npm run tauri build    # Production .app bundle
 
 ## Contributing
 
-Contributions are welcome. Please open an issue first to discuss what you'd like to change.
+Contributions are welcome. Bun 1.4.1 is the canonical JavaScript package manager; keep `bun.lock` current and do not add a second lockfile. Node and Vitest remain the build-tool runtime and test runner. Please open an issue first to discuss what you'd like to change.
 
 ```bash
 # Check Rust code
@@ -180,14 +181,16 @@ cd src-tauri && cargo check
 cd src-tauri && cargo fmt
 
 # Type check frontend
-npm run build
+bun run build
 
 # Run tests
-npm test
+bun run test
 cd src-tauri && cargo test
 ```
 
-**Translations.** Every string lives in [`src/i18n/locales/`](src/i18n/locales/). Copy `en.ts`, translate the values, and add your locale to `LOCALES` in `src/i18n/index.ts`. The catalogue is typed against English, so a missing key breaks the build instead of shipping a blank label, and `npm test` checks both catalogues for drift. Corrections to [`zh-CN.ts`](src/i18n/locales/zh-CN.ts) are welcome: read it top to bottom without opening a single component.
+Maintainers preparing a stable build should follow the [release checklist](docs/release-checklist.md).
+
+**Translations.** Every string lives in [`src/i18n/locales/`](src/i18n/locales/). Copy `en.ts`, translate the values, and add your locale to `LOCALES` in `src/i18n/index.ts`. The catalogue is typed against English, so a missing key breaks the build instead of shipping a blank label, and `bun run test` checks both catalogues for drift. Corrections to [`zh-CN.ts`](src/i18n/locales/zh-CN.ts) are welcome: read it top to bottom without opening a single component.
 
 ## Ideas Board
 
@@ -195,7 +198,7 @@ Got a feature idea or want to vote on what gets built next? Visit the **[Stik Id
 
 ## Support
 
-Have a question, found a bug, or want to request a feature? Reach out at [help@stik.ink](mailto:help@stik.ink), join [Discord](https://discord.gg/gG8vdCCRzW), follow us on [X](https://x.com/stik_app), or [open an issue](https://github.com/0xMassi/stik_app/issues).
+Have a question, found a bug, or want to request a feature? Reach out at [massimianivalerio1@gmail.com](mailto:massimianivalerio1@gmail.com), join [Discord](https://discord.gg/gG8vdCCRzW), follow us on [X](https://x.com/stik_app), or [open an issue](https://github.com/0xMassi/stik_app/issues).
 
 ## License
 

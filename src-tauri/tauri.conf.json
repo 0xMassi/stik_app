@@ -4,8 +4,8 @@
   "version": "0.8.0",
   "identifier": "com.stik.app",
   "build": {
-    "beforeBuildCommand": "npm run build",
-    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "bun run build",
+    "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../dist"
   },
@@ -32,13 +32,11 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: http://asset.localhost https://asset.localhost https: http:; connect-src ipc: http://ipc.localhost",
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; img-src 'self' data: http://asset.localhost https://asset.localhost https: http:; font-src 'self' data: https://fonts.gstatic.com; connect-src ipc: http://ipc.localhost",
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$DOCUMENT/Stik/**",
           "$DOCUMENT/Stik/**/.assets/**",
-          "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Stik/**",
           "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Stik/**/.assets/**"
         ]
       }
@@ -70,7 +68,7 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "minimumSystemVersion": "10.15",
+      "minimumSystemVersion": "14.0",
       "signingIdentity": "-",
       "entitlements": "Entitlements.plist"
     }

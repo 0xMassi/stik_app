@@ -1,11 +1,13 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ThemeProvider from "./themes/ThemeProvider";
-import { Toaster } from "sonner";
-import CommandMenu from "./components/CommandMenu";
 import "./styles/globals.css";
+
+globalThis.performance?.mark?.("stik:frontend-start");
+
+const CommandMenu = lazy(() => import("./components/CommandMenu"));
 
 // In production, block the context menu and devtools shortcuts.
 //
@@ -43,15 +45,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <ThemeProvider>
         <App />
-        <CommandMenu />
-        {/* Accessible toast channel. Stik's own inline toasts stay where they
-            are — they are positioned inside specific windows — but anything
-            announced globally goes through here, which gives it a live region
-            for free. */}
-        <Toaster
-          position="bottom-center"
-          toastOptions={{ className: "text-[12px]" }}
-        />
+        <Suspense fallback={null}>
+          <CommandMenu />
+        </Suspense>
       </ThemeProvider>
     </ErrorBoundary>
   </React.StrictMode>,

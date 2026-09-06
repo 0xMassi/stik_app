@@ -47,9 +47,6 @@ core-graphics = "0.24"
 core-foundation = "0.10"
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["NSData", "NSDictionary", "NSGeometry"] }
 
-[dev-dependencies]
-glib = ">=0.20"
-
 [features]
 # The custom-protocol feature tells tauri-codegen to embed the frontend
 # from `frontendDist` instead of connecting to `devUrl`. `cargo tauri

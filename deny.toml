@@ -1,0 +1,7 @@
+[advisories]
+# Fail on security advisories and yanked packages. Transitive unmaintained and
+# unsound notices are reported by `cargo audit`, while cargo-deny blocks them
+# when they are dependencies Stik directly controls.
+unmaintained = "workspace"
+unsound = "workspace"
+ignore = []

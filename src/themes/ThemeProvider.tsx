@@ -1,4 +1,5 @@
 import { useCallback, useEffect, type ReactNode } from "react";
+import { matchesEitherPrimary } from "@/utils/matchShortcut";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import type { StikSettings } from "@/types";
@@ -51,13 +52,16 @@ export default function ThemeProvider({ children }: Props) {
         return;
       }
 
-      // Cmd/Ctrl+Shift+D toggles dark mode.
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "d") {
+      // Cmd/Ctrl+Shift+D toggles dark mode. Matched by physical key so it
+      // lands in the same place on AZERTY and friends (#96).
+      if (matchesEitherPrimary("Cmd+Shift+D", e)) {
         e.preventDefault();
         toggleTheme();
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === "d") {
+      // Cmd/Ctrl+Alt+D never fired before: macOS yields "\u2202" for that
+      // combination, so the old `e.key === "d"` test could never match.
+      if (matchesEitherPrimary("Cmd+Alt+D", e)) {
         e.preventDefault();
         toggleTheme();
       }

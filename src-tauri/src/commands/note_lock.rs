@@ -1,4 +1,4 @@
-/// Note locking — AES-256-GCM encryption with file-based key storage
+/// Note locking — AES-256-GCM encryption with macOS Keychain key storage
 /// and Touch ID / device-password authentication via DarwinKit.
 use aes_gcm::{
     aead::{Aead, KeyInit},
@@ -7,6 +7,7 @@ use aes_gcm::{
 use base64::Engine;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
@@ -107,73 +108,121 @@ fn decrypt(locked_content: &str, key: &[u8; 32]) -> Result<String, String> {
 }
 
 // ── Key Storage ─────────────────────────────────────────────────
-//
-// The encryption key lives at `~/.stik/note-key` with 0600 permissions.
-// Touch ID / device-password is the access gate — the key file is just
-// the storage mechanism. No Keychain prompts.
 
-fn key_path() -> Result<std::path::PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
-    Ok(home.join(".stik").join("note-key"))
+const KEYCHAIN_SERVICE: &str = "com.0xmassi.stik";
+const KEYCHAIN_ACCOUNT: &str = "note-encryption-key";
+
+trait KeyStore {
+    fn read(&self) -> Result<Option<Vec<u8>>, String>;
+    fn write(&self, key: &[u8]) -> Result<(), String>;
 }
 
-fn save_key_file(path: &std::path::Path, key: &[u8; 32]) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(path, key).map_err(|e| format!("Failed to write key file: {}", e))?;
+struct KeychainKeyStore;
 
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
-            .map_err(|e| format!("Failed to set key file permissions: {}", e))?;
+#[cfg(target_os = "macos")]
+impl KeyStore for KeychainKeyStore {
+    fn read(&self) -> Result<Option<Vec<u8>>, String> {
+        use security_framework::passwords::get_generic_password;
+        const ERR_SEC_ITEM_NOT_FOUND: i32 = -25300;
+        match get_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT) {
+            Ok(key) => Ok(Some(key)),
+            Err(error) if error.code() == ERR_SEC_ITEM_NOT_FOUND => Ok(None),
+            Err(error) => Err(format!("Failed to read note key from Keychain: {error}")),
+        }
+    }
+
+    fn write(&self, key: &[u8]) -> Result<(), String> {
+        security_framework::passwords::set_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, key)
+            .map_err(|error| format!("Failed to store note key in Keychain: {error}"))
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+impl KeyStore for KeychainKeyStore {
+    fn read(&self) -> Result<Option<Vec<u8>>, String> {
+        Err("Locked notes require macOS Keychain".to_string())
+    }
+
+    fn write(&self, _key: &[u8]) -> Result<(), String> {
+        Err("Locked notes require macOS Keychain".to_string())
+    }
+}
+
+fn legacy_key_path() -> Result<PathBuf, String> {
+    Ok(super::paths::config_dir()?.join("note-key"))
+}
+
+fn key_from_bytes(data: &[u8], source: &str) -> Result<[u8; 32], String> {
+    data.try_into().map_err(|_| {
+        format!(
+            "{source} key has wrong length: {} (expected 32)",
+            data.len()
+        )
+    })
+}
+
+fn write_and_verify_key(store: &impl KeyStore, key: &[u8; 32]) -> Result<(), String> {
+    store.write(key)?;
+    let persisted = store
+        .read()?
+        .ok_or_else(|| "Keychain write could not be verified".to_string())?;
+    if persisted.as_slice() != key {
+        return Err("Keychain write verification did not match".to_string());
     }
     Ok(())
 }
 
-/// Migrate key from Keychain → file (one-time, then Keychain entry can be ignored).
-#[cfg(target_os = "macos")]
-fn migrate_from_keychain(path: &std::path::Path) -> Option<[u8; 32]> {
-    use security_framework::passwords::get_generic_password;
-    let data = get_generic_password("com.0xmassi.stik", "note-encryption-key").ok()?;
-    if data.len() != 32 {
-        return None;
+fn get_or_create_key_with<F>(
+    store: &impl KeyStore,
+    legacy_path: &Path,
+    generate: F,
+) -> Result<[u8; 32], String>
+where
+    F: FnOnce() -> [u8; 32],
+{
+    // The file was the primary store in v0.8 and must win if both locations
+    // exist. Remove it only after a matching Keychain read-back.
+    if legacy_path.exists() {
+        let data = std::fs::read(legacy_path)
+            .map_err(|error| format!("Failed to read legacy key file: {error}"))?;
+        let key = key_from_bytes(&data, "Legacy")?;
+        write_and_verify_key(store, &key)?;
+        std::fs::remove_file(legacy_path)
+            .map_err(|error| format!("Failed to remove migrated key file: {error}"))?;
+        return Ok(key);
     }
-    let mut key = [0u8; 32];
-    key.copy_from_slice(&data);
-    let _ = save_key_file(path, &key);
-    Some(key)
+
+    if let Some(data) = store.read()? {
+        return key_from_bytes(&data, "Keychain");
+    }
+
+    let key = generate();
+    write_and_verify_key(store, &key)?;
+    Ok(key)
 }
 
 fn get_or_create_key() -> Result<[u8; 32], String> {
-    let path = key_path()?;
-
-    // 1. File-based key (primary)
-    if path.exists() {
-        let data = std::fs::read(&path).map_err(|e| format!("Failed to read key file: {}", e))?;
-        if data.len() != 32 {
-            return Err(format!(
-                "Key file has wrong length: {} (expected 32)",
-                data.len()
-            ));
-        }
+    if super::paths::dev_root()?.is_some() {
+        return Err(
+            "Keychain note locking is unavailable in the isolated development profile".into(),
+        );
+    }
+    let legacy = legacy_key_path()?;
+    get_or_create_key_with(&KeychainKeyStore, &legacy, || {
         let mut key = [0u8; 32];
-        key.copy_from_slice(&data);
-        return Ok(key);
-    }
+        rand::rng().fill_bytes(&mut key);
+        key
+    })
+}
 
-    // 2. Migrate from Keychain if it exists (one-time)
-    #[cfg(target_os = "macos")]
-    if let Some(key) = migrate_from_keychain(&path) {
-        return Ok(key);
-    }
+fn authorize_managed_note_path(root: &Path, path: &Path) -> Result<PathBuf, String> {
+    super::path_security::authorize_existing_path(root, path)
+}
 
-    // 3. Generate new key
-    let mut key = [0u8; 32];
-    rand::rng().fill_bytes(&mut key);
-    save_key_file(&path, &key)?;
-    Ok(key)
+fn managed_note_path(path: &str) -> Result<String, String> {
+    let root = super::folders::get_stik_folder()?;
+    let authorized = authorize_managed_note_path(&root, Path::new(path))?;
+    Ok(authorized.to_string_lossy().to_string())
 }
 
 // ── Authentication ───────────────────────────────────────────────
@@ -254,7 +303,9 @@ pub fn lock_session() -> Result<(), String> {
 pub fn lock_note(
     path: String,
     index: tauri::State<'_, super::index::NoteIndex>,
+    embeddings: tauri::State<'_, super::embeddings::EmbeddingIndex>,
 ) -> Result<(), String> {
+    let path = managed_note_path(&path)?;
     let content = storage::read_file(&path)?;
 
     if is_locked_content(&content) {
@@ -270,6 +321,12 @@ pub fn lock_note(
     // Re-index so the UI sees the updated locked state
     index.add(&path, &folder);
 
+    // The embedding is derived from plaintext, so keeping it would leave a
+    // readable shadow of a locked note in ~/.stik/embeddings.json. build_embeddings
+    // already skips locked notes; this closes the same hole on the way in.
+    embeddings.remove_entry(&path);
+    let _ = embeddings.save();
+
     Ok(())
 }
 
@@ -280,6 +337,7 @@ pub fn unlock_note(
     path: String,
     index: tauri::State<'_, super::index::NoteIndex>,
 ) -> Result<(), String> {
+    let path = managed_note_path(&path)?;
     let settings = super::settings::load_settings_from_file().unwrap_or_default();
     if !is_session_unlocked(settings.note_lock.timeout_minutes) {
         return Err("Not authenticated".to_string());
@@ -306,6 +364,7 @@ pub fn unlock_note(
 /// Requires active authentication session.
 #[tauri::command]
 pub fn read_locked_note(path: String) -> Result<String, String> {
+    let path = managed_note_path(&path)?;
     let settings = super::settings::load_settings_from_file().unwrap_or_default();
     if !is_session_unlocked(settings.note_lock.timeout_minutes) {
         return Err("Not authenticated".to_string());
@@ -324,6 +383,7 @@ pub fn read_locked_note(path: String) -> Result<String, String> {
 /// Used by the editor when saving changes to a note that's lock-protected.
 #[tauri::command]
 pub fn save_locked_note(path: String, content: String) -> Result<(), String> {
+    let path = managed_note_path(&path)?;
     let settings = super::settings::load_settings_from_file().unwrap_or_default();
     if !is_session_unlocked(settings.note_lock.timeout_minutes) {
         return Err("Not authenticated".to_string());
@@ -336,10 +396,26 @@ pub fn save_locked_note(path: String, content: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Check if a note at the given path is locked.
+/// Check managed-note lock status. External Finder documents are not managed
+/// by Stik locking; report false without reading their contents.
 #[tauri::command]
 pub fn is_note_locked(path: String) -> Result<bool, String> {
-    let content = storage::read_file(&path)?;
+    let root = super::folders::get_stik_folder()?;
+    let requested = Path::new(&path);
+    if !requested.is_absolute() {
+        return Err("Note path must be absolute".into());
+    }
+    let canonical_root = root.canonicalize().map_err(|error| error.to_string())?;
+    let canonical_path = requested
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
+    if !canonical_path.starts_with(&canonical_root) {
+        if requested.starts_with(&root) || requested.starts_with(&canonical_root) {
+            return Err("Path is outside the authorized root".into());
+        }
+        return Ok(false);
+    }
+    let content = storage::read_file(&canonical_path.to_string_lossy())?;
     Ok(is_locked_content(&content))
 }
 
@@ -361,6 +437,118 @@ pub fn export_recovery_key() -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+
+    #[derive(Default)]
+    struct MemoryKeyStore {
+        value: Mutex<Option<Vec<u8>>>,
+        corrupt_reads: bool,
+    }
+
+    impl KeyStore for MemoryKeyStore {
+        fn read(&self) -> Result<Option<Vec<u8>>, String> {
+            let value = self
+                .value
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .clone();
+            if self.corrupt_reads && value.is_some() {
+                Ok(Some(vec![0; 31]))
+            } else {
+                Ok(value)
+            }
+        }
+
+        fn write(&self, key: &[u8]) -> Result<(), String> {
+            *self.value.lock().unwrap_or_else(|error| error.into_inner()) = Some(key.to_vec());
+            Ok(())
+        }
+    }
+
+    fn temp_path(label: &str) -> std::path::PathBuf {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir()
+            .join(format!("stik-key-{label}-{nonce}"))
+            .join("note-key")
+    }
+
+    #[test]
+    fn creates_and_reads_a_key_from_the_store() {
+        let store = MemoryKeyStore::default();
+        let legacy = temp_path("create");
+
+        let created = get_or_create_key_with(&store, &legacy, || [7; 32]).unwrap();
+        let loaded = get_or_create_key_with(&store, &legacy, || [9; 32]).unwrap();
+
+        assert_eq!(created, [7; 32]);
+        assert_eq!(loaded, created);
+        assert!(!legacy.exists());
+
+        let _ = fs::remove_dir_all(legacy.parent().unwrap());
+    }
+
+    #[test]
+    fn migrates_a_legacy_file_only_after_store_readback_matches() {
+        let store = MemoryKeyStore::default();
+        let legacy = temp_path("migrate");
+        fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+        fs::write(&legacy, [4; 32]).unwrap();
+
+        let key = get_or_create_key_with(&store, &legacy, || [8; 32]).unwrap();
+
+        assert_eq!(key, [4; 32]);
+        assert!(!legacy.exists());
+        assert_eq!(store.read().unwrap(), Some(vec![4; 32]));
+
+        let _ = fs::remove_dir_all(legacy.parent().unwrap());
+    }
+
+    #[test]
+    fn failed_store_verification_keeps_the_legacy_key() {
+        let store = MemoryKeyStore {
+            corrupt_reads: true,
+            ..MemoryKeyStore::default()
+        };
+        let legacy = temp_path("verify-failure");
+        fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+        fs::write(&legacy, [5; 32]).unwrap();
+
+        assert!(get_or_create_key_with(&store, &legacy, || [8; 32]).is_err());
+        assert_eq!(fs::read(&legacy).unwrap(), vec![5; 32]);
+
+        let _ = fs::remove_dir_all(legacy.parent().unwrap());
+    }
+
+    #[test]
+    fn managed_note_authorization_rejects_outside_and_symlink_paths() {
+        let root = temp_path("root").parent().unwrap().to_path_buf();
+        let outside_root = temp_path("outside").parent().unwrap().to_path_buf();
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside_root).unwrap();
+        let inside = root.join("nested/note.md");
+        fs::create_dir_all(inside.parent().unwrap()).unwrap();
+        fs::write(&inside, "note").unwrap();
+        let outside = outside_root.join("secret.md");
+        fs::write(&outside, "secret").unwrap();
+
+        assert_eq!(
+            authorize_managed_note_path(&root, &inside).unwrap(),
+            inside.canonicalize().unwrap()
+        );
+        assert!(authorize_managed_note_path(&root, &outside).is_err());
+
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(&outside, root.join("linked.md")).unwrap();
+            assert!(authorize_managed_note_path(&root, &root.join("linked.md")).is_err());
+        }
+
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(outside_root);
+    }
 
     #[test]
     fn test_encrypt_decrypt_roundtrip() {

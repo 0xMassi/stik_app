@@ -1,6 +1,6 @@
 /// iCloud sync commands — status checking, enable/disable, and migration.
 use serde::Serialize;
-use std::path::PathBuf;
+use std::path::Path;
 use tauri::Manager;
 
 use super::embeddings::EmbeddingIndex;
@@ -59,14 +59,15 @@ pub async fn icloud_enable(app: tauri::AppHandle) -> Result<ICloudStatus, String
         // Verify iCloud container exists on disk
         if !storage::icloud_available() {
             return Err(
-                "iCloud is not available. Please enable iCloud Drive in System Settings.".to_string(),
+                "iCloud is not available. Please enable iCloud Drive in System Settings."
+                    .to_string(),
             );
         }
 
         // Enable iCloud in settings
         let mut settings = settings::load_settings_from_file()?;
         settings.icloud.enabled = true;
-        settings::save_settings(settings.clone())?;
+        settings::save_settings_without_app(settings.clone())?;
 
         // Ensure the iCloud Stik directory exists
         let _ = storage::stik_root()?;
@@ -105,7 +106,7 @@ pub async fn icloud_disable(app: tauri::AppHandle) -> Result<ICloudStatus, Strin
         // Disable iCloud in settings
         let mut settings = settings::load_settings_from_file()?;
         settings.icloud.enabled = false;
-        settings::save_settings(settings)?;
+        settings::save_settings_without_app(settings)?;
 
         // Rebuild index against local root
         let index = app.state::<NoteIndex>();
@@ -125,6 +126,9 @@ pub async fn icloud_disable(app: tauri::AppHandle) -> Result<ICloudStatus, Strin
 
 #[tauri::command]
 pub async fn icloud_migrate_notes(app: tauri::AppHandle) -> Result<MigrationResult, String> {
+    if super::paths::dev_root()?.is_some() {
+        return Err("iCloud migration is unavailable in the isolated development profile".into());
+    }
     tauri::async_runtime::spawn_blocking(move || {
         let mut result = MigrationResult {
             files_copied: 0,
@@ -148,7 +152,7 @@ pub async fn icloud_migrate_notes(app: tauri::AppHandle) -> Result<MigrationResu
         // Mark as migrated
         let mut settings = settings::load_settings_from_file()?;
         settings.icloud.migrated = true;
-        settings::save_settings(settings)?;
+        settings::save_settings_without_app(settings)?;
 
         // Rebuild indices
         let index = app.state::<NoteIndex>();
@@ -165,8 +169,8 @@ pub async fn icloud_migrate_notes(app: tauri::AppHandle) -> Result<MigrationResu
 
 /// Recursively copy files from source to destination, preserving directory structure.
 fn migrate_directory(
-    source: &PathBuf,
-    dest: &PathBuf,
+    source: &Path,
+    dest: &Path,
     result: &mut MigrationResult,
 ) -> Result<(), String> {
     let entries = std::fs::read_dir(source).map_err(|e| e.to_string())?;
@@ -186,10 +190,7 @@ fn migrate_directory(
             storage::ensure_dir(&dest_path.to_string_lossy())?;
             migrate_directory(&path, &dest_path, result)?;
         } else {
-            match storage::copy_file(
-                &path.to_string_lossy(),
-                &dest_path.to_string_lossy(),
-            ) {
+            match storage::copy_file(&path.to_string_lossy(), &dest_path.to_string_lossy()) {
                 Ok(()) => result.files_copied += 1,
                 Err(e) => result.errors.push(format!("{}: {}", name, e)),
             }

@@ -12,13 +12,16 @@ import {
   useCallback,
   useImperativeHandle,
   forwardRef,
+  lazy,
+  Suspense,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { DictationStatus } from "@/types";
-import DictationSetupModal from "./DictationSetupModal";
 import "@/styles/speech-button.css";
 import { useTranslation } from "@/hooks/useTranslation";
+
+const DictationSetupModal = lazy(() => import("./DictationSetupModal"));
 
 interface SpeechButtonProps {
   onPartialText: (text: string, replaceFrom: number) => void;
@@ -169,11 +172,17 @@ const SpeechButton = forwardRef<SpeechButtonRef, SpeechButtonProps>(
     }, [error]);
 
     const startDictation = useCallback(async () => {
+      if (!mountedRef.current || document.body.inert) return;
       setError(null);
       insertOriginRef.current = getInsertOrigin();
       setState("starting");
       try {
         const status = await invoke<DictationStatus>("dictation_get_status");
+        if (!mountedRef.current) return;
+        if (document.body.inert) {
+          setState("idle");
+          return;
+        }
         if (status.installed_models.length === 0) {
           setState("idle");
           setSetupOpen(true);
@@ -226,6 +235,7 @@ const SpeechButton = forwardRef<SpeechButtonRef, SpeechButtonProps>(
     }, []);
 
     const handleToggle = useCallback(async () => {
+      if (document.body.inert) return;
       if (state === "processing" || state === "starting") return;
 
       if (state === "recording") {
@@ -236,6 +246,7 @@ const SpeechButton = forwardRef<SpeechButtonRef, SpeechButtonProps>(
       // Re-check status so cached hasModel=false from a startup race
       // with the sidecar doesn't wrongly pop the modal.
       const installed = await refreshStatus();
+      if (!mountedRef.current || document.body.inert) return;
       if (!installed) {
         setSetupOpen(true);
         return;
@@ -299,21 +310,23 @@ const SpeechButton = forwardRef<SpeechButtonRef, SpeechButtonProps>(
         </div>
 
         {setupOpen && (
-          <DictationSetupModal
-            onClose={() => setSetupOpen(false)}
-            onReady={async (modelId, language) => {
-              setSetupOpen(false);
-              // Persist the user's choice into settings.json so the
-              // next launch (and every subsequent mic click) knows
-              // which model to use — and so ⌘⇧V can actually work
-              // without re-prompting.
-              if (onActiveModelSelected) {
-                await onActiveModelSelected(modelId, language);
-              }
-              await refreshStatus();
-              await startDictation();
-            }}
-          />
+          <Suspense fallback={null}>
+            <DictationSetupModal
+              onClose={() => setSetupOpen(false)}
+              onReady={async (modelId, language) => {
+                setSetupOpen(false);
+                // Persist the user's choice into settings.json so the
+                // next launch (and every subsequent mic click) knows
+                // which model to use — and so ⌘⇧V can actually work
+                // without re-prompting.
+                if (onActiveModelSelected) {
+                  await onActiveModelSelected(modelId, language);
+                }
+                await refreshStatus();
+                await startDictation();
+              }}
+            />
+          </Suspense>
         )}
       </>
     );

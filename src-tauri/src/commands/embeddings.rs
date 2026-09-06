@@ -26,12 +26,16 @@ pub struct EmbeddingIndex {
     loaded: Mutex<bool>,
 }
 
+impl Default for EmbeddingIndex {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // ── Persistence ────────────────────────────────────────────────────
 
 fn embeddings_path() -> Result<std::path::PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
-    let config_dir = home.join(".stik");
-    fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+    let config_dir = super::paths::config_dir()?;
     Ok(config_dir.join("embeddings.json"))
 }
 
@@ -149,6 +153,12 @@ impl EmbeddingIndex {
     }
 
     /// Get the content hash for a path (to check if re-embedding is needed).
+    /// True if the stored embedding already matches this content. Lets callers
+    /// skip a sidecar round trip for a note that has not actually changed.
+    pub fn is_current(&self, path: &str, content: &str) -> bool {
+        self.get_hash(path).as_deref() == Some(content_hash(content).as_str())
+    }
+
     pub fn get_hash(&self, path: &str) -> Option<String> {
         let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         entries.get(path).map(|e| e.content_hash.clone())
@@ -174,15 +184,27 @@ impl EmbeddingIndex {
     /// Compute average embedding vector per folder, filtered to a single
     /// language. Different languages produce incompatible vector spaces.
     pub fn folder_centroids(&self, language: &str) -> HashMap<String, Vec<f64>> {
+        let root = match super::folders::get_stik_folder() {
+            Ok(root) => root,
+            Err(_) => return HashMap::new(),
+        };
+        self.folder_centroids_for_root(language, &root)
+    }
+
+    fn folder_centroids_for_root(
+        &self,
+        language: &str,
+        root: &std::path::Path,
+    ) -> HashMap<String, Vec<f64>> {
         let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         let mut folder_sums: HashMap<String, (Vec<f64>, usize)> = HashMap::new();
 
         for (path, emb) in entries.iter().filter(|(_, e)| e.language == language) {
-            // Extract folder name from path: .../Stik/{Folder}/{file}.md
             let folder = std::path::Path::new(path)
-                .parent()
-                .and_then(|p| p.file_name())
-                .map(|n| n.to_string_lossy().to_string())
+                .strip_prefix(root)
+                .ok()
+                .and_then(std::path::Path::parent)
+                .map(|parent| parent.to_string_lossy().replace('\\', "/"))
                 .unwrap_or_default();
 
             if folder.is_empty() {
@@ -213,6 +235,10 @@ impl EmbeddingIndex {
     /// Number of embeddings stored.
     pub fn len(&self) -> usize {
         self.entries.lock().unwrap_or_else(|e| e.into_inner()).len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -341,4 +367,33 @@ pub fn build_embeddings(index: &super::index::NoteIndex, embeddings: &EmbeddingI
         embedded,
         embeddings.len()
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{EmbeddingIndex, NoteEmbedding};
+    use std::path::Path;
+
+    fn embedding(vector: Vec<f64>) -> NoteEmbedding {
+        NoteEmbedding {
+            vector,
+            content_hash: "hash".to_string(),
+            language: "en".to_string(),
+        }
+    }
+
+    #[test]
+    fn folder_centroids_keep_complete_nested_folder_identities() {
+        let index = EmbeddingIndex::new();
+        index.add_entry("/vault/Projects/Work/one.md", embedding(vec![1.0, 0.0]));
+        index.add_entry("/vault/Personal/Work/two.md", embedding(vec![0.0, 1.0]));
+        index.add_entry("/vault/root.md", embedding(vec![0.5, 0.5]));
+
+        let centroids = index.folder_centroids_for_root("en", Path::new("/vault"));
+
+        assert_eq!(centroids.get("Projects/Work"), Some(&vec![1.0, 0.0]));
+        assert_eq!(centroids.get("Personal/Work"), Some(&vec![0.0, 1.0]));
+        assert!(!centroids.contains_key("Work"));
+        assert!(!centroids.contains_key(""));
+    }
 }

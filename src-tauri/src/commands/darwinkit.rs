@@ -10,7 +10,7 @@ use std::io::{BufRead, BufReader, Write as IoWrite};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 use tauri::Manager;
@@ -47,6 +47,9 @@ struct BridgeMessage {
     params: Option<Value>,
     reply_tx: mpsc::Sender<Result<Value, String>>,
 }
+
+type BridgeResult = Result<Value, String>;
+type PendingReplies = Arc<Mutex<HashMap<String, mpsc::Sender<BridgeResult>>>>;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DarwinKitStatus {
@@ -143,7 +146,11 @@ pub fn call(method: &str, params: Option<Value>) -> Result<Value, String> {
 
 /// Send a JSON-RPC call with a custom timeout in seconds.
 /// Use longer timeouts for iCloud operations that may need to download evicted files.
-pub fn call_with_timeout(method: &str, params: Option<Value>, timeout_secs: u64) -> Result<Value, String> {
+pub fn call_with_timeout(
+    method: &str,
+    params: Option<Value>,
+    timeout_secs: u64,
+) -> Result<Value, String> {
     let sender = BRIDGE_SENDER
         .get()
         .ok_or_else(|| "DarwinKit bridge not started".to_string())?;
@@ -271,8 +278,7 @@ fn spawn_sidecar(path: &str) -> Result<(Child, ChildStdin, ChildStdout), String>
 }
 
 fn run_session(mut stdin: ChildStdin, stdout: ChildStdout, rx: &Receiver<BridgeMessage>) {
-    let pending: std::sync::Arc<Mutex<HashMap<String, mpsc::Sender<Result<Value, String>>>>> =
-        std::sync::Arc::new(Mutex::new(HashMap::new()));
+    let pending: PendingReplies = Arc::new(Mutex::new(HashMap::new()));
 
     // Reader thread: parses stdout lines and dispatches responses
     let pending_clone = pending.clone();
@@ -450,7 +456,10 @@ fn semantic_search_inner(
     index: &super::index::NoteIndex,
     embeddings: &super::embeddings::EmbeddingIndex,
 ) -> Result<Vec<SemanticResult>, String> {
-    if !super::settings::load_settings_from_file().map(|s| s.ai_features_enabled).unwrap_or(false) {
+    if !super::settings::load_settings_from_file()
+        .map(|s| s.ai_features_enabled)
+        .unwrap_or(false)
+    {
         return Ok(Vec::new());
     }
 
@@ -461,10 +470,7 @@ fn semantic_search_inner(
     embeddings.ensure_loaded();
 
     // Detect language
-    let lang_result = call(
-        "nlp.language",
-        Some(serde_json::json!({ "text": query })),
-    )?;
+    let lang_result = call("nlp.language", Some(serde_json::json!({ "text": query })))?;
     let language = lang_result
         .get("language")
         .and_then(|v| v.as_str())
@@ -538,7 +544,10 @@ fn suggest_folder_inner(
     current_folder: &str,
     embeddings: &super::embeddings::EmbeddingIndex,
 ) -> Result<Option<String>, String> {
-    if !super::settings::load_settings_from_file().map(|s| s.ai_features_enabled).unwrap_or(false) {
+    if !super::settings::load_settings_from_file()
+        .map(|s| s.ai_features_enabled)
+        .unwrap_or(false)
+    {
         return Ok(None);
     }
 
@@ -560,10 +569,7 @@ fn suggest_folder_inner(
     embeddings.ensure_loaded();
 
     // Detect language first — needed for language-filtered centroids
-    let lang_result = call(
-        "nlp.language",
-        Some(serde_json::json!({ "text": content })),
-    )?;
+    let lang_result = call("nlp.language", Some(serde_json::json!({ "text": content })))?;
     let language = lang_result
         .get("language")
         .and_then(|v| v.as_str())

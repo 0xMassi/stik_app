@@ -37,29 +37,29 @@ export function loadGoogleFont(fontId: string): void {
 }
 
 /**
- * Load a local font file via the browser FontFace API.
- * Uses Tauri's asset protocol (convertFileSrc) to serve the file.
- * Safe to call multiple times — loads only once per session per font name.
+ * Load an imported font file via the browser FontFace API.
+ *
+ * The bytes come back from Rust as a `data:` URL rather than through the asset
+ * protocol. The asset protocol's scope covers only the notes folder, so a font
+ * anywhere else was blocked, and its URL scheme differs per platform — a data:
+ * URL has neither problem.
+ *
+ * Safe to call repeatedly — loads once per session per font name.
  */
 export async function loadCustomFont(name: string, path: string): Promise<boolean> {
   const key = `custom:${name}`;
   if (loadedFonts.has(key)) return true;
 
   try {
-    const { convertFileSrc } = await import("@tauri-apps/api/core");
-    const url = convertFileSrc(path);
-    const face = new FontFace(name, `url("${url}")`);
+    const { invoke } = await import("@tauri-apps/api/core");
+    const dataUrl = await invoke<string>("load_font_data", { path });
+    const face = new FontFace(name, `url("${dataUrl}")`);
     await face.load();
     document.fonts.add(face);
     loadedFonts.add(key);
     return true;
   } catch {
-    return false; // file missing or format unsupported — caller handles gracefully
+    return false; // missing, moved, or unsupported — caller reports it
   }
 }
 
-/** Derive a font family name from a font file's basename (strips extension). */
-export function fontNameFromPath(path: string): string {
-  const basename = path.split("/").pop() ?? path;
-  return basename.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ");
-}

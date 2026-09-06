@@ -110,7 +110,7 @@ print_success "CHANGELOG.md updated"
 
 # Update Cargo.lock
 print_step "Updating Cargo.lock..."
-cd src-tauri && cargo check --quiet 2>/dev/null && cd ..
+cargo check --manifest-path src-tauri/Cargo.toml --quiet
 print_success "Cargo.lock updated"
 
 # Git commit
@@ -136,7 +136,7 @@ echo ""
 echo "Next steps:"
 echo "  1. Review the changes: git show HEAD"
 echo "  2. Push to remote:     git push origin main --tags"
-echo "  3. Build release:      npm run tauri build"
+echo "  3. Build release:      bun run tauri build"
 echo ""
 echo "To undo this release:"
 echo "  git tag -d v${NEW_VERSION}"

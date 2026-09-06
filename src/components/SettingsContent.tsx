@@ -17,10 +17,12 @@ import type {
 import { listen } from "@tauri-apps/api/event";
 import { BUILTIN_COMMAND_NAMES } from "@/extensions/cm-slash-commands";
 import ConfirmDialog from "./ConfirmDialog";
+import VaultHealth from "./VaultHealth";
 import {
   SYSTEM_SHORTCUT_ACTIONS,
   SYSTEM_SHORTCUT_DEFAULTS,
   SYSTEM_SHORTCUT_LABEL_KEYS,
+  isClearableAction,
   type SystemAction,
 } from "@/utils/systemShortcuts";
 import { hexToRgb, rgbToHex } from "@/utils/color";
@@ -31,7 +33,6 @@ import {
   FONTS,
   loadGoogleFont,
   loadCustomFont,
-  fontNameFromPath,
 } from "@/utils/fonts";
 
 function remoteToWebUrl(remoteUrl: string): string | null {
@@ -57,6 +58,7 @@ interface DropdownProps {
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
   placeholder?: string;
+  ariaLabel?: string;
 }
 
 export function Dropdown({
@@ -64,10 +66,13 @@ export function Dropdown({
   options,
   onChange,
   placeholder,
+  ariaLabel,
 }: DropdownProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listboxRef = useRef<HTMLDivElement>(null);
 
   const allOptions = options.some((o) => o.value === value)
     ? options
@@ -88,11 +93,35 @@ export function Dropdown({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    requestAnimationFrame(() => {
+      const selected = listboxRef.current?.querySelector<HTMLElement>(
+        "[role='option'][aria-selected='true']",
+      );
+      const first = listboxRef.current?.querySelector<HTMLElement>(
+        "[role='option']",
+      );
+      (selected ?? first)?.focus();
+    });
+  }, [isOpen]);
+
   return (
     <div ref={dropdownRef} className="relative">
       <button
+        ref={triggerRef}
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2.5 bg-bg border border-line rounded-lg text-[13px] text-ink text-left flex items-center justify-between hover:border-coral/50 transition-colors"
+        aria-label={ariaLabel ?? placeholder ?? t("common.select")}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            setIsOpen(true);
+          }
+        }}
+        className="w-full px-3 py-2.5 bg-bg border border-line rounded-lg text-[13px] text-ink text-left flex items-center justify-between hover:border-coral/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
       >
         <span className={selectedOption ? "text-ink" : "text-stone"}>
           {selectedOption?.label || placeholder || t("common.select")}
@@ -105,15 +134,44 @@ export function Dropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-bg border border-line rounded-lg shadow-stik overflow-hidden max-h-[220px] overflow-y-auto">
+        <div
+          ref={listboxRef}
+          role="listbox"
+          aria-label={ariaLabel ?? placeholder ?? t("common.select")}
+          onKeyDown={(event) => {
+            const options = Array.from(
+              event.currentTarget.querySelectorAll<HTMLElement>("[role='option']"),
+            );
+            const current = options.indexOf(document.activeElement as HTMLElement);
+            let next: number | null = null;
+            if (event.key === "ArrowDown") next = (current + 1) % options.length;
+            if (event.key === "ArrowUp") next = (current - 1 + options.length) % options.length;
+            if (event.key === "Home") next = 0;
+            if (event.key === "End") next = options.length - 1;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setIsOpen(false);
+              triggerRef.current?.focus();
+              return;
+            }
+            if (next !== null && options.length) {
+              event.preventDefault();
+              options[next]?.focus();
+            }
+          }}
+          className="absolute z-50 top-full left-0 right-0 mt-1 bg-bg border border-line rounded-lg shadow-stik overflow-hidden max-h-[220px] overflow-y-auto"
+        >
           {allOptions.map((option) => (
             <button
+              type="button"
+              role="option"
+              aria-selected={option.value === value}
               key={option.value}
               onClick={() => {
                 onChange(option.value);
                 setIsOpen(false);
               }}
-              className={`w-full px-3 py-2.5 text-[13px] text-left transition-colors ${
+              className={`w-full min-h-8 px-3 py-2.5 text-[13px] text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-coral ${
                 option.value === value
                   ? "bg-coral text-white"
                   : "text-ink hover:bg-line/50"
@@ -138,6 +196,7 @@ export type SettingsTab =
   | "ai"
   | "dictation"
   | "insights"
+  | "health"
   | "privacy";
 
 interface SettingsContentProps {
@@ -213,13 +272,46 @@ function PrivacySection({
   const [isLockingAll, setIsLockingAll] = useState(false);
 
   const loadDeviceId = useCallback(async () => {
+    if (!settings.analytics_enabled) {
+      setDeviceId(null);
+      return;
+    }
     try {
-      const id = await invoke<string>("get_analytics_device_id");
+      const id = await invoke<string | null>("get_analytics_device_id");
       setDeviceId(id);
     } catch {
       setDeviceId(null);
     }
-  }, []);
+  }, [settings.analytics_enabled]);
+
+  const resetDeviceId = async () => {
+    try {
+      const id = await invoke<string | null>("reset_analytics_device_id");
+      setDeviceId(id);
+      setToast(t("settings.analytics.idReset"));
+    } catch (error) {
+      setToast(String(error));
+    }
+  };
+
+  const setAnalyticsEnabled = async (enabled: boolean) => {
+    onSettingsChange({
+      ...settings,
+      analytics_enabled: enabled,
+      analytics_consent_version: 1,
+      analytics_notice_dismissed: true,
+    });
+    if (!enabled) setDeviceId(null);
+
+    try {
+      await invoke("configure_analytics", { enabled });
+      if (enabled) {
+        setDeviceId(await invoke<string | null>("get_analytics_device_id"));
+      }
+    } catch (error) {
+      setToast(String(error));
+    }
+  };
 
   useEffect(() => {
     loadDeviceId();
@@ -417,6 +509,40 @@ function PrivacySection({
         <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
           <div>
             <p className="text-[13px] text-ink font-medium">
+              {t("settings.remoteImages.title")}
+            </p>
+            <p className="mt-1 text-[12px] text-stone leading-relaxed">
+              {t("settings.remoteImages.describe")}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={settings.load_remote_images ?? false}
+            aria-label={t("settings.remoteImages.toggle")}
+            onClick={() =>
+              onSettingsChange({
+                ...settings,
+                load_remote_images: !(settings.load_remote_images ?? false),
+              })
+            }
+            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+              settings.load_remote_images ? "bg-coral" : "bg-line"
+            }`}
+          >
+            <span
+              className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform pointer-events-none ${
+                settings.load_remote_images
+                  ? "translate-x-5"
+                  : "translate-x-0"
+              }`}
+            />
+          </button>
+        </label>
+
+        <label className="flex items-center justify-between gap-3 p-4 bg-line/30 rounded-xl border border-line/50">
+          <div>
+            <p className="text-[13px] text-ink font-medium">
               {t("settings.analytics.share")}
             </p>
             <p className="mt-1 text-[12px] text-stone leading-relaxed">
@@ -426,10 +552,7 @@ function PrivacySection({
           <button
             type="button"
             onClick={() =>
-              onSettingsChange({
-                ...settings,
-                analytics_enabled: !settings.analytics_enabled,
-              })
+              void setAnalyticsEnabled(!settings.analytics_enabled)
             }
             className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
               settings.analytics_enabled ? "bg-coral" : "bg-line"
@@ -511,6 +634,13 @@ function PrivacySection({
                 className="px-3 py-2 text-[12px] text-coral border border-coral/30 rounded-lg hover:bg-coral-light transition-colors whitespace-nowrap"
               >
                 {t("common.copy")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void resetDeviceId()}
+                className="px-3 py-2 text-[12px] text-stone border border-line rounded-lg hover:bg-line/50 transition-colors whitespace-nowrap"
+              >
+                {t("settings.analytics.resetId")}
               </button>
             </div>
             <p className="mt-2 text-[11px] text-stone">
@@ -848,20 +978,29 @@ function AppearanceSection({
     });
     if (!selected) return;
 
-    const name = fontNameFromPath(selected);
-    // Avoid duplicates (same path)
-    if (customFonts.some((f) => f.path === selected)) {
+    // Copy into ~/.stik/fonts first: the picked file may sit anywhere, and a
+    // font referenced in place stops working the moment the user moves it.
+    let entry: CustomFontEntry;
+    try {
+      entry = await invoke<CustomFontEntry>("import_font_file", { path: selected });
+    } catch (error) {
+      setToast(typeof error === "string" ? error : t("settings.font.loadFailed"));
+      return;
+    }
+
+    const { name } = entry;
+    if (customFonts.some((f) => f.path === entry.path)) {
       setToast(`Font "${name}" is already imported`);
       return;
     }
 
-    const ok = await loadCustomFont(name, selected);
+    const ok = await loadCustomFont(name, entry.path);
     if (!ok) {
       setToast(t("settings.font.loadFailed"));
       return;
     }
 
-    const updated = [...customFonts, { name, path: selected }];
+    const updated = [...customFonts, entry];
     onSettingsChange({ ...settings, custom_fonts: updated });
     setToast(`Font "${name}" imported`);
   };
@@ -1067,15 +1206,16 @@ function AppearanceSection({
                 isActive={activeTheme === theme.id}
                 onClick={() => selectTheme(theme.id)}
               />
-              <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     startEditTheme(theme);
                   }}
-                  className="w-5 h-5 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-ink text-[10px]"
+                  className="w-6 h-6 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-ink text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
                   title={t("settings.theme.edit")}
+                  aria-label={t("settings.theme.edit")}
                 >
                   <svg
                     width="10"
@@ -1096,8 +1236,9 @@ function AppearanceSection({
                     e.stopPropagation();
                     handleExport(theme);
                   }}
-                  className="w-5 h-5 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-ink text-[10px]"
+                  className="w-6 h-6 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-ink text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
                   title={t("settings.theme.export")}
+                  aria-label={t("settings.theme.export")}
                 >
                   <svg
                     width="10"
@@ -1120,8 +1261,9 @@ function AppearanceSection({
                     e.stopPropagation();
                     setConfirmingDelete(theme.id);
                   }}
-                  className="w-5 h-5 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-coral text-[10px]"
+                  className="w-6 h-6 flex items-center justify-center rounded bg-bg/80 backdrop-blur-sm text-stone hover:text-coral text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
                   title={t("settings.theme.delete")}
+                  aria-label={t("settings.theme.delete")}
                 >
                   <svg
                     width="10"
@@ -1307,6 +1449,7 @@ function AppearanceSection({
                           : "border-line text-stone hover:text-coral hover:border-coral/40"
                       }`}
                       title={t("settings.font.remove")}
+                      aria-label={`${t("settings.font.remove")} ${cf.name}`}
                     >
                       ×
                     </button>
@@ -1507,6 +1650,7 @@ function TemplatesSection({
                   onClick={() => startEdit(i)}
                   className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-line text-stone hover:text-ink transition-colors"
                   title={t("settings.template.edit")}
+                  aria-label={`${t("settings.template.edit")} /${tpl.name}`}
                 >
                   <svg
                     width="12"
@@ -1526,6 +1670,7 @@ function TemplatesSection({
                   onClick={() => setConfirmingDelete(i)}
                   className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-coral-light text-stone hover:text-coral transition-colors"
                   title={t("settings.template.delete")}
+                  aria-label={`${t("settings.template.delete")} /${tpl.name}`}
                 >
                   <svg
                     width="14"
@@ -1820,6 +1965,7 @@ export default function SettingsContent({
                   onClick={() => removeMapping(index)}
                   className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-coral-light text-stone hover:text-coral transition-colors"
                   title={t("settings.shortcut.remove")}
+                  aria-label={t("settings.shortcut.remove")}
                 >
                   <svg
                     width="14"
@@ -1894,6 +2040,38 @@ export default function SettingsContent({
                         existingShortcuts={folderShortcuts}
                       />
                     </div>
+                    {currentShortcut !== "" &&
+                      isClearableAction(action as SystemAction) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSettingsChange({
+                              ...settings,
+                              system_shortcuts: {
+                                ...settings.system_shortcuts,
+                                [action]: "",
+                              },
+                            })
+                          }
+                          className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-coral-light text-stone hover:text-coral transition-colors"
+                          title={t("settings.shortcut.clear")}
+                          aria-label={t("settings.shortcut.clear")}
+                        >
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                          </svg>
+                        </button>
+                      )}
                     {!isDefault && (
                       <button
                         type="button"
@@ -1911,6 +2089,7 @@ export default function SettingsContent({
                         }
                         className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md hover:bg-coral-light text-stone hover:text-coral transition-colors"
                         title={t("settings.shortcut.resetDefault")}
+                        aria-label={t("settings.shortcut.resetDefault")}
                       >
                         <svg
                           width="12"
@@ -1994,7 +2173,6 @@ export default function SettingsContent({
                 <button
                   type="button"
                   onClick={async () => {
-                    const { invoke } = await import("@tauri-apps/api/core");
                     try {
                       const result = await invoke<{
                         files_copied: number;
@@ -2086,6 +2264,28 @@ export default function SettingsContent({
               )}
             </div>
           )}
+
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.simple_filenames ?? false}
+                onChange={(e) =>
+                  onSettingsChange({
+                    ...settings,
+                    simple_filenames: e.target.checked,
+                  })
+                }
+                className="rounded border-line"
+              />
+              <span className="text-[12px] text-ink">
+                {t("settings.simpleFilenames")}
+              </span>
+            </label>
+            <p className="mt-1.5 text-[12px] text-stone leading-relaxed">
+              {t("settings.simpleFilenames.note")}
+            </p>
+          </div>
 
           <div>
             <p className="text-[12px] text-stone mb-1.5">{t("settings.defaultFolder")}</p>
@@ -2565,7 +2765,7 @@ export default function SettingsContent({
           )}
 
           {/* GitHub credentials tip */}
-          <div className="p-3 bg-coral-light/35 border border-coral/20 rounded-xl space-y-1">
+          <div className="p-3 bg-coral-light/40 border border-coral/20 rounded-xl space-y-1">
             <p className="text-[12px] font-semibold text-ink">
               {t("settings.git.accountSetup")}
             </p>
@@ -2728,6 +2928,8 @@ export default function SettingsContent({
           </div>
         </div>
       )}
+
+      {activeTab === "health" && <VaultHealth />}
 
       {activeTab === "privacy" && (
         <PrivacySection

@@ -5,6 +5,66 @@ All notable changes to Stik will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Planned for **0.9.0**: a full editor for longer notes, recoverable deletion, and
+more reliable saves across Stik's windows. This update also adds Simplified
+Chinese, makes privacy choices explicit, and reduces repeated work in search.
+
+### Before upgrading
+
+- **Requires macOS 14 Sonoma or later.** The application and bundled DarwinKit sidecar now declare the same minimum version.
+- Back up your notes and, if you use locked notes, export your recovery key from **Settings → Privacy** and keep it somewhere secure. The legacy key file is removed only after its replacement has been written to Keychain and read back successfully. Do not manually delete it if migration reports an error.
+- Existing notes keep their filenames. **Simple filenames** is an opt-in setting for new notes; without a date in the filename, streaks and On This Day use the file's modification date.
+- Re-import previously configured custom fonts that do not render. Imported fonts are now copied into Stik's font directory, so moving or deleting the original download does not break them.
+- Remote images in Markdown are blocked by default. Enable **Load remote images automatically** only if you want notes to contact external image hosts. Analytics also requires explicit opt-in.
+
+### Added
+
+- **Full editor:** browse, search, and edit notes in a dedicated window, with consistent handling of nested folders.
+- **Recoverable Trash:** restore deleted notes without overwriting an existing file of the same name. Permanent deletion is a separate action.
+- **Vault Health:** check storage access, writability, and differences between files and the search index; rebuild the index and export diagnostics when investigating a problem.
+- **Simplified Chinese:** switch between English, 简体中文, and the system language in Settings. Theme names, editor hints, and other translated UI text follow language changes.
+- **Optional readable filenames:** save new notes as `meeting-notes.md`; duplicate names receive a suffix instead of replacing another note. The existing timestamped naming scheme remains the default. ([#91](https://github.com/0xMassi/stik_app/pull/91))
+- **Clearable shortcuts:** disable individual system shortcuts. The Settings shortcut stays available so you can restore controls even with the Dock and tray icons hidden. ([#95](https://github.com/0xMassi/stik_app/pull/95))
+
+### Changed
+
+- **Search does less repeated work:** full-text search uses the in-memory index, reuses normalized text for result snippets, and discards stale asynchronous results. A recorded local benchmark on an Apple M4 Max reduced median common-query time from **23.58 ms to 3.83 ms** on a synthetic 10,000-note vault. These are warmed Rust index timings, not end-to-end app latency or a speedup guarantee. [Workload, measurements, and reproduction commands](docs/audits/2026-09-05-search-performance.md).
+- **Capture gets startup priority:** indexing, embeddings, update checks, and background services start after capture-critical setup. Window-specific interfaces and editor language support load when needed.
+- **Zen mode remembers your preference** across launches and no longer shows the empty-editor hint. ([#95](https://github.com/0xMassi/stik_app/pull/95))
+- Dialog focus, keyboard navigation, status announcements, editor VoiceOver feedback, and reduced-motion behavior have been improved.
+- Support links now use [massimianivalerio1@gmail.com](mailto:massimianivalerio1@gmail.com).
+
+### Fixed
+
+- **Drafts during navigation and quit:** pending edits are saved before switching notes, file actions, or closing the full editor. Orderly application quit coordinates saves across capture, pinned, viewing, and full-editor windows; failed or unacknowledged saves cancel quit and leave drafts available for retry.
+- **Stale documents after reselecting a note:** explicitly reopening the same note now loads its latest saved revision into the editor. Folder/note lists and active search also refresh after native focus and external-file events without replacing a live draft.
+- **Unpinning into an occupied capture:** the original capture draft is saved before the incoming note is accepted. If that save or transfer fails, the source pin remains. Pin/unpin handoffs also preserve late input, prevent overlapping dictation, and retain retry state.
+- **Drafts lost after settings changes:** changing Vim mode or text direction no longer resets the editor to its original content.
+- **Blank editor after initialization errors:** failed settings or asset-directory reads now show an error while keeping note source editable. This addresses those failure paths, not every possible blank-window cause.
+- **Distinct viewing windows:** paths containing spaces, periods, Unicode, or URL delimiters no longer collapse to the same viewing-window identity.
+- **Safer file operations:** temporarily clearing an existing note no longer deletes it. Concurrent saves use distinct temporary files, and create/rename/move conflicts do not silently overwrite another note. Folder renames update descendant settings and search paths; deleted notes stay out of search when filesystem events arrive.
+- **Fonts:** built-in web fonts and imported fonts are no longer blocked by the application's content policy or an invalid asset path. Imported font reads stay confined to Stik's font directory. ([#89](https://github.com/0xMassi/stik_app/pull/89))
+- **Keyboard and appearance:** physical-key shortcut matching works with non-US layouts, the editor retains its Cmd+K action, and selected Settings tabs use the active theme's accent tint. Shortcut-label localization remains separate from physical-key matching. ([#98](https://github.com/0xMassi/stik_app/pull/98))
+- Native-command failures now surface actionable messages, and a nonempty Trash no longer displays an empty-state message.
+
+### Security and privacy
+
+- Analytics creates no identifier or event before consent; opting out removes the identifier.
+- Locked-note encryption keys move from the legacy file to macOS Keychain only after verified readback. Editing a locked viewing note preserves encrypted storage; pinning requires explicitly unlocking it first.
+- Note and Markdown-asset operations reject path traversal and symlink escapes outside the configured vault.
+- Remote Markdown images require explicit permission before making network requests.
+- Updated vulnerable dependency paths, including the Tauri origin-confusion fix and the `postcss-selector-parser` update integrated from [#100](https://github.com/0xMassi/stik_app/pull/100). This is not a claim that every upstream advisory has been eliminated.
+
+### Developer experience
+
+- **Bun 1.4.1** is the sole JavaScript package manager, pinned locally and in CI. Node and Vitest remain the existing tooling runtime and test runner; there is one Bun lockfile.
+- `./scripts/build-dev.sh setup`, `doctor`, and `qa` provide a documented setup and native test workflow. The QA launcher builds the correct DarwinKit sidecar and uses disposable data; a Dev bundle refuses to launch without an isolated profile.
+- `./scripts/verify.sh` runs frontend, Rust, and Swift tests plus build, platform, bundle-budget, formatting, and strict Clippy checks. CI also runs dependency-security audits and builds/inspects a native Intel app and sidecar. Duplicate Rust library/binary test execution and unused dependencies were removed.
+- Beta tags point to the tested revision. Stable tags build a draft; Homebrew and landing-page updates wait for stable publication and reject incomplete assets, invalid checksums, or failed webhooks. The beta channel does not update the stable feed.
+- Added a [release checklist](docs/release-checklist.md) for data recovery, OS integrations, privacy, accessibility, both architectures, signing, notarization, installation, and updater verification. Automated checks do not replace these acceptance steps.
+
 ## [0.8.0] - 2026-04-13
 Voice dictation, clipboard capture, and dev tooling
 
@@ -289,10 +349,10 @@ Community and support links
 
 ### Added
 - **Settings footer social links** — new Help/X/Discord quick actions next to the app version in both settings surfaces (modal and standalone settings window)
-- **Help action in app settings** — one-click support contact via `mailto:help@stik.ink`
+- **Help action in app settings** — one-click support contact via `mailto:massimianivalerio1@gmail.com`
 
 ### Changed
-- **Support channels updated** — README now points to `help@stik.ink` plus official X and Discord community links
+- **Support channels updated** — README now points to `massimianivalerio1@gmail.com` plus official X and Discord community links
 
 ## [0.4.1] - 2026-02-09
 Editing and reliability polish
@@ -486,6 +546,9 @@ First release
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
+[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/0xMassi/stik_app/compare/v0.7.9...v0.8.0
+[0.7.9]: https://github.com/0xMassi/stik_app/compare/v0.7.8...v0.7.9
 [0.7.8]: https://github.com/0xMassi/stik_app/compare/v0.7.7...v0.7.8
 [0.7.7]: https://github.com/0xMassi/stik_app/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/0xMassi/stik_app/compare/v0.7.5...v0.7.6

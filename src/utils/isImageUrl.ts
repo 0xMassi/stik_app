@@ -38,37 +38,3 @@ export function isImageUrl(value: string): boolean {
     return false;
   }
 }
-
-/**
- * Promote standalone image URLs and markdown links in a line into markdown image syntax.
- * This keeps legacy notes (saved as links) rendering as images when reopened.
- */
-export function normalizeImageLinksForMarkdown(markdown: string): string {
-  return markdown
-    .split("\n")
-    .map((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return line;
-
-      const markdownLinkMatch = trimmed.match(/^\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)$/);
-      if (markdownLinkMatch) {
-        const [, label, url] = markdownLinkMatch;
-        if (isImageUrl(url)) {
-          const alt = label === url ? "" : label;
-          return line.replace(trimmed, `![${alt}](${url})`);
-        }
-      }
-
-      const autoLinkMatch = trimmed.match(/^<((?:https?:\/\/)[^>\s]+)>$/);
-      if (autoLinkMatch && isImageUrl(autoLinkMatch[1])) {
-        return line.replace(trimmed, `![](${autoLinkMatch[1]})`);
-      }
-
-      if (isImageUrl(trimmed)) {
-        return line.replace(trimmed, `![](${trimmed})`);
-      }
-
-      return line;
-    })
-    .join("\n");
-}

@@ -22,7 +22,7 @@ cask "stik" do
   desc "Instant thought capture - one shortcut, post-it appears, type, close"
   homepage "https://github.com/0xMassi/stik_app"
 
-  depends_on macos: ">= :catalina"
+  depends_on macos: :sonoma
 
   app "Stik.app"
 

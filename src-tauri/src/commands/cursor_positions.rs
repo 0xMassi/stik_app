@@ -10,9 +10,7 @@ pub struct CursorPosition {
 }
 
 fn get_cursor_positions_path() -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Could not find home directory")?;
-    let stik_config = home.join(".stik");
-    fs::create_dir_all(&stik_config).map_err(|e| e.to_string())?;
+    let stik_config = super::paths::config_dir()?;
     Ok(stik_config.join("cursor_positions.json"))
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isImageUrl, normalizeImageLinksForMarkdown } from "./isImageUrl";
+import { isImageUrl } from "./isImageUrl";
 
 describe("isImageUrl", () => {
   it("accepts signed GitHub private-user-images png URLs", () => {
@@ -29,34 +29,5 @@ describe("isImageUrl", () => {
   it("rejects non-http protocols", () => {
     expect(isImageUrl("file:///tmp/image.png")).toBe(false);
     expect(isImageUrl("data:image/png;base64,abc")).toBe(false);
-  });
-});
-
-describe("normalizeImageLinksForMarkdown", () => {
-  it("upgrades standalone image URLs to markdown image syntax", () => {
-    const url = "https://example.com/image.png?token=abc";
-    expect(normalizeImageLinksForMarkdown(url)).toBe(`![](${url})`);
-  });
-
-  it("upgrades query-format image URLs to markdown image syntax", () => {
-    const url = "https://pbs.twimg.com/media/HAnWnITacAEIpk0?format=jpg&name=4096x4096";
-    expect(normalizeImageLinksForMarkdown(url)).toBe(`![](${url})`);
-  });
-
-  it("upgrades angle-bracket image autolinks to markdown image syntax", () => {
-    const url = "https://pbs.twimg.com/media/HAnWnITacAEIpk0?format=jpg&name=4096x4096";
-    expect(normalizeImageLinksForMarkdown(`<${url}>`)).toBe(`![](${url})`);
-  });
-
-  it("upgrades standalone markdown links that target images", () => {
-    const input = "[https://example.com/photo.jpg](https://example.com/photo.jpg)";
-    expect(normalizeImageLinksForMarkdown(input)).toBe(
-      "![](https://example.com/photo.jpg)"
-    );
-  });
-
-  it("keeps non-image links unchanged", () => {
-    const input = "[Read docs](https://example.com/docs)";
-    expect(normalizeImageLinksForMarkdown(input)).toBe(input);
   });
 });

@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { SearchResult } from "@/types";
 import { getFolderColor } from "@/utils/folderColors";
 import { useTranslation } from "@/hooks/useTranslation";
+import Dialog from "../ui/Dialog";
 
 interface MovePickerProps {
   note: SearchResult;
@@ -23,14 +24,11 @@ export default function MovePicker({
     const idx = folders.findIndex((f) => f !== note.folder);
     return idx >= 0 ? idx : 0;
   });
+  const selectedRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        onCancel();
-      } else if (e.key === "ArrowDown") {
+      if (e.key === "ArrowDown") {
         e.preventDefault();
         e.stopPropagation();
         setSelectedIndex((i) => Math.min(i + 1, folders.length - 1));
@@ -39,27 +37,33 @@ export default function MovePicker({
         e.stopPropagation();
         setSelectedIndex((i) => Math.max(i - 1, 0));
       } else if (e.key === "Enter") {
+        const target = folders[selectedIndex];
+        if (!target || target === note.folder) return;
         e.preventDefault();
         e.stopPropagation();
-        onMove(folders[selectedIndex]);
+        onMove(target);
       }
     };
 
     window.addEventListener("keydown", handleKey, true);
     return () => window.removeEventListener("keydown", handleKey, true);
-  }, [folders, selectedIndex, onMove, onCancel]);
+  }, [folders, selectedIndex, note.folder, onMove]);
+
+  useEffect(() => {
+    selectedRef.current?.focus();
+  }, [selectedIndex]);
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-bg rounded-xl border border-line shadow-stik w-[min(90vw,320px)] flex flex-col overflow-hidden max-h-[70vh]">
-        <div className="px-4 py-3 border-b border-line">
-          <h2 className="text-sm font-semibold text-ink">
-            {t("palette.moveNoteToFolder")}
-          </h2>
-          <p className="text-[11px] text-stone mt-1 truncate">
-            {note.snippet?.slice(0, 50)}...
-          </p>
-        </div>
+    <Dialog
+      title={t("palette.moveNoteToFolder")}
+      description={`${note.snippet?.slice(0, 50)}...`}
+      onClose={onCancel}
+      initialFocusRef={selectedRef}
+      backdropClassName="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      panelClassName="bg-bg rounded-xl border border-line shadow-stik w-[min(90vw,320px)] flex flex-col overflow-hidden max-h-[70vh]"
+      titleClassName="px-4 pt-3 text-sm font-semibold text-ink"
+      descriptionClassName="truncate border-b border-line px-4 pb-3 pt-1 text-[11px] text-stone"
+    >
         <div className="flex-1 overflow-y-auto py-1">
           {folders.map((folder, i) => {
             const isCurrent = folder === note.folder;
@@ -68,10 +72,13 @@ export default function MovePicker({
             return (
               <button
                 key={folder}
+                ref={isSelected && !isCurrent ? selectedRef : undefined}
+                type="button"
                 onClick={() => onMove(folder)}
                 onMouseEnter={() => setSelectedIndex(i)}
                 disabled={isCurrent}
-                className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-all ${
+                aria-current={isCurrent ? "true" : undefined}
+                className={`w-full min-h-8 px-4 py-2.5 flex items-center gap-3 text-left transition-[background-color,color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-coral ${
                   isSelected && !isCurrent
                     ? "bg-coral text-white"
                     : isCurrent
@@ -127,7 +134,6 @@ export default function MovePicker({
             {t("common.cancelLower")}
           </span>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

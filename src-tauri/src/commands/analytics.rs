@@ -7,7 +7,8 @@ use serde_json::{json, Value};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, OnceLock};
 use tauri::AppHandle;
 use uuid::Uuid;
 
@@ -16,21 +17,81 @@ use uuid::Uuid;
 const POSTHOG_API_KEY: Option<&str> = option_env!("POSTHOG_API_KEY");
 const POSTHOG_HOST: &str = "https://eu.i.posthog.com";
 
-static DEVICE_ID: OnceLock<String> = OnceLock::new();
-static ANALYTICS_ENABLED: OnceLock<bool> = OnceLock::new();
+struct AnalyticsRuntime {
+    enabled: AtomicBool,
+    device_id: Mutex<Option<String>>,
+}
+
+impl Default for AnalyticsRuntime {
+    fn default() -> Self {
+        Self {
+            enabled: AtomicBool::new(false),
+            device_id: Mutex::new(None),
+        }
+    }
+}
+
+impl AnalyticsRuntime {
+    fn is_enabled(&self) -> bool {
+        self.enabled.load(Ordering::Acquire)
+    }
+
+    fn configure(&self, enabled: bool, id_path: &std::path::Path) -> Result<(), String> {
+        self.enabled.store(enabled, Ordering::Release);
+        if !enabled {
+            *self.device_id.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            match fs::remove_file(id_path) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.to_string()),
+            }
+        }
+        Ok(())
+    }
+
+    fn device_id_at(&self, path: &std::path::Path) -> Result<Option<String>, String> {
+        if !self.is_enabled() {
+            return Ok(None);
+        }
+
+        let mut cached = self.device_id.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(id) = cached.as_ref() {
+            return Ok(Some(id.clone()));
+        }
+
+        let id = get_or_create_device_id_at(path)?;
+        *cached = Some(id.clone());
+        Ok(Some(id))
+    }
+
+    fn reset_device_id(&self, path: &std::path::Path) -> Result<Option<String>, String> {
+        *self.device_id.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        match fs::remove_file(path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.to_string()),
+        }
+        self.device_id_at(path)
+    }
+}
+
+fn runtime() -> &'static AnalyticsRuntime {
+    static RUNTIME: OnceLock<AnalyticsRuntime> = OnceLock::new();
+    RUNTIME.get_or_init(AnalyticsRuntime::default)
+}
 
 fn analytics_id_path() -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Could not find home directory")?;
-    let stik_config = home.join(".stik");
-    fs::create_dir_all(&stik_config).map_err(|e| e.to_string())?;
+    let stik_config = super::paths::config_dir()?;
     Ok(stik_config.join("analytics-id"))
 }
 
-fn get_or_create_device_id() -> Result<String, String> {
-    let path = analytics_id_path()?;
+fn get_or_create_device_id_at(path: &std::path::Path) -> Result<String, String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
 
     if path.exists() {
-        let id = fs::read_to_string(&path)
+        let id = fs::read_to_string(path)
             .map_err(|e| e.to_string())?
             .trim()
             .to_string();
@@ -40,7 +101,7 @@ fn get_or_create_device_id() -> Result<String, String> {
     }
 
     let id = Uuid::new_v4().to_string();
-    fs::write(&path, &id).map_err(|e| e.to_string())?;
+    fs::write(path, id.as_bytes()).map_err(|e| e.to_string())?;
     Ok(id)
 }
 
@@ -92,8 +153,12 @@ async fn send_event(event: &str, extra_properties: Value) {
         _ => return,
     };
 
-    let device_id = match DEVICE_ID.get() {
-        Some(id) => id.clone(),
+    let device_id = match analytics_id_path()
+        .and_then(|path| runtime().device_id_at(&path))
+        .ok()
+        .flatten()
+    {
+        Some(id) => id,
         None => return,
     };
 
@@ -126,7 +191,7 @@ async fn send_event(event: &str, extra_properties: Value) {
 /// Fire-and-forget: spawns an async task to send the event.
 /// No-ops silently if analytics is disabled or no API key is present.
 pub fn track(event: &str, properties: Value) {
-    if !ANALYTICS_ENABLED.get().copied().unwrap_or(false) {
+    if !runtime().is_enabled() {
         return;
     }
     let event = event.to_string();
@@ -138,21 +203,24 @@ pub fn track(event: &str, properties: Value) {
 pub fn start_analytics(app: &AppHandle) {
     let _ = app;
 
-    // Initialize device ID and enabled flag once
     let enabled = POSTHOG_API_KEY.is_some()
         && super::settings::load_settings_from_file()
             .map(|s| s.analytics_enabled)
             .unwrap_or(false);
 
-    if let Ok(id) = get_or_create_device_id() {
-        let _ = DEVICE_ID.set(id);
+    if let Ok(path) = analytics_id_path() {
+        if let Err(error) = runtime().configure(enabled, &path) {
+            eprintln!("[analytics] failed to configure: {error}");
+        }
     }
-    let _ = ANALYTICS_ENABLED.set(enabled);
 
     if !enabled {
-        eprintln!("[analytics] disabled (key={}, setting={})",
+        eprintln!(
+            "[analytics] disabled (key={}, setting={})",
             POSTHOG_API_KEY.is_some(),
-            super::settings::load_settings_from_file().map(|s| s.analytics_enabled).unwrap_or(false),
+            super::settings::load_settings_from_file()
+                .map(|s| s.analytics_enabled)
+                .unwrap_or(false),
         );
         return;
     }
@@ -165,6 +233,64 @@ pub fn start_analytics(app: &AppHandle) {
 }
 
 #[tauri::command]
-pub fn get_analytics_device_id() -> Result<String, String> {
-    get_or_create_device_id()
+pub fn get_analytics_device_id() -> Result<Option<String>, String> {
+    let path = analytics_id_path()?;
+    runtime().device_id_at(&path)
+}
+
+#[tauri::command]
+pub fn configure_analytics(enabled: bool) -> Result<(), String> {
+    let effective = enabled && POSTHOG_API_KEY.is_some();
+    let path = analytics_id_path()?;
+    runtime().configure(effective, &path)
+}
+
+#[tauri::command]
+pub fn reset_analytics_device_id() -> Result<Option<String>, String> {
+    let path = analytics_id_path()?;
+    runtime().reset_device_id(&path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AnalyticsRuntime;
+    use std::fs;
+
+    fn temp_id_path(label: &str) -> std::path::PathBuf {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir()
+            .join(format!("stik-analytics-{label}-{nonce}"))
+            .join("analytics-id")
+    }
+
+    #[test]
+    fn disabled_runtime_never_creates_an_identifier() {
+        let runtime = AnalyticsRuntime::default();
+        let path = temp_id_path("disabled");
+
+        assert!(!runtime.is_enabled());
+        assert_eq!(runtime.device_id_at(&path).unwrap(), None);
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn consent_is_runtime_effective_and_disable_removes_the_identifier() {
+        let runtime = AnalyticsRuntime::default();
+        let path = temp_id_path("toggle");
+
+        runtime.configure(true, &path).unwrap();
+        assert!(runtime.is_enabled());
+        assert!(!path.exists(), "identifier must remain lazy");
+
+        let id = runtime.device_id_at(&path).unwrap().unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), id);
+
+        runtime.configure(false, &path).unwrap();
+        assert!(!runtime.is_enabled());
+        assert!(!path.exists());
+        assert_eq!(runtime.device_id_at(&path).unwrap(), None);
+    }
 }

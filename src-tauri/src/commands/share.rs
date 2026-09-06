@@ -12,7 +12,7 @@ use objc2::runtime::AnyObject;
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRepPropertyKey, NSView};
 #[cfg(target_os = "macos")]
-use objc2_foundation::{NSData, NSDictionary, NSUInteger};
+use objc2_foundation::{NSData, NSDictionary};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClipboardPayload {
@@ -144,13 +144,13 @@ unsafe fn capture_webview_png_bytes(
 
 #[cfg(target_os = "macos")]
 fn ns_data_to_vec(data: &NSData) -> Vec<u8> {
-    let length = data.length() as usize;
+    let length = data.length();
     let mut buffer = vec![0_u8; length];
     if length > 0 {
         let ptr = NonNull::new(buffer.as_mut_ptr().cast::<c_void>())
             .expect("vector pointer is never null");
         unsafe {
-            data.getBytes_length(ptr, length as NSUInteger);
+            data.getBytes_length(ptr, length);
         }
     }
     buffer

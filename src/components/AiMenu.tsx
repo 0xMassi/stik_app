@@ -128,6 +128,7 @@ export default function AiMenu({
   return (
     <div className="relative" ref={menuRef}>
       <button
+        type="button"
         onClick={() => setIsOpen((o) => !o)}
         disabled={disabled}
         className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 ${
@@ -138,6 +139,9 @@ export default function AiMenu({
               : "hover:bg-coral-light text-coral/70 hover:text-coral"
         }`}
         title={t("ai.assistant")}
+        aria-label={t("ai.assistant")}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
       >
         <svg
           width="13"
@@ -212,7 +216,7 @@ export default function AiMenu({
                 {organizeResult.suggested_folder && (
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-stone">{t("ai.folder")}</span>
-                    <span className="text-[11px] font-medium text-ink px-1.5 py-0.5 bg-coral/10 rounded">
+                    <span className="text-[11px] font-medium text-ink px-1.5 py-0.5 bg-coral-light rounded">
                       {organizeResult.suggested_folder}
                     </span>
                   </div>

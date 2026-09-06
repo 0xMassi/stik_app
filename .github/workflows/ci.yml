@@ -1,0 +1,190 @@
+name: CI
+
+on:
+  workflow_call:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - run: bun install --frozen-lockfile
+
+      - name: Audit dependencies
+        run: bun audit --audit-level=high
+
+      - name: Check platform declarations
+        run: bun run check:platform
+
+      - name: Typecheck and build
+        run: bun run build
+
+      - name: Enforce bundle budget
+        run: bun run check:bundle
+
+      - name: Test
+        run: bun run test
+
+  swift:
+    name: Swift
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Test DarwinKit sidecar
+        run: swift test --package-path src-tauri/darwinkit
+
+  rust:
+    name: Rust
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install protobuf compiler
+        run: brew install protobuf
+
+      - name: Stub the DarwinKit sidecar
+        run: |
+          target=$(rustc -vV | sed -n 's/^host: //p')
+          mkdir -p src-tauri/binaries
+          printf '#!/bin/sh\nexit 0\n' > "src-tauri/binaries/darwinkit-$target"
+          chmod +x "src-tauri/binaries/darwinkit-$target"
+
+      - name: Build the frontend
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      - name: Formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
+
+  intel:
+    name: Intel artifact
+    runs-on: macos-15-intel
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install protobuf compiler
+        run: brew install protobuf
+
+      - name: Verify with the real native Intel sidecar
+        run: |
+          test "$(uname -m)" = x86_64
+          ./scripts/verify.sh
+
+      - name: Build and inspect the Intel release app
+        run: |
+          set -euo pipefail
+          swift build --package-path src-tauri/darwinkit \
+            -c release --arch x86_64 --disable-automatic-resolution
+          install -m 755 \
+            src-tauri/darwinkit/.build/x86_64-apple-macosx/release/darwinkit \
+            src-tauri/binaries/darwinkit-x86_64-apple-darwin
+          bun run tauri build --target x86_64-apple-darwin --bundles app \
+            --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          APP="src-tauri/target/x86_64-apple-darwin/release/bundle/macos/Stik.app"
+          node scripts/check-macos-artifact.mjs "$APP" x86_64
+          # Preserve executable permissions and bundle metadata in the artifact.
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "$RUNNER_TEMP/Stik-Intel-ci.zip"
+
+      - name: Upload non-release Intel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stik-intel-${{ github.sha }}
+          path: ${{ runner.temp }}/Stik-Intel-ci.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  dependency-security:
+    name: Dependency security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit@0.22.1,cargo-deny@0.20.2
+
+      - name: Audit Rust dependencies
+        run: cargo audit --file src-tauri/Cargo.lock
+
+      - name: Enforce Rust advisory policy
+        run: cargo deny --manifest-path src-tauri/Cargo.toml check advisories

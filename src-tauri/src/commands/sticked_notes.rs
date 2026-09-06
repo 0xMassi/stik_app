@@ -1,6 +1,5 @@
 use super::versioning;
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -21,9 +20,7 @@ pub struct StickedNotesStore {
 }
 
 fn get_sticked_notes_path() -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Could not find home directory")?;
-    let stik_config = home.join(".stik");
-    fs::create_dir_all(&stik_config).map_err(|e| e.to_string())?;
+    let stik_config = super::paths::config_dir()?;
     Ok(stik_config.join("sticked_notes.json"))
 }
 

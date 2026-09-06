@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { SETTINGS_SOCIAL_LINKS } from "./settingsSocialLinks";
+import { en } from "@/i18n/locales/en";
+import { zhCN } from "@/i18n/locales/zh-CN";
 
 describe("SETTINGS_SOCIAL_LINKS", () => {
   it("includes Help, X, and Discord with expected hrefs", () => {
     const byId = new Map(SETTINGS_SOCIAL_LINKS.map((link) => [link.id, link]));
 
-    expect(byId.get("help")?.href).toBe("mailto:help@stik.ink");
+    expect(byId.get("help")?.href).toBe("mailto:massimianivalerio1@gmail.com");
     expect(byId.get("x")?.href).toBe("https://x.com/stik_app");
     expect(byId.get("discord")?.href).toBe("https://discord.gg/gG8vdCCRzW");
   });
@@ -14,6 +16,12 @@ describe("SETTINGS_SOCIAL_LINKS", () => {
     for (const link of SETTINGS_SOCIAL_LINKS) {
       expect(link.ariaLabelKey.trim().length).toBeGreaterThan(0);
       expect(link.labelKey.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it("announces the support address in both locales", () => {
+    for (const locale of [en, zhCN]) {
+      expect(locale["social.helpTitle"]).toContain("massimianivalerio1@gmail.com");
     }
   });
 });

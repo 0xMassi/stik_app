@@ -8,6 +8,7 @@ import type {
   SemanticResult,
   FolderStats,
   StikSettings,
+  TrashedNote,
 } from "@/types";
 import {
   extractNoteTitle,
@@ -19,6 +20,10 @@ import FolderSidebar from "./command-palette/FolderSidebar";
 import NoteList from "./command-palette/NoteList";
 import MovePicker from "./command-palette/MovePicker";
 import { useTranslation } from "@/hooks/useTranslation";
+import ActionToast from "./ActionToast";
+import { createLatestRequestGate } from "@/utils/latestRequest";
+import { errorMessage } from "@/utils/appError";
+import LiveRegion from "./ui/LiveRegion";
 
 /** Derive a human-readable title from a Stik filename like `20260310-114522-my-note-a1b2.md` */
 function titleFromFilename(filename: string): string {
@@ -29,33 +34,6 @@ function titleFromFilename(filename: string): string {
     return parts.slice(2, -1).join(" ");
   }
   return stem;
-}
-
-function Toast({ message, onDone }: { message: string; onDone: () => void }) {
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    requestAnimationFrame(() => setIsVisible(true));
-    const timer = setTimeout(() => {
-      setIsVisible(false);
-      setTimeout(onDone, 200);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [onDone]);
-
-  return (
-    <div
-      className={`
-        fixed bottom-6 left-1/2 -translate-x-1/2 z-[250]
-        px-4 py-2.5 rounded-xl shadow-stik
-        text-[13px] font-medium bg-ink text-bg
-        transition-all duration-200 ease-out
-        ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
-      `}
-    >
-      {message}
-    </div>
-  );
 }
 
 export default function CommandPalette() {
@@ -104,6 +82,7 @@ export default function CommandPalette() {
     null,
   );
   const [toast, setToast] = useState<string | null>(null);
+  const [lastTrashed, setLastTrashed] = useState<TrashedNote | null>(null);
 
   // Sidebar position (persisted in settings)
   const [sidebarPosition, setSidebarPosition] = useState<"left" | "right">(
@@ -113,6 +92,15 @@ export default function CommandPalette() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const searchRequestGate = useRef(createLatestRequestGate());
+  const recentRequestGate = useRef(createLatestRequestGate());
+  const announcedSearchStatus = isSearching
+    ? t("palette.searching")
+    : query.trim()
+      ? t("palette.resultsFound", {
+          count: results.length + semanticResults.length,
+        })
+      : "";
 
   // Focus input on mount
   useEffect(() => {
@@ -127,33 +115,26 @@ export default function CommandPalette() {
         invoke<NoteInfo[]>("list_notes", { folder: null }),
       ]);
 
-      // Recount from NoteIndex so root-level notes are included
-      const countByFolder = new Map<string, number>();
-      for (const note of allNotes) {
-        const f = note.folder || "";
-        countByFolder.set(f, (countByFolder.get(f) || 0) + 1);
-      }
-
-      const corrected = stats.map((s) => ({
-        ...s,
-        note_count: countByFolder.get(s.name) || 0,
-      }));
-
-      setFolderStats(corrected);
+      setFolderStats(stats);
       setTotalNoteCount(allNotes.length);
     } catch (error) {
       console.error("Failed to load folder stats:", error);
+      setToast(errorMessage(error, t("common.unknownError")));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadFolderStats();
-    invoke<string[]>("list_folders").then(setFolders);
-    invoke<StikSettings>("get_settings").then((s) => {
-      settingsRef.current = s;
-      setFolderColors(s.folder_colors ?? {});
-      if (s.sidebar_position === "right") setSidebarPosition("right");
-    });
+    invoke<string[]>("list_folders")
+      .then(setFolders)
+      .catch((error) => setToast(errorMessage(error, t("common.unknownError"))));
+    invoke<StikSettings>("get_settings")
+      .then((s) => {
+        settingsRef.current = s;
+        setFolderColors(s.folder_colors ?? {});
+        if (s.sidebar_position === "right") setSidebarPosition("right");
+      })
+      .catch((error) => setToast(errorMessage(error, t("common.unknownError"))));
 
     const unlistenSettings = listen<StikSettings>(
       "settings-changed",
@@ -166,12 +147,16 @@ export default function CommandPalette() {
     return () => {
       unlistenSettings.then((fn) => fn());
     };
-  }, [loadFolderStats]);
+  }, [loadFolderStats, t]);
 
   // Load recent notes when folder filter changes
   useEffect(() => {
-    invoke<NoteInfo[]>("list_notes", { folder: selectedFolder }).then(
-      (notes) => {
+    const gate = recentRequestGate.current;
+    const token = gate.begin();
+
+    void invoke<NoteInfo[]>("list_notes", { folder: selectedFolder })
+      .then((notes) => {
+        if (!gate.isLatest(token)) return;
         setRecentNotes(
           notes.slice(0, 15).map((n) => ({
             path: n.path,
@@ -185,17 +170,31 @@ export default function CommandPalette() {
             locked: n.locked,
           })),
         );
-      },
-    );
+      })
+      .catch((error) => {
+        if (gate.isLatest(token)) {
+          console.error("Failed to load recent notes:", error);
+        }
+      });
+
+    return () => {
+      if (gate.isLatest(token)) gate.invalidate();
+    };
   }, [selectedFolder]);
 
   // Search: text + semantic in parallel (debounced)
   useEffect(() => {
+    const gate = searchRequestGate.current;
+    const token = gate.begin();
+
     if (!query.trim()) {
       setResults(recentNotes);
       setSemanticResults([]);
       setSelectedNoteIndex(0);
-      return;
+      setIsSearching(false);
+      return () => {
+        if (gate.isLatest(token)) gate.invalidate();
+      };
     }
 
     const timer = setTimeout(async () => {
@@ -212,6 +211,8 @@ export default function CommandPalette() {
           folder: selectedFolder,
         }),
       ]);
+
+      if (!gate.isLatest(token)) return;
 
       const textResults =
         textResult.status === "fulfilled" ? textResult.value : [];
@@ -230,7 +231,10 @@ export default function CommandPalette() {
       setIsSearching(false);
     }, 200);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (gate.isLatest(token)) gate.invalidate();
+    };
   }, [query, recentNotes, selectedFolder]);
 
   // Keep selectedFolderIndex in sync with selectedFolder
@@ -275,10 +279,10 @@ export default function CommandPalette() {
         closePalette();
       } catch (error) {
         console.error("Failed to open note:", error);
-        setToast(`Couldn't open note: ${String(error)}`);
+        setToast(errorMessage(error, t("note.failedToLoad")));
       }
     },
-    [closePalette],
+    [closePalette, t],
   );
 
   const handleSelectResult = useCallback(
@@ -300,36 +304,51 @@ export default function CommandPalette() {
   );
 
   const refreshAfterChange = useCallback(async () => {
-    await loadFolderStats();
-    const updatedFolders = await invoke<string[]>("list_folders");
-    setFolders(updatedFolders);
+    const gate = searchRequestGate.current;
+    const token = gate.begin();
+    try {
+      await loadFolderStats();
+      const updatedFolders = await invoke<string[]>("list_folders");
+      if (!gate.isLatest(token)) return;
+      setFolders(updatedFolders);
 
-    const notes = await invoke<NoteInfo[]>("list_notes", {
-      folder: selectedFolder,
-    });
-    const recent = notes.slice(0, 15).map((n) => ({
-      path: n.path,
-      filename: n.filename,
-      folder: n.folder,
-      title: n.locked
-        ? titleFromFilename(n.filename)
-        : extractNoteTitle(n.content),
-      snippet: normalizeNoteSnippet(n.content),
-      created: n.created,
-      locked: n.locked,
-    }));
-    setRecentNotes(recent);
-
-    if (query.trim()) {
-      const searchResults = await invoke<SearchResult[]>("search_notes", {
-        query: query.trim(),
+      const notes = await invoke<NoteInfo[]>("list_notes", {
         folder: selectedFolder,
       });
-      setResults(searchResults);
-      setSelectedNoteIndex((i) => Math.min(i, searchResults.length - 1));
-    } else {
-      setResults(recent);
-      setSelectedNoteIndex((i) => Math.min(i, recent.length - 1));
+      if (!gate.isLatest(token)) return;
+      const recent = notes.slice(0, 15).map((n) => ({
+        path: n.path,
+        filename: n.filename,
+        folder: n.folder,
+        title: n.locked
+          ? titleFromFilename(n.filename)
+          : extractNoteTitle(n.content),
+        snippet: normalizeNoteSnippet(n.content),
+        created: n.created,
+        locked: n.locked,
+      }));
+      setRecentNotes(recent);
+
+      if (query.trim()) {
+        const searchResults = await invoke<SearchResult[]>("search_notes", {
+          query: query.trim(),
+          folder: selectedFolder,
+        });
+        if (!gate.isLatest(token)) return;
+        setResults(searchResults);
+        setSemanticResults([]);
+        setSelectedNoteIndex((i) => Math.min(i, searchResults.length - 1));
+      } else {
+        setResults(recent);
+        setSemanticResults([]);
+        setSelectedNoteIndex((i) => Math.min(i, recent.length - 1));
+      }
+    } catch (error) {
+      if (gate.isLatest(token)) {
+        console.error("Failed to refresh search results:", error);
+      }
+    } finally {
+      if (gate.isLatest(token)) setIsSearching(false);
     }
   }, [loadFolderStats, query, selectedFolder]);
 
@@ -351,17 +370,38 @@ export default function CommandPalette() {
   const handleDeleteNote = useCallback(
     async (note: SearchResult) => {
       try {
-        await invoke("delete_note", { path: note.path });
-        // Notify viewing windows about deletion
-        await emit("note-deleted", note.path);
+        const trashed = await invoke<TrashedNote>("delete_note", {
+          path: note.path,
+        });
+        setLastTrashed(trashed);
+        setToast(t("trash.noteMoved"));
         setConfirmDelete(null);
         await refreshAfterChange();
       } catch (error) {
         console.error("Failed to delete note:", error);
-        setToast(String(error));
+        setToast(errorMessage(error, t("common.unknownError")));
       }
     },
-    [refreshAfterChange],
+    [refreshAfterChange, t],
+  );
+
+  const undoDelete = useCallback(
+    async (entry: TrashedNote) => {
+      try {
+        await invoke<string>("restore_trashed_note", { id: entry.id });
+        setLastTrashed(null);
+        setToast(t("trash.noteRestored"));
+        await emit("files-changed", []);
+        await refreshAfterChange();
+      } catch (error) {
+        console.error("Failed to restore note:", error);
+        setLastTrashed(null);
+        setToast(t("trash.restoreFailed", {
+          error: errorMessage(error, t("common.unknownError")),
+        }));
+      }
+    },
+    [refreshAfterChange, t],
   );
 
   // Delete folder
@@ -380,10 +420,10 @@ export default function CommandPalette() {
         await refreshAfterChange();
       } catch (error) {
         console.error("Failed to delete folder:", error);
-        setToast(String(error));
+        setToast(errorMessage(error, t("common.unknownError")));
       }
     },
-    [selectedFolder, refreshAfterChange],
+    [selectedFolder, refreshAfterChange, t],
   );
 
   // Move note
@@ -399,10 +439,10 @@ export default function CommandPalette() {
         await refreshAfterChange();
       } catch (error) {
         console.error("Failed to move note:", error);
-        setToast(String(error));
+        setToast(errorMessage(error, t("common.unknownError")));
       }
     },
-    [refreshAfterChange],
+    [refreshAfterChange, t],
   );
 
   // Save settings helper — keeps settingsRef in sync and notifies other windows
@@ -442,7 +482,7 @@ export default function CommandPalette() {
       setSelectedFolder(newFolderName.trim());
     } catch (error) {
       console.error("Failed to create folder:", error);
-      setToast(String(error));
+      setToast(errorMessage(error, t("common.unknownError")));
     }
   }, [
     newFolderName,
@@ -450,6 +490,7 @@ export default function CommandPalette() {
     folderColors,
     refreshAfterChange,
     saveAndEmitSettings,
+    t,
   ]);
 
   // Rename folder
@@ -479,9 +520,9 @@ export default function CommandPalette() {
       }
     } catch (error) {
       console.error("Failed to rename folder:", error);
-      setToast(String(error));
+      setToast(errorMessage(error, t("common.unknownError")));
     }
-  }, [renameValue, renamingFolderName, selectedFolder, refreshAfterChange]);
+  }, [renameValue, renamingFolderName, selectedFolder, refreshAfterChange, t]);
 
   // Set folder color (during rename)
   const handleSetFolderColor = useCallback(
@@ -493,9 +534,10 @@ export default function CommandPalette() {
         await saveAndEmitSettings({ folder_colors: updatedColors });
       } catch (error) {
         console.error("Failed to save folder color:", error);
+        setToast(errorMessage(error, t("common.unknownError")));
       }
     },
-    [renamingFolderName, folderColors, saveAndEmitSettings],
+    [renamingFolderName, folderColors, saveAndEmitSettings, t],
   );
 
   // Create new note in selected folder
@@ -539,9 +581,9 @@ export default function CommandPalette() {
       }
     } catch (error) {
       console.error("Failed to create note:", error);
-      setToast(String(error));
+      setToast(errorMessage(error, t("postit.saveFailed")));
     }
-  }, [newNoteTitle, selectedFolder, folders, refreshAfterChange, closePalette]);
+  }, [newNoteTitle, selectedFolder, folders, refreshAfterChange, closePalette, t]);
 
   // Select folder from sidebar
   const handleSelectFolder = useCallback((folder: string | null) => {
@@ -655,7 +697,7 @@ export default function CommandPalette() {
                 }
                 await refreshAfterChange();
               } catch (err) {
-                setToast(String(err));
+                setToast(errorMessage(err, t("common.unknownError")));
               }
             };
             toggleLock();
@@ -732,6 +774,7 @@ export default function CommandPalette() {
     handleSelectResult,
     refreshAfterChange,
     closePalette,
+    t,
   ]);
 
   const toggleSidebarPosition = useCallback(async () => {
@@ -741,8 +784,9 @@ export default function CommandPalette() {
       await saveAndEmitSettings({ sidebar_position: next });
     } catch (err) {
       console.error("Failed to save sidebar position:", err);
+      setToast(errorMessage(err, t("common.unknownError")));
     }
-  }, [sidebarPosition, saveAndEmitSettings]);
+  }, [sidebarPosition, saveAndEmitSettings, t]);
 
   const startDrag = useCallback(async (e: React.MouseEvent) => {
     if (
@@ -760,6 +804,7 @@ export default function CommandPalette() {
 
   return (
     <div className="w-full h-full bg-bg rounded-[14px] flex flex-col overflow-hidden">
+      <LiveRegion message={announcedSearchStatus} />
       {/* Search bar */}
       <div
         onMouseDown={startDrag}
@@ -796,7 +841,7 @@ export default function CommandPalette() {
             className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-stone outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:rounded-md"
           />
           {isSearching && (
-            <span className="text-stone text-sm animate-pulse">...</span>
+            <span className="text-stone text-sm animate-pulse" aria-hidden="true">...</span>
           )}
         </div>
       </div>
@@ -979,7 +1024,21 @@ export default function CommandPalette() {
         />
       )}
 
-      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+      {toast && (
+        <ActionToast
+          message={toast}
+          actionLabel={
+            lastTrashed && toast === t("trash.noteMoved")
+              ? t("trash.undo")
+              : undefined
+          }
+          onAction={lastTrashed ? () => undoDelete(lastTrashed) : undefined}
+          onDone={() => {
+            setToast(null);
+            setLastTrashed(null);
+          }}
+        />
+      )}
     </div>
   );
 }

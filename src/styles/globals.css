@@ -435,6 +435,11 @@ body,
   color: rgb(var(--color-ink));
 }
 
+.link-popover-btn:focus-visible {
+  outline: 2px solid rgb(var(--color-coral));
+  outline-offset: 2px;
+}
+
 .link-popover-unlink:hover {
   color: rgb(var(--color-coral));
 }
@@ -499,7 +504,7 @@ body,
 }
 
 .link-popover-save:hover {
-  background: rgba(232, 112, 95, 0.1);
+  background: rgba(var(--color-coral), 0.1);
 }
 
 /* ── Formatting Toolbar ── */
@@ -624,4 +629,26 @@ body,
 .fmt-heading-option.fmt-active {
   background: rgb(var(--color-coral-light));
   color: rgb(var(--color-coral));
+}
+
+/* Keyboard focus remains visible even when a component has not yet adopted a
+   custom ring. Component-specific focus styles may override this baseline. */
+:where(button, a[href], input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid rgb(var(--color-coral));
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

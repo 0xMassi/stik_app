@@ -1,61 +1,37 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  lazy,
+  Suspense,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
+import { matchesEitherPrimary } from "@/utils/matchShortcut";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { check } from "@tauri-apps/plugin-updater";
-import PostIt from "./components/PostIt";
-import SettingsModal from "./components/SettingsModal";
-import CommandPalette from "./components/CommandPalette";
-import AnalyticsNotice from "./components/AnalyticsNotice";
-import AppleNotesPicker from "./components/AppleNotesPicker";
-import { useTheme } from "./hooks/useTheme";
 import type { StickedNote, StikSettings } from "@/types";
 import { isMarkdownEffectivelyEmpty } from "@/utils/normalizeMarkdownForCopy";
 import { shouldHideCaptureOnBlur } from "@/utils/blurAutoHide";
 import { resolveCaptureFolder } from "@/utils/folderSelection";
 import { useLanguageSync, useTranslation } from "@/hooks/useTranslation";
+import { resolveWindowInfo } from "@/utils/windowRouting";
 
-type WindowType =
-  | "postit"
-  | "sticked"
-  | "settings"
-  | "command-palette"
-  | "apple-notes-picker";
+const SettingsModal = lazy(() => import("./components/SettingsModal"));
+const PostIt = lazy(() => import("./components/PostIt"));
+const CommandPalette = lazy(() => import("./components/CommandPalette"));
+const AnalyticsNotice = lazy(() => import("./components/AnalyticsNotice"));
+const AppleNotesPicker = lazy(
+  () => import("./components/AppleNotesPicker"),
+);
+const EditorWindow = lazy(() => import("./components/EditorWindow"));
 const PENDING_UPDATE_KEY = "stik_pending_update_version";
 
-function getWindowInfo(): { type: WindowType; id?: string; viewing?: boolean } {
-  const params = new URLSearchParams(window.location.search);
-  const windowType = params.get("window");
-
-  if (windowType === "sticked") {
-    return {
-      type: "sticked",
-      id: params.get("id") || undefined,
-      viewing: params.get("viewing") === "true",
-    };
-  }
-
-  if (windowType === "settings") {
-    return { type: "settings" };
-  }
-
-  if (
-    windowType === "search" ||
-    windowType === "manager" ||
-    windowType === "command-palette"
-  ) {
-    return { type: "command-palette" };
-  }
-
-  if (windowType === "apple-notes-picker") {
-    return { type: "apple-notes-picker" };
-  }
-
-  return { type: "postit" };
+function WindowLoading() {
+  return <div className="w-full h-full bg-bg" aria-busy="true" />;
 }
 
 export default function App() {
-  useTheme();
   useLanguageSync();
   const { t } = useTranslation();
   const [currentFolder, setCurrentFolder] = useState("");
@@ -66,7 +42,7 @@ export default function App() {
   const pendingBlurHideRef = useRef<number | null>(null);
   const skipNextBlurHideRef = useRef(false);
   const [showAnalyticsNotice, setShowAnalyticsNotice] = useState(false);
-  const windowInfo = getWindowInfo();
+  const windowInfo = resolveWindowInfo(window.location.search);
 
   const resolveFolder = useCallback(
     async (requestedFolder?: string, settingsFromEvent?: StikSettings) => {
@@ -233,6 +209,19 @@ export default function App() {
     if (windowInfo.type !== "postit") return;
 
     const unlisten = listen<string>("shortcut-triggered", (event) => {
+      globalThis.performance?.mark?.("stik:capture-shortcut-received");
+      requestAnimationFrame(() => {
+        globalThis.performance?.mark?.("stik:capture-visible");
+        try {
+          globalThis.performance?.measure?.(
+            "stik:shortcut-to-visible",
+            "stik:capture-shortcut-received",
+            "stik:capture-visible",
+          );
+        } catch {
+          // Performance marks are diagnostic only and must never affect capture.
+        }
+      });
       skipNextBlurHideRef.current = true;
       blurIgnoreUntilRef.current = Date.now() + 500;
       void resolveFolder(event.payload)
@@ -265,7 +254,7 @@ export default function App() {
     if (windowInfo.type !== "postit") return;
 
     const handleKeyDown = async (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === ",") {
+      if (matchesEitherPrimary("Cmd+Shift+Comma", e)) {
         e.preventDefault();
         try {
           await invoke("open_settings");
@@ -273,7 +262,6 @@ export default function App() {
           console.error("Failed to open settings:", error);
         }
       }
-
       // Cmd/Ctrl+K opens the command menu. Stik has always had it on
       // Cmd+Shift+P; K is what most people reach for first, so accept both.
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "k") {
@@ -282,6 +270,15 @@ export default function App() {
           await invoke("open_command_palette");
         } catch (error) {
           console.error("Failed to open command palette:", error);
+        }
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "e" || e.key === "E")) {
+        e.preventDefault();
+        try {
+          await invoke("open_editor");
+        } catch (error) {
+          console.error("Failed to open editor:", error);
         }
       }
     };
@@ -299,6 +296,7 @@ export default function App() {
 
     const runAutoUpdate = async () => {
       try {
+        const { check } = await import("@tauri-apps/plugin-updater");
         const settings = await invoke<StikSettings>("get_settings");
         if (settings.auto_update_enabled === false) {
           console.debug("Auto-update skipped: disabled in settings");
@@ -348,9 +346,11 @@ export default function App() {
       .catch(() => {});
   }, [windowInfo.type]);
 
-  const handleDismissAnalyticsNotice = useCallback(async () => {
+  const handleAnalyticsChoice = useCallback(async (enabled: boolean) => {
     try {
       const settings = await invoke<StikSettings>("get_settings");
+      settings.analytics_enabled = enabled;
+      settings.analytics_consent_version = 1;
       settings.analytics_notice_dismissed = true;
       await invoke("save_settings", { settings });
     } catch (error) {
@@ -399,19 +399,48 @@ export default function App() {
     contentRef.current = content;
   }, []);
 
+  const handleOpenSettings = useCallback(async () => {
+    try {
+      await invoke("open_settings");
+    } catch (error) {
+      console.error("Failed to open settings:", error);
+    }
+  }, []);
+
   // Render settings if this is that window type
   if (windowInfo.type === "settings") {
-    return <SettingsModal isOpen={true} onClose={() => {}} isWindow={true} />;
+    return (
+      <Suspense fallback={<WindowLoading />}>
+        <SettingsModal isOpen={true} onClose={() => {}} isWindow={true} />
+      </Suspense>
+    );
   }
 
   // Render command palette if this is that window type
   if (windowInfo.type === "command-palette") {
-    return <CommandPalette />;
+    return (
+      <Suspense fallback={<WindowLoading />}>
+        <CommandPalette />
+      </Suspense>
+    );
+  }
+
+  // Render full editor mode if this is that window type
+  if (windowInfo.type === "editor") {
+    return (
+      <Suspense fallback={<WindowLoading />}>
+        <EditorWindow />
+      </Suspense>
+    );
   }
 
   // Render Apple Notes picker if this is that window type
   if (windowInfo.type === "apple-notes-picker") {
-    return <AppleNotesPicker />;
+    return (
+      <Suspense fallback={<WindowLoading />}>
+        <AppleNotesPicker />
+      </Suspense>
+    );
   }
 
   // Render sticked note if this is a sticked window
@@ -427,9 +456,6 @@ export default function App() {
           </div>
           <button
             onClick={async () => {
-              const { getCurrentWindow } = await import(
-                "@tauri-apps/api/window"
-              );
               await getCurrentWindow().close();
             }}
             className="mt-2 px-4 py-2 text-xs bg-line hover:bg-line/70 text-ink rounded-lg transition-colors"
@@ -449,41 +475,38 @@ export default function App() {
     }
 
     return (
-      <PostIt
-        folder={currentFolder}
-        onSave={handleSave}
-        onClose={handleClose}
-        onFolderChange={handleFolderChange}
-        isSticked={true}
-        stickedId={stickedNote.id}
-        initialContent={stickedNote.content}
-        isViewing={windowInfo.viewing}
-        originalPath={stickedNote.originalPath}
-      />
+      <Suspense fallback={<WindowLoading />}>
+        <PostIt
+          folder={currentFolder}
+          onSave={handleSave}
+          onClose={handleClose}
+          onFolderChange={handleFolderChange}
+          isSticked={true}
+          stickedId={stickedNote.id}
+          initialContent={stickedNote.content}
+          isViewing={windowInfo.viewing}
+          originalPath={stickedNote.originalPath}
+        />
+      </Suspense>
     );
   }
 
-  // Render postit (capture mode)
-  const handleOpenSettings = useCallback(async () => {
-    try {
-      await invoke("open_settings");
-    } catch (error) {
-      console.error("Failed to open settings:", error);
-    }
-  }, []);
-
   return (
     <>
-      <PostIt
-        folder={currentFolder}
-        onSave={handleSave}
-        onClose={handleClose}
-        onFolderChange={handleFolderChange}
-        onOpenSettings={handleOpenSettings}
-        onContentChange={handleContentChange}
-      />
+      <Suspense fallback={<WindowLoading />}>
+        <PostIt
+          folder={currentFolder}
+          onSave={handleSave}
+          onClose={handleClose}
+          onFolderChange={handleFolderChange}
+          onOpenSettings={handleOpenSettings}
+          onContentChange={handleContentChange}
+        />
+      </Suspense>
       {showAnalyticsNotice && (
-        <AnalyticsNotice onDismiss={handleDismissAnalyticsNotice} />
+        <Suspense fallback={null}>
+          <AnalyticsNotice onChoice={handleAnalyticsChoice} />
+        </Suspense>
       )}
     </>
   );
