@@ -432,7 +432,7 @@ export const zhCN: Translations = {
   "task.completed": "已完成的任务",
   "task.incomplete": "未完成的任务",
   "social.help": "帮助",
-  "social.helpTitle": "通过 help@stik.ink 联系支持",
+  "social.helpTitle": "通过 massimianivalerio1@gmail.com 联系支持",
   "social.xTitle": "在 X 上打开 Stik 主页",
   "social.discordTitle": "加入 Stik 的 Discord 服务器",
   "theme.light": "浅色",

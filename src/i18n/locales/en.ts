@@ -431,7 +431,7 @@ export const en = {
   "task.completed": "Completed task",
   "task.incomplete": "Incomplete task",
   "social.help": "Help",
-  "social.helpTitle": "Email support at help@stik.ink",
+  "social.helpTitle": "Email support at massimianivalerio1@gmail.com",
   "social.xTitle": "Open Stik profile on X",
   "social.discordTitle": "Join the Stik Discord server",
   "theme.light": "Light",

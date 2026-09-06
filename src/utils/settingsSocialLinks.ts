@@ -17,7 +17,7 @@ export const SETTINGS_SOCIAL_LINKS: SettingsSocialLink[] = [
     id: "help",
     labelKey: "social.help",
     ariaLabelKey: "social.helpTitle",
-    href: "mailto:help@stik.ink",
+    href: "mailto:massimianivalerio1@gmail.com",
   },
   {
     id: "x",

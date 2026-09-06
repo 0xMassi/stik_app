@@ -18,7 +18,7 @@ Supported builds require macOS 14 (Sonoma) or newer.
 
 Instead, please report them privately:
 
-- **Email**: [security@stik.ink](mailto:security@stik.ink)
+- **Email**: [massimianivalerio1@gmail.com](mailto:massimianivalerio1@gmail.com)
 - **GitHub**: Use [private vulnerability reporting](https://github.com/0xMassi/stik_app/security/advisories/new)
 
 Include as much detail as possible:
@@ -52,7 +52,7 @@ We will credit reporters in the release notes unless anonymity is requested.
 
 ### Out of scope
 
-- The landing page (stik.ink) -- report separately to [help@stik.ink](mailto:help@stik.ink)
+- The landing page (stik.ink) -- report separately to [massimianivalerio1@gmail.com](mailto:massimianivalerio1@gmail.com)
 - Third-party dependencies -- report upstream, but let us know if it affects Stik
 - Attacks requiring physical access to an unlocked machine
 - Social engineering

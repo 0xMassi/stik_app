@@ -330,10 +330,10 @@ Community and support links
 
 ### Added
 - **Settings footer social links** — new Help/X/Discord quick actions next to the app version in both settings surfaces (modal and standalone settings window)
-- **Help action in app settings** — one-click support contact via `mailto:help@stik.ink`
+- **Help action in app settings** — one-click support contact via `mailto:massimianivalerio1@gmail.com`
 
 ### Changed
-- **Support channels updated** — README now points to `help@stik.ink` plus official X and Discord community links
+- **Support channels updated** — README now points to `massimianivalerio1@gmail.com` plus official X and Discord community links
 
 ## [0.4.1] - 2026-02-09
 Editing and reliability polish
