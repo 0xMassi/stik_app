@@ -17,11 +17,17 @@ does not claim exhaustive OS, account integration, architecture, or UX coverage.
   valid files. Failed saves keep the mounted editor and undo history. Capture
   retries reuse their first saved file; failed pinned-window closes do not lose
   subsequent edits. Active dictation vetoes Quit.
+- `ce4530d`: changing Vim mode or text direction now preserves the current draft
+  rather than remounting the editor with its original text. Viewing-window IDs
+  now preserve distinct file paths, including spaces, periods, nested folders,
+  Unicode, and URL delimiters, using the existing base64 dependency.
 
 The old editor-only coordinator's two tests were replaced by five coordinator
 tests retaining authentication and failed-save retry coverage and adding
 multi-window, generation, timeout, and readiness checks. Twenty-four
-real-CodeMirror PostIt tests protect the consolidated save/close behavior.
+real-CodeMirror PostIt tests protect the consolidated save/close behavior; four
+additional cases cover settings changes and subsequent saving in capture,
+pinned, viewing, and deliberately cleared viewing notes.
 
 ## Fresh verification on September 6
 
@@ -55,6 +61,24 @@ Local logs are under the original checkout's ignored `.internal/` directory:
 `beta090-verification.log`, `beta090-baseline.log`, `beta090-native.log`, and
 `beta090-setup.log`. Disposable native data is in `.internal/beta090-profile/`.
 
+### Verification after the additional fixes
+
+`./scripts/verify.sh` passed on `ce4530d` content in 80 seconds: **230 frontend,
+141 Rust, and 43 Swift tests**, plus the required build, platform, bundle,
+formatting, and strict Clippy gates. The isolated worktree reused an idle Rust
+cache; no other build ran against that cache concurrently. See
+`.internal/beta090-final-verification.log`.
+
+Regression sensitivity was observed, not inferred: all four new settings tests
+failed before the fix (drafts became blank or reverted), then all 28 PostIt tests
+passed. Both new identity tests failed before encoding (five distinct paths
+collapsed into one ID; query delimiters remained unsafe), then passed. The
+red/green logs are `.internal/beta090-settings-{red,green}.log` and
+`.internal/beta090-window-ids-{red,green}.log`. No tests were removed or weakened.
+An independent source review found no new startup/image or persisted-ID contract
+regression in these two fixes. This is not native acceptance of the unexplained
+first-open blank viewer.
+
 ## Prior native checks and unresolved observation
 
 The September 5 session observed these checks on isolated data:
@@ -83,6 +107,9 @@ documentation did not. September 6 tests use a new persistent scratch profile.
 
 - Reproduce and explain or fix the empty Finder-view observation; verify file
   content before and after opening, editing, saving, and relaunching.
+- Resume native UI testing in an uninterrupted computer-use window. On September
+  6, Finder changed between automation steps and returned stale-element errors;
+  UI interaction was paused to avoid interfering with another person or task.
 - Complete native multi-window shutdown checks and record final-revision CI.
 - Obtain an approving maintainer review for
   [PR #101](https://github.com/0xMassi/stik_app/pull/101); required review is not
