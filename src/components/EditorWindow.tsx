@@ -143,6 +143,7 @@ export default function EditorWindow() {
   const [lastTrashed, setLastTrashed] = useState<TrashedNote | null>(null);
 
   const [query, setQuery] = useState("");
+  const [searchRevision, setSearchRevision] = useState(0);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [pinned, setPinned] = useState<string[]>([]);
 
@@ -289,6 +290,21 @@ export default function EditorWindow() {
   }, [activeFolder, refreshNotes]);
 
   useEffect(() => {
+    // Refresh navigation, never replace the mounted editor's live draft.
+    const refresh = () => {
+      void loadFolders();
+      void refreshNotes(activeFolderRef.current);
+      setSearchRevision((revision) => revision + 1);
+    };
+    const listeners = [
+      getCurrentWindow().onFocusChanged(({ payload: focused }) => { if (focused) refresh(); }),
+      listen("files-changed", refresh),
+      listen("icloud-files-changed", refresh),
+    ];
+    return () => { listeners.forEach((listener) => { void listener.then((unlisten) => unlisten()); }); };
+  }, [loadFolders, refreshNotes]);
+
+  useEffect(() => {
     const gate = searchRequestGate.current;
     const token = gate.begin();
     if (!query.trim()) {
@@ -313,7 +329,7 @@ export default function EditorWindow() {
       window.clearTimeout(timer);
       if (gate.isLatest(token)) gate.invalidate();
     };
-  }, [query, activeFolder]);
+  }, [query, activeFolder, searchRevision]);
 
   const persistLocal = useCallback((key: string, next: string[], set: (v: string[]) => void) => {
     set(next);

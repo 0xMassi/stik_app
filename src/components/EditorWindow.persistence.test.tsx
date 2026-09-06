@@ -10,6 +10,8 @@ const native = vi.hoisted(() => ({
   quitHandler: undefined as undefined | ((event: { payload: { id: number } }) => void | Promise<void>),
   cancelQuitHandler: undefined as undefined | ((event: { payload: { id: number } }) => void),
   quitApproved: false,
+  focusHandler: undefined as undefined | ((event: { payload: boolean }) => void),
+  fileHandlers: new Map<string, () => void>(),
 }));
 
 async function requestClose() {
@@ -23,9 +25,11 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(async (name, handler) => {
     if (name === "app-quit-requested") native.quitHandler = handler;
     if (name === "app-quit-cancelled") native.cancelQuitHandler = handler;
+    if (name === "files-changed" || name === "icloud-files-changed") native.fileHandlers.set(name, handler);
     return () => {
       if (name === "app-quit-requested") native.quitHandler = undefined;
       if (name === "app-quit-cancelled") native.cancelQuitHandler = undefined;
+      native.fileHandlers.delete(name);
     };
   }),
   emit: vi.fn().mockResolvedValue(undefined),
@@ -33,6 +37,10 @@ vi.mock("@tauri-apps/api/event", () => ({
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
     onDragDropEvent: vi.fn().mockResolvedValue(() => {}),
+    onFocusChanged: vi.fn(async (handler) => {
+      native.focusHandler = handler;
+      return () => { native.focusHandler = undefined; };
+    }),
     onCloseRequested: vi.fn(async (handler) => {
       native.closeHandler = handler;
       return () => { native.closeHandler = undefined; };
@@ -66,6 +74,8 @@ beforeEach(() => {
   native.quitApproved = false;
   native.quitHandler = undefined;
   native.closeHandler = undefined;
+  native.focusHandler = undefined;
+  native.fileHandlers.clear();
   vi.mocked(invoke).mockReset().mockImplementation(async (command, args) => {
     if (command === "complete_app_quit") {
       const { id, saved } = args as { id: number; saved: boolean };
@@ -83,6 +93,13 @@ beforeEach(() => {
       }));
     }
     if (command === "get_note_content") return files.get((args as { path: string }).path);
+    if (command === "search_notes") {
+      const { query, folder } = args as { query: string; folder: string };
+      return [...files].filter(([path, content]) => path.includes(`/${folder}/`) && content.includes(query)).map(([path, content]) => ({
+        path, title: content.split("\n")[0].replace(/^# /, ""), snippet: content,
+        filename: path.split("/").pop(), folder, created: "2026-09-05", locked: false,
+      }));
+    }
     if (command === "update_note") {
       if (failSaves) throw new Error("Disk is full");
       const { path, content, preserveEmpty } = args as { path: string; content: string; preserveEmpty?: boolean };
@@ -132,6 +149,33 @@ function documentText() { return screen.getByRole("textbox", { name: "Start writ
 async function autosave() { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 650)); }); }
 
 describe("full editor persistence", () => {
+  it.each(["focus", "files-changed", "icloud-files-changed"])("refreshes the list on %s without replacing a live draft", async (event) => {
+    render(<EditorWindow />);
+    await open("Alpha");
+    edit("Unsaved local draft");
+    files.set(beta, "# Updated in another window\nNew body");
+    await act(async () => {
+      if (event === "focus") native.focusHandler?.({ payload: true });
+      else native.fileHandlers.get(event)?.();
+    });
+    expect(screen.getByRole("button", { name: /^Updated in another window/ })).toBeInTheDocument();
+    expect(documentText()).toContain("Unsaved local draft");
+    await act(requestClose);
+    expect(files.get(alpha)).toBe("Unsaved local draft");
+  });
+
+  it("refreshes an active search when returning from another window", async () => {
+    render(<EditorWindow />);
+    await screen.findByRole("button", { name: /^Alpha/ });
+    fireEvent.change(screen.getByPlaceholderText("Search notes…"), { target: { value: "Alpha" } });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 220)); });
+    expect(screen.getByRole("button", { name: /^Alpha/ })).toBeInTheDocument();
+    files.set(alpha, "# Renamed elsewhere");
+    await act(async () => { native.focusHandler?.({ payload: true }); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 220)); });
+    expect(screen.queryByRole("button", { name: /^Alpha/ })).not.toBeInTheDocument();
+  });
+
   it("saves A before switching to and editing B inside the debounce interval", async () => {
     render(<EditorWindow />);
     await open("Alpha");

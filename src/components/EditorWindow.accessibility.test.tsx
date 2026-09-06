@@ -36,6 +36,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
     onCloseRequested: vi.fn().mockResolvedValue(() => {}),
+    onFocusChanged: vi.fn().mockResolvedValue(() => {}),
     destroy: vi.fn().mockResolvedValue(undefined),
   }),
 }));
