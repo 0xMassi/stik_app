@@ -33,7 +33,7 @@ tauri-plugin-dialog = "2.6.0"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 flate2 = "1"
-prost = "0.13"
+prost = "0.14"
 aes-gcm = "0.10"
 rand = "0.9"
 notify = { version = "7", default-features = false, features = ["macos_fsevent"] }
