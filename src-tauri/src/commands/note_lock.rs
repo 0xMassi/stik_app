@@ -60,10 +60,10 @@ fn encrypt(plaintext: &str, key: &[u8; 32]) -> Result<String, String> {
 
     let mut nonce_bytes = [0u8; 12];
     rand::rng().fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
+    let nonce = Nonce::from(nonce_bytes);
 
     let ciphertext = cipher
-        .encrypt(nonce, plaintext.as_bytes())
+        .encrypt(&nonce, plaintext.as_bytes())
         .map_err(|e| format!("Encryption failed: {}", e))?;
 
     Ok(format!(
@@ -87,9 +87,8 @@ fn decrypt(locked_content: &str, key: &[u8; 32]) -> Result<String, String> {
     let nonce_bytes = B64
         .decode(nonce_b64)
         .map_err(|e| format!("Invalid nonce: {}", e))?;
-    if nonce_bytes.len() != 12 {
-        return Err("Invalid nonce length".to_string());
-    }
+    let nonce = <&Nonce<_>>::try_from(nonce_bytes.as_slice())
+        .map_err(|_| "Invalid nonce length".to_string())?;
 
     // Remaining lines are the ciphertext (join in case base64 wraps)
     let ciphertext_b64: String = lines[2..].join("");
@@ -98,8 +97,6 @@ fn decrypt(locked_content: &str, key: &[u8; 32]) -> Result<String, String> {
         .map_err(|e| format!("Invalid ciphertext: {}", e))?;
 
     let cipher = Aes256Gcm::new_from_slice(key).map_err(|e| e.to_string())?;
-    let nonce = Nonce::from_slice(&nonce_bytes);
-
     let plaintext = cipher
         .decrypt(nonce, ciphertext.as_ref())
         .map_err(|_| "Decryption failed — wrong key or corrupted data".to_string())?;
