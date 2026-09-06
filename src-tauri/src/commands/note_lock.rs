@@ -5,7 +5,7 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
 };
 use base64::Engine;
-use rand::RngCore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
