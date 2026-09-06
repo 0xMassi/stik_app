@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Explicitly reselecting a note in the full editor now loads its latest saved revision instead of keeping a stale editor document.
+- Unpinning saves an occupied capture draft before transferring content and retains the source pin if capture cannot accept it.
+- Pin/unpin operations preserve input arriving during handoff, block overlapping dictation, and retain retry state after failures.
 - Crafted Markdown asset references can no longer move or delete files outside the vault; symlink escapes are rejected.
 - Remote Markdown images no longer make network requests unless the user enables them.
 - Note deletion is recoverable, and rename/create races can no longer silently overwrite another note.

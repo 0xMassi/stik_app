@@ -131,6 +131,7 @@ export default function EditorWindow() {
 
   const [notes, setNotes] = useState<NoteInfo[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
+  const [noteRevision, setNoteRevision] = useState(0);
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -391,6 +392,9 @@ export default function EditorWindow() {
       const folderPath = separator >= 0 ? path.slice(0, separator) : "";
       setActivePath(path);
       setContent(resolveImagePaths(text, folderPath, convertFileSrc));
+      // initialContent is mount-only: explicit reselection is a fresh document,
+      // not an edit (which would incorrectly queue an autosave of the read).
+      setNoteRevision((revision) => revision + 1);
     } catch (e) {
       if (gate.isLatest(token)) setToast(errorMessage(e, t("note.failedToLoad")));
     } finally {
@@ -1039,7 +1043,7 @@ export default function EditorWindow() {
               {trashedNotes.length === 0 && <p className="text-xs">{t("trash.empty")}</p>}
             </div>
           ) : activePath ? (
-            <Editor key={activePath} ref={editorRef} initialContent={content} onChange={handleChange} placeholder="Start writing…" showFormatToolbar loadRemoteImages={loadRemoteImages} />
+            <Editor key={`${activePath}:${noteRevision}`} ref={editorRef} initialContent={content} onChange={handleChange} placeholder="Start writing…" showFormatToolbar loadRemoteImages={loadRemoteImages} />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-stone">
               <p className="text-sm">{t("editor.selectOrCreate")}</p>

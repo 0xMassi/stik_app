@@ -6,7 +6,7 @@ import {
   closeCompletion,
 } from "@codemirror/autocomplete";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import Editor, { type EditorRef } from "./Editor";
 import FolderPicker from "./FolderPicker";
@@ -171,6 +171,7 @@ export default function PostIt({
   const contentRef = useRef(content);
   const pendingSaveRef = useRef<Promise<string | undefined> | null>(null);
   const closeSaveRef = useRef<Promise<void> | null>(null);
+  const transferInProgressRef = useRef(false);
   const lastSavedContentRef = useRef(initialContent);
   const savedDraftPathRef = useRef<string | undefined>(undefined);
   const pinnedClosedRef = useRef(false);
@@ -483,37 +484,6 @@ export default function PostIt({
     return () => window.removeEventListener("focus", handleWindowFocus);
   }, [isSaving, vimMode, isSticked]);
 
-  // Listen for content transfer from unpinned sticked notes (only in capture mode)
-  useEffect(() => {
-    if (isSticked) return; // Only main capture window listens
-
-    const unlisten = listen<{ content: string; folder: string }>(
-      "transfer-content",
-      (event) => {
-        const transferredContent = event.payload.content || "";
-        setContent(transferredContent);
-        onFolderChange(event.payload.folder);
-        const resolvedContent = notesDir
-          ? resolveImagePaths(
-              transferredContent,
-              `${notesDir}/${event.payload.folder}`,
-              convertFileSrc,
-            )
-          : transferredContent;
-        // Focus editor and move cursor to end
-        setTimeout(() => {
-          editorRef.current?.setContent(resolvedContent);
-          editorRef.current?.focus();
-          editorRef.current?.moveToEnd?.();
-        }, 100);
-      },
-    );
-
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [isSticked, notesDir, onFolderChange]);
-
   // Slash-query state is cleared on new sessions via shortcut-triggered
   // and on save via handleSaveAndClose. No separate postit-blur listener
   // needed — it caused a race where a delayed blur during reopen would
@@ -609,7 +579,57 @@ export default function PostIt({
     return pendingSaveRef.current;
   }, [isSticked, isPinned, currentStickedId, isViewing, originalPath, getLiveContent, resolveFolderForAction, onSave, clearCapture]);
 
+  // A delivered event is not acceptance. Save occupied capture first, and
+  // acknowledge only once the editor owns the new text; the source stays pinned
+  // on failure or timeout. Use current callbacks without resubscribing on typing.
+  const acceptTransferRef = useRef(async (_payload: { content: string; folder: string }) => {});
+  acceptTransferRef.current = async (payload) => {
+    if (transferInProgressRef.current || closeSaveRef.current || document.body.inert ||
+      (window as unknown as { __stikDictationHoldOpen?: boolean }).__stikDictationHoldOpen) {
+      throw new Error(t("common.saving"));
+    }
+    transferInProgressRef.current = true;
+    flushSync(() => setIsSaving(true));
+    try {
+      if (!editorRef.current?.getView()) throw new Error(t("note.failedToLoad"));
+      await persistDraft();
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      const resolved = notesDir
+        ? resolveImagePaths(payload.content, `${notesDir}/${payload.folder}`, convertFileSrc)
+        : payload.content;
+      flushSync(() => {
+        onFolderChange(payload.folder);
+        setContent(payload.content);
+        contentRef.current = payload.content;
+        onContentChange?.(payload.content);
+        setSaveComplete(false);
+      });
+      editorRef.current?.setContent(resolved);
+      editorRef.current?.moveToEnd?.();
+    } finally {
+      transferInProgressRef.current = false;
+      setIsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isSticked) return;
+    const unlisten = listen<{ id: string; content: string; folder: string }>("transfer-content", async ({ payload }) => {
+      let error: string | null = null;
+      try { await acceptTransferRef.current(payload); }
+      catch (cause) {
+        error = errorMessage(cause, t("postit.saveFailed"));
+        setToast(error);
+      }
+      await emit(`capture-transfer-result-${payload.id}`, { error }).catch((cause) => {
+        setToast(errorMessage(cause, t("postit.saveFailed")));
+      });
+    });
+    return () => { void unlisten.then((dispose) => dispose()); };
+  }, [isSticked, t]);
+
   useAppQuit(async () => {
+    if (transferInProgressRef.current) throw new Error(t("common.saving"));
     if ((window as unknown as { __stikDictationHoldOpen?: boolean }).__stikDictationHoldOpen) {
       throw new Error(t("postit.finishDictationBeforeQuit"));
     }
@@ -776,7 +796,7 @@ export default function PostIt({
     const shortcutStr = systemShortcuts.dictation ?? "Cmd+Shift+D";
     if (!shortcutStr) return;
     const handleDictation = (e: KeyboardEvent) => {
-      if (document.body.inert) return;
+      if (document.body.inert || transferInProgressRef.current) return;
       if (!matchesShortcut(shortcutStr, e)) return;
 
       e.preventDefault();
@@ -792,12 +812,12 @@ export default function PostIt({
   // before focus transition completes) still land correctly.
   useEffect(() => {
     const unlisten = listen("start-dictation", () => {
-      if (document.body.inert) return;
+      if (document.body.inert || transferInProgressRef.current) return;
       // Small delay to make sure the window is focused and the editor
       // has committed its mount before we toggle the mic — without it,
       // the cursor position captured by getInsertOrigin can be stale.
       window.setTimeout(() => {
-        if (document.body.inert) return;
+        if (document.body.inert || transferInProgressRef.current) return;
         speechRef.current?.toggle();
       }, 80);
     });
@@ -977,45 +997,70 @@ export default function PostIt({
   const hasValidFolder = folder.trim().length > 0;
   // Pin from capture mode
   const handlePin = useCallback(async () => {
-    if (isPinning || isMarkdownEffectivelyEmpty(content)) return;
-
+    if (isPinning || isSaving || transferInProgressRef.current || pendingSaveRef.current ||
+      closeSaveRef.current || document.body.inert || isMarkdownEffectivelyEmpty(getLiveContent())) return;
+    if ((window as unknown as { __stikDictationHoldOpen?: boolean }).__stikDictationHoldOpen) {
+      showToast(t("postit.finishDictationBeforeQuit"));
+      return;
+    }
+    transferInProgressRef.current = true;
+    flushSync(() => { setIsPinning(true); setIsSaving(true); });
     try {
       const targetFolder = await resolveFolderForAction();
-
-      setIsPinning(true);
+      const snapshot = getLiveContent();
       await invoke("pin_capture_note", {
-        content,
+        content: snapshot,
         folder: targetFolder,
       });
-      clearCapture();
+      // Queued native input is a newer draft, not part of the created pin.
+      if (getLiveContent() === snapshot) clearCapture();
+      else {
+        await getCurrentWindow().show();
+        await getCurrentWindow().setFocus();
+      }
     } catch (error) {
       console.error("Failed to pin note:", error);
       showToast(errorMessage(error, t("common.somethingWentWrong")));
     } finally {
+      transferInProgressRef.current = false;
       setIsPinning(false);
+      setIsSaving(false);
     }
-  }, [content, isPinning, resolveFolderForAction, showToast, clearCapture, t]);
+  }, [isPinning, isSaving, getLiveContent, resolveFolderForAction, showToast, clearCapture, t]);
 
   // Toggle pin state for sticked notes
   const handleTogglePin = useCallback(async () => {
     if (!currentStickedId && !isViewing) return;
+    if (transferInProgressRef.current || closeSaveRef.current || isSaving || document.body.inert) return;
 
     if (isPinned) {
       // Unpin: transfer content to main capture window and close this one
+      if ((window as unknown as { __stikDictationHoldOpen?: boolean }).__stikDictationHoldOpen) {
+        showToast(t("postit.finishDictationBeforeQuit"));
+        return;
+      }
+      transferInProgressRef.current = true;
+      flushSync(() => setIsSaving(true));
       try {
         const idToClose = currentStickedId || stickedId;
-
-        // Remove from persistence
+        await persistDraft();
+        const snapshot = getLiveContent();
+        await invoke("transfer_to_capture", { content: snapshot, folder });
+        // Native input arriving despite inert belongs to the source. Never
+        // delete it merely because capture accepted an earlier snapshot.
+        if (getLiveContent() !== snapshot) {
+          await persistDraft();
+          return;
+        }
         if (currentStickedId) {
           await invoke("close_sticked_note", {
             id: currentStickedId,
             saveToFolder: false,
           });
+          pinnedClosedRef.current = true;
+          setIsPinned(false);
         }
-
-        // Transfer content to main postit window
-        await invoke("transfer_to_capture", { content, folder });
-
+        if (getLiveContent() !== snapshot) return;
         // Close this sticked window
         if (idToClose) {
           await invoke("close_sticked_window", { id: idToClose });
@@ -1023,11 +1068,18 @@ export default function PostIt({
       } catch (error) {
         console.error("Failed to unpin note:", error);
         showToast(errorMessage(error, t("common.somethingWentWrong")));
-        // Fallback: just keep window open as unpinned
-        setIsPinned(false);
+      } finally {
+        transferInProgressRef.current = false;
+        setIsSaving(false);
       }
     } else {
       // Pin: create new sticked note entry and proper window
+      if ((window as unknown as { __stikDictationHoldOpen?: boolean }).__stikDictationHoldOpen) {
+        showToast(t("postit.finishDictationBeforeQuit"));
+        return;
+      }
+      transferInProgressRef.current = true;
+      flushSync(() => setIsSaving(true));
       try {
         // Pinned notes persist plaintext in settings; never copy decrypted
         // viewing content there implicitly.
@@ -1038,10 +1090,11 @@ export default function PostIt({
         const window = getCurrentWindow();
         const position = await window.outerPosition();
         const oldId = currentStickedId || stickedId;
+        const snapshot = getLiveContent();
 
         // Create the sticked note with position and size
         const newNote = await invoke<StickedNote>("create_sticked_note", {
-          content,
+          content: snapshot,
           folder,
           position: [position.x, position.y],
         });
@@ -1050,19 +1103,25 @@ export default function PostIt({
         if (isViewing && oldId) {
           // Create the proper sticked window
           await invoke("create_sticked_window", { note: newNote });
+          if (getLiveContent() !== snapshot) return;
           // Close this viewing window
           await invoke("close_sticked_window", { id: oldId });
         } else {
           // Update the tracked ID to the newly created note
           setCurrentStickedId(newNote.id);
+          pinnedClosedRef.current = false;
+          savedDraftPathRef.current = undefined;
           setIsPinned(true);
         }
       } catch (error) {
         console.error("Failed to pin note:", error);
         showToast(errorMessage(error, t("common.somethingWentWrong")));
+      } finally {
+        transferInProgressRef.current = false;
+        setIsSaving(false);
       }
     }
-  }, [currentStickedId, stickedId, isPinned, content, folder, isViewing, originalPath, showToast, t]);
+  }, [currentStickedId, stickedId, isPinned, content, folder, isViewing, originalPath, isSaving, persistDraft, getLiveContent, showToast, t]);
 
   // Close without saving
   const handleCloseWithoutSaving = useCallback(async () => {

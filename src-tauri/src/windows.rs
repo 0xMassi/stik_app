@@ -3,7 +3,8 @@ use crate::state::{AppState, LastSavedNote};
 use base64::Engine;
 use sticked_notes::StickedNote;
 use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, TitleBarStyle, WebviewUrl, WebviewWindowBuilder,
+    AppHandle, Emitter, Listener, Manager, PhysicalPosition, TitleBarStyle, WebviewUrl,
+    WebviewWindowBuilder,
 };
 
 const SETTINGS_WINDOW_WIDTH: f64 = 860.0;
@@ -573,25 +574,55 @@ pub fn get_viewing_note_content(app: AppHandle, id: String) -> Result<serde_json
 }
 
 #[tauri::command]
-pub fn transfer_to_capture(
+pub async fn transfer_to_capture(
     app: AppHandle,
     content: String,
     folder: String,
 ) -> Result<bool, String> {
-    if let Some(window) = app.get_webview_window("postit") {
-        let _ = window.show();
-        let _ = window.set_focus();
-        let _ = window.emit(
-            "transfer-content",
-            serde_json::json!({
-                "content": content,
-                "folder": folder
-            }),
-        );
-        Ok(true)
-    } else {
-        Err("Postit window not found".to_string())
+    let window = app
+        .get_webview_window("postit")
+        .ok_or("Postit window not found")?;
+    let id = uuid::Uuid::new_v4().to_string();
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let listener = app.once(format!("capture-transfer-result-{id}"), move |event| {
+        let result = serde_json::from_str::<CaptureTransferResult>(event.payload())
+            .map_err(|error| error.to_string())
+            .and_then(|result| result.error.map_or(Ok(true), Err));
+        let _ = sender.send(result);
+    });
+    let result = async {
+        window.show().map_err(|error| error.to_string())?;
+        window.set_focus().map_err(|error| error.to_string())?;
+        window
+            .emit(
+                "transfer-content",
+                serde_json::json!({
+                    "id": id,
+                    "content": content,
+                    "folder": folder
+                }),
+            )
+            .map_err(|error| error.to_string())?;
+        // Do not block the event loop that must deliver the receiver's reply.
+        // A missing listener or failed save leaves the source pin untouched.
+        tauri::async_runtime::spawn_blocking(move || {
+            receiver
+                .recv_timeout(std::time::Duration::from_secs(20))
+                .map_err(|_| {
+                    "Capture did not accept the note; the source is still pinned".to_string()
+                })?
+        })
+        .await
+        .map_err(|error| error.to_string())?
     }
+    .await;
+    app.unlisten(listener);
+    result
+}
+
+#[derive(serde::Deserialize)]
+struct CaptureTransferResult {
+    error: Option<String>,
 }
 
 #[tauri::command]

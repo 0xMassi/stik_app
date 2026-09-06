@@ -149,6 +149,34 @@ function documentText() { return screen.getByRole("textbox", { name: "Start writ
 async function autosave() { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 650)); }); }
 
 describe("full editor persistence", () => {
+  it("reloads the same note before editing a revision saved in another window", async () => {
+    render(<EditorWindow />);
+    await open("Alpha");
+    files.set(alpha, "# New revision\nSaved elsewhere");
+    await act(async () => { native.focusHandler?.({ payload: true }); });
+    await open("New revision");
+    expect(documentText()).toContain("Saved elsewhere");
+    expect(invoke).not.toHaveBeenCalledWith("update_note", expect.anything());
+    const view = EditorView.findFromDOM(screen.getByRole("textbox", { name: "Start writing…" }))!;
+    act(() => { view.dispatch({ changes: { from: view.state.doc.length, insert: "\nLatest edit" } }); });
+    await act(requestClose);
+    expect(files.get(alpha)).toBe("# New revision\nSaved elsewhere\nLatest edit");
+  });
+
+  it("retains the same-note draft when saving before reselection fails", async () => {
+    render(<EditorWindow />);
+    await open("Alpha");
+    edit("Unsaved revision");
+    failSaves = true;
+    await open("Alpha");
+    expect(documentText()).toContain("Unsaved revision");
+    expect(files.get(alpha)).toContain("Original A");
+    failSaves = false;
+    await open("Alpha");
+    expect(documentText()).toContain("Unsaved revision");
+    expect(files.get(alpha)).toBe("Unsaved revision");
+  });
+
   it.each(["focus", "files-changed", "icloud-files-changed"])("refreshes the list on %s without replacing a live draft", async (event) => {
     render(<EditorWindow />);
     await open("Alpha");

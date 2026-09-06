@@ -1,8 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { EditorView } from "@codemirror/view";
-import { useImperativeHandle, type Ref } from "react";
+import { useImperativeHandle, useState, type Ref } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
 import PostIt from "./PostIt";
 
 const quit = vi.hoisted(() => ({ save: undefined as undefined | (() => Promise<void>) }));
@@ -13,7 +14,7 @@ const native = vi.hoisted(() => ({
 vi.mock("@/hooks/useAppQuit", () => ({
   useAppQuit: (save: () => Promise<void>) => { quit.save = save; },
 }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), convertFileSrc: (p: string) => p }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), convertFileSrc: (p: string) => `asset://localhost${p}` }));
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(async (name, handler) => {
     native.handlers.set(name, handler);
@@ -26,6 +27,8 @@ vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({
   onResized: vi.fn().mockResolvedValue(() => {}),
   onDragDropEvent: vi.fn().mockResolvedValue(() => {}),
   outerPosition: vi.fn().mockResolvedValue({ x: 0, y: 0 }),
+  show: vi.fn().mockResolvedValue(undefined),
+  setFocus: vi.fn().mockResolvedValue(undefined),
 }) }));
 vi.mock("@tauri-apps/plugin-shell", () => ({ open: vi.fn() }));
 vi.mock("./SpeechButton", () => ({ default: ({ ref, onTranscription }: {
@@ -67,7 +70,7 @@ beforeEach(() => {
   pinnedContent = "Pinned original";
   vi.mocked(invoke).mockImplementation(async (command, args) => {
     if (command === "get_settings") return { vim_mode_enabled: false };
-    if (command === "list_folders") return ["Inbox"];
+    if (command === "list_folders") return ["Inbox", "Other"];
     if (command === "get_notes_directory") return "/vault";
     if (command === "is_note_locked") return locked;
     if (command === "save_locked_note" || command === "update_note") {
@@ -155,6 +158,24 @@ describe("settings changes preserve live drafts", () => {
 });
 
 describe("viewing note persistence", () => {
+  it("keeps newer viewing input when creating its pinned copy is delayed", async () => {
+    locked = false;
+    await openViewingNote();
+    const created = deferred();
+    const write = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "create_sticked_note") await created.promise;
+      return write(command, args);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Pin (will restore on restart)" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_sticked_note", expect.anything()));
+    edit("Viewing input during pin");
+    await act(async () => { created.resolve(); });
+    expect(invoke).not.toHaveBeenCalledWith("close_sticked_window", expect.anything());
+    await requestQuit();
+    expect(files.get(path)).toBe("Viewing input during pin");
+  });
+
   it("routes an edited locked note through authenticated encrypted storage", async () => {
     await openViewingNote();
     fireEvent.click(screen.getByTitle("Save and close (Esc)"));
@@ -201,6 +222,73 @@ describe("viewing note persistence", () => {
 });
 
 describe("pinned note persistence", () => {
+  it("saves to the new pin after an accepted unpin fails to close and is repinned", async () => {
+    await openPinnedNote();
+    const write = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "close_sticked_window") throw new Error("Window close failed");
+      return write(command, args);
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Unpin/ }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Window close failed");
+    fireEvent.click(screen.getByRole("button", { name: "Pin (will restore on restart)" }));
+    await screen.findByRole("button", { name: /^Unpin/ });
+    edit("Repinned latest draft");
+    await requestQuit();
+    expect(pinnedContent).toBe("Repinned latest draft");
+  });
+
+  it("keeps late source input if it arrives during removal of an accepted pin", async () => {
+    await openPinnedNote();
+    const removed = deferred();
+    const write = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "close_sticked_note") await removed.promise;
+      return write(command, args);
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Unpin/ }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("close_sticked_note", expect.anything()));
+    edit("Input arriving during source removal");
+    await act(async () => { removed.resolve(); });
+    expect(text()).toBe("Input arriving during source removal");
+    expect(invoke).not.toHaveBeenCalledWith("close_sticked_window", expect.anything());
+  });
+
+  it("keeps the durable pin until capture accepts its latest text", async () => {
+    await openPinnedNote();
+    const accepted = deferred();
+    const write = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "transfer_to_capture") { await accepted.promise; return true; }
+      return write(command, args);
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Unpin/ }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("transfer_to_capture", {
+      content: "Pinned final keystroke", folder: "Inbox",
+    }));
+    expect(pinnedContent).toBe("Pinned final keystroke");
+    expect(invoke).not.toHaveBeenCalledWith("close_sticked_note", expect.anything());
+    await expect(requestQuit()).rejects.toThrow();
+    await act(async () => { accepted.resolve(); });
+    expect(pinnedContent).toBeUndefined();
+    expect(invoke).toHaveBeenCalledWith("close_sticked_window", { id: "pinned" });
+  });
+
+  it("retains the pin and live text when capture rejects or cannot receive an unpin", async () => {
+    await openPinnedNote();
+    const write = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "transfer_to_capture") throw new Error("Capture save failed");
+      return write(command, args);
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Unpin/ }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Capture save failed");
+    expect(text()).toBe("Pinned final keystroke");
+    expect(pinnedContent).toBe("Pinned final keystroke");
+    expect(screen.getByRole("button", { name: /^Unpin/ })).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("close_sticked_window", expect.anything());
+  });
+
   it("continues saving to the created file if native window closing fails", async () => {
     locked = false;
     await openPinnedNote();
@@ -252,6 +340,108 @@ describe("pinned note persistence", () => {
     await act(async () => { blocked.resolve(); });
     expect(files.get("saved-pinned.md")).toBe("Newer pinned text");
     expect(updates).toBe(2);
+  });
+});
+
+describe("capture ownership changes", () => {
+  const transfer = () => native.handlers.get("transfer-content")?.({ payload: {
+    id: "handoff", content: "Incoming pinned B", folder: "Inbox",
+  } });
+
+  it("transfers image paths into the new folder and keeps storage paths relative", async () => {
+    const onSave = vi.fn().mockResolvedValue("/vault/Other/transferred.md");
+    function Capture() {
+      const [folder, setFolder] = useState("Inbox");
+      return <PostIt folder={folder} onSave={onSave} onClose={vi.fn()} onFolderChange={setFolder} />;
+    }
+    render(<Capture />);
+    await screen.findByRole("textbox");
+    await act(async () => { await native.handlers.get("transfer-content")?.({ payload: {
+      id: "image-handoff", folder: "Other", content: "![image](.assets/test.png)",
+    } }); });
+    expect(text()).toBe("![image](asset://localhost/vault/Other/.assets/test.png)\n");
+    await requestQuit();
+    expect(onSave).toHaveBeenCalledWith("![image](.assets/test.png)\n", "Other");
+  });
+
+  it("does not hide a transferred draft when an earlier save's close timer fires", async () => {
+    const { onClose } = await openCapture();
+    fireEvent.click(screen.getByTitle("Save and close (Esc)"));
+    await waitFor(() => expect(text()).toBe(""));
+    await act(async () => { await transfer(); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 650)); });
+    expect(text()).toBe("Incoming pinned B");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("does not start dictation during handoff, queued=%s", async (queued) => {
+    const saved = deferred();
+    await openCapture(vi.fn(async () => { await saved.promise; return "capture.md"; }));
+    vi.useFakeTimers();
+    if (queued) native.handlers.get("start-dictation")?.({ payload: undefined });
+    let pending: unknown;
+    await act(async () => { pending = transfer(); });
+    if (!queued) native.handlers.get("start-dictation")?.({ payload: undefined });
+    await act(async () => { await vi.advanceTimersByTimeAsync(80); });
+    expect(native.startDictation).not.toHaveBeenCalled();
+    await act(async () => { saved.resolve(); await pending; });
+  });
+
+  it("saves occupied capture before accepting an unpin, without a delayed editor replacement", async () => {
+    const saved = deferred();
+    await openCapture(vi.fn(async (draft: string) => {
+      await saved.promise;
+      files.set("capture-A.md", draft);
+      return "capture-A.md";
+    }));
+    let pending: unknown;
+    await act(async () => { pending = transfer(); });
+    expect(text()).toBe("Fresh capture draft");
+    expect(emit).not.toHaveBeenCalledWith("capture-transfer-result-handoff", expect.anything());
+    await act(async () => { saved.resolve(); await pending; });
+    expect(files.get("capture-A.md")).toBe("Fresh capture draft");
+    expect(text()).toBe("Incoming pinned B");
+    expect(emit).toHaveBeenCalledWith("capture-transfer-result-handoff", { error: null });
+    edit("B with immediate new input");
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 120)); });
+    expect(text()).toBe("B with immediate new input");
+  });
+
+  it("rejects unpin if the occupied capture cannot save, keeping its draft", async () => {
+    await openCapture(vi.fn().mockRejectedValue(new Error("Disk full")));
+    await act(async () => { await transfer(); });
+    expect(text()).toBe("Fresh capture draft");
+    expect(emit).toHaveBeenCalledWith("capture-transfer-result-handoff", { error: "Disk full" });
+  });
+
+  it("rejects transfer during app quit without replacing an acknowledged draft", async () => {
+    await openCapture();
+    document.body.inert = true;
+    await act(async () => { await transfer(); });
+    expect(text()).toBe("Fresh capture draft");
+    expect(emit).toHaveBeenCalledWith("capture-transfer-result-handoff", { error: expect.any(String) });
+  });
+
+  it("retains input arriving after the pin snapshot as an unsaved capture", async () => {
+    const pinned = deferred();
+    const write = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "pin_capture_note") {
+        await pinned.promise;
+        pinnedContent = (args as { content: string }).content;
+        return { id: "new-pin" };
+      }
+      return write(command, args);
+    });
+    const { onSave } = await openCapture();
+    fireEvent.click(screen.getByRole("button", { name: "Pin to screen" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("pin_capture_note", expect.anything()));
+    edit("Final input during pin");
+    await act(async () => { pinned.resolve(); });
+    expect(pinnedContent).toBe("Fresh capture draft");
+    expect(text()).toBe("Final input during pin");
+    await requestQuit();
+    expect(onSave).toHaveBeenCalledWith("Final input during pin", "Inbox");
   });
 });
 
