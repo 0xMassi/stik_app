@@ -147,7 +147,7 @@ jobs:
           test "$(uname -m)" = x86_64
           ./scripts/verify.sh
 
-      - name: Build and inspect the Intel release app
+      - name: Build the Intel release sidecar
         run: |
           set -euo pipefail
           swift build --package-path src-tauri/darwinkit \
@@ -155,8 +155,19 @@ jobs:
           install -m 755 \
             src-tauri/darwinkit/.build/x86_64-apple-macosx/release/darwinkit \
             src-tauri/binaries/darwinkit-x86_64-apple-darwin
-          bun run tauri build --target x86_64-apple-darwin --bundles app \
-            --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      # Exercise the release action on PRs without signing or creating releases.
+      - name: Build the non-release Intel app
+        uses: tauri-apps/tauri-action@v1
+        with:
+          tauriScript: bun run tauri
+          args: --target x86_64-apple-darwin --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          uploadWorkflowArtifacts: false
+          uploadUpdaterJson: false
+
+      - name: Inspect and archive the Intel app
+        run: |
+          set -euo pipefail
           APP="src-tauri/target/x86_64-apple-darwin/release/bundle/macos/Stik.app"
           node scripts/check-macos-artifact.mjs "$APP" x86_64
           # Preserve executable permissions and bundle metadata in the artifact.
