@@ -87,6 +87,12 @@ Stik is a **Tauri 2.0** app with three layers:
 
 This runs setup, the frontend build/tests/platform/bundle gates, Rust formatting/strict Clippy/all-feature tests, and Swift tests. Native tests use a fresh `STIK_DEV_ROOT` instead of personal settings. CI also runs network-dependent dependency audits; do not treat local verification as a substitute for those. Keep the usual gates intact.
 
+Run verification and native builds serially within one worktree: both replace
+`dist/`, which Rust embeds while compiling and running doctests. Use separate
+worktrees for concurrent builds. For QA across restarts, use a persistent,
+ignored scratch directory with `STIK_DEV_ROOT`; OS temporary directories may
+disappear between sessions.
+
 After setup, use targeted checks while iterating:
 
 | Change | Command |
