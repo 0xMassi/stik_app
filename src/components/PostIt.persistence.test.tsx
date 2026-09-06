@@ -128,6 +128,36 @@ async function openCapture(onSave = vi.fn().mockResolvedValue("/vault/Inbox/capt
 }
 
 describe("settings changes preserve live drafts", () => {
+  it("keeps image-note source editable when the asset directory cannot load", async () => {
+    const write = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "get_notes_directory") throw new Error("Vault is unavailable");
+      return write(command, args);
+    });
+    render(<PostIt folder="Inbox" onSave={vi.fn()} onClose={vi.fn()}
+      onFolderChange={vi.fn()} isSticked isViewing stickedId="view-secret"
+      originalPath={path} initialContent="Image note\n![image](.assets/test.png)" />);
+    await screen.findByRole("textbox");
+    expect(text()).toContain("![image](.assets/test.png)");
+    expect(screen.getByRole("status")).toHaveTextContent("Vault is unavailable");
+  });
+
+  it("shows the note and a visible error when settings cannot load", async () => {
+    const write = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "get_settings") throw new Error("Settings are unreadable");
+      return write(command, args);
+    });
+    render(<PostIt folder="Inbox" onSave={vi.fn()} onClose={vi.fn()}
+      onFolderChange={vi.fn()} isSticked isViewing stickedId="view-secret"
+      originalPath={path} initialContent="Private note" />);
+    expect(await screen.findByRole("textbox")).toHaveTextContent("Private note");
+    expect(screen.getByRole("status")).toHaveTextContent("Settings are unreadable");
+    edit("Draft after settings error");
+    await requestQuit();
+    expect(files.get(path)).toBe("Draft after settings error");
+  });
+
   it.each(["capture", "pinned", "viewing", "cleared viewing"])(
     "retains and saves %s content when direction and Vim mode change",
     async (mode) => {

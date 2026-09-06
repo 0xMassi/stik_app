@@ -213,11 +213,14 @@ export default function PostIt({
   }, [cursorPosKey]);
 
   // Resolve the notes directory path for image path resolution
-  const [notesDir, setNotesDir] = useState<string | null>(null);
+  const [notesDir, setNotesDir] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     invoke<string>("get_notes_directory")
       .then(setNotesDir)
-      .catch(() => {});
+      .catch((error) => {
+        setNotesDir(null);
+        setToast(errorMessage(error, t("note.failedToLoad")));
+      });
   }, []);
 
   // Apply font family: load from custom fonts or Google Fonts, then update the CSS var.
@@ -280,7 +283,7 @@ export default function PostIt({
     /(?:\]\(\.assets\/|src=["']\.assets\/|asset:\/\/localhost\/|asset\.localhost\/|file:\/\/\/)/.test(
       baseInitialContent,
     );
-  const shouldWaitForNotesDir = hasResolvableAssetImages && !notesDir;
+  const shouldWaitForNotesDir = hasResolvableAssetImages && notesDir === undefined;
 
   // Sync content state with initialContent (for sticked notes)
   useEffect(() => {
@@ -310,7 +313,10 @@ export default function PostIt({
         setDictationActiveModel(s.dictation?.active_model ?? null);
         setDictationLanguage(s.dictation?.active_language ?? null);
       })
-      .catch(() => {});
+      .catch((error) => {
+        setVimEnabled(false);
+        setToast(errorMessage(error, t("note.failedToLoad")));
+      });
     invoke<string[]>("list_folders")
       .then((f) => {
         foldersRef.current = f;
