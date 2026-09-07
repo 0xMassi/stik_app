@@ -166,6 +166,7 @@ export default function EditorWindow() {
   activeFolderRef.current = activeFolder;
   const saveQueue = useRef(createNoteSaveQueue(async (draft) => {
     await invoke("update_note", { ...draft, preserveEmpty: true });
+    setSearchRevision((revision) => revision + 1);
   }));
 
   const loadFolders = useCallback(async (): Promise<string[]> => {

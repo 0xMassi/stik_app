@@ -241,6 +241,25 @@ describe("full editor persistence", () => {
     expect(screen.queryByRole("button", { name: /^Alpha/ })).not.toBeInTheDocument();
   });
 
+  it("refreshes the unchanged query only after autosave commits the matching draft", async () => {
+    const saved = deferred<void>();
+    const implementation = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "update_note") await saved.promise;
+      return implementation(command, args);
+    });
+    render(<EditorWindow />);
+    await open("Alpha");
+    edit("# Alpha\nNew searchable draft");
+    fireEvent.change(screen.getByPlaceholderText("Search notes…"), { target: { value: "searchable" } });
+    await autosave();
+    expect(screen.queryByRole("button", { name: /^Alpha/ })).not.toBeInTheDocument();
+    await act(async () => { saved.resolve(); });
+    expect(await screen.findByRole("button", { name: /^Alpha/ })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search notes…")).toHaveValue("searchable");
+    expect(documentText()).toContain("New searchable draft");
+  });
+
   it("saves A before switching to and editing B inside the debounce interval", async () => {
     render(<EditorWindow />);
     await open("Alpha");
