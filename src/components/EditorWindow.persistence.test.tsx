@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { EditorView } from "@codemirror/view";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
@@ -241,7 +241,10 @@ describe("full editor persistence", () => {
     expect(screen.queryByRole("button", { name: /^Alpha/ })).not.toBeInTheDocument();
   });
 
-  it("refreshes the unchanged query only after autosave commits the matching draft", async () => {
+  it.each([
+    { query: "searchable", draft: "# Alpha\nNew searchable draft", initiallyMatches: false },
+    { query: "Alpha", draft: "# Renamed\nThe old title is gone", initiallyMatches: true },
+  ])("refreshes unchanged query '$query' after autosave commits", async ({ query, draft, initiallyMatches }) => {
     const saved = deferred<void>();
     const implementation = vi.mocked(invoke).getMockImplementation()!;
     vi.mocked(invoke).mockImplementation(async (command, args) => {
@@ -250,21 +253,32 @@ describe("full editor persistence", () => {
     });
     render(<EditorWindow />);
     await open("Alpha");
-    edit("# Alpha\nNew searchable draft");
-    fireEvent.change(screen.getByPlaceholderText("Search notes…"), { target: { value: "searchable" } });
-    await autosave();
-    expect(screen.queryByRole("button", { name: /^Alpha/ })).not.toBeInTheDocument();
+    vi.useFakeTimers();
+    edit(draft);
+    fireEvent.change(screen.getByPlaceholderText("Search notes…"), { target: { value: query } });
+    // Drain both debounces while the write stays pending, including any
+    // incorrectly scheduled pre-acknowledgment refresh. No wall-clock sleeps.
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    // React commits effects after act; drain any refresh scheduled by that commit
+    // before allowing the pending storage write to finish.
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(invoke).toHaveBeenCalledWith("update_note", {
+      path: alpha, content: draft, preserveEmpty: true,
+    });
+    expect(invoke).toHaveBeenCalledWith("search_notes", { query, folder: "Inbox" });
+    expect(Boolean(screen.queryByRole("button", { name: /^Alpha/ }))).toBe(initiallyMatches);
     await act(async () => { saved.resolve(); });
-    expect(await screen.findByRole("button", { name: /^Alpha/ })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search notes…")).toHaveValue("searchable");
-    expect(documentText()).toContain("New searchable draft");
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(Boolean(screen.queryByRole("button", { name: /^Alpha/ }))).toBe(!initiallyMatches);
+    expect(screen.getByPlaceholderText("Search notes…")).toHaveValue(query);
+    expect(documentText()).toContain(draft.split("\n")[1]);
   });
 
   it.each(["Rename", "Archive", "Delete"])("removes stale search matches after %s without pending edits", async (action) => {
     render(<EditorWindow />);
     await screen.findByRole("button", { name: /^Alpha/ });
     fireEvent.change(screen.getByPlaceholderText("Search notes…"), { target: { value: "Alpha" } });
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 220)); });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("search_notes", { query: "Alpha", folder: "Inbox" }));
     fireEvent.click(screen.getByRole("button", { name: "Actions for Alpha" }));
     await act(async () => { fireEvent.click(screen.getByRole("menuitem", { name: action })); });
     if (action === "Rename") {
@@ -276,8 +290,7 @@ describe("full editor persistence", () => {
     } else if (action === "Delete") {
       await act(async () => { fireEvent.click(screen.getByRole("menuitem", { name: "Click to confirm" })); });
     }
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 220)); });
-    expect(screen.queryByRole("button", { name: /^Alpha/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("button", { name: /^Alpha/ })).not.toBeInTheDocument());
     expect(screen.getByText(/No matches/)).toBeInTheDocument();
   });
 
