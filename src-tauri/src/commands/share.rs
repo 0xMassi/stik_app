@@ -185,6 +185,35 @@ mod tests {
     }
 
     #[test]
+    fn clipboard_preserves_source_and_enabled_markdown_extensions() {
+        let markdown =
+            "| Task | Status |\n| --- | --- |\n| Café | ~~old~~ |\n\n- [x] Done\n- [ ] Pending";
+        let payload = build_clipboard_payload(markdown.to_string()).unwrap();
+        assert_eq!(payload.plain_text, markdown);
+        assert!(payload.html.contains("<table>"));
+        assert!(payload.html.contains("<td>Café</td>"));
+        assert!(payload.html.contains("<del>old</del>"));
+        assert!(payload.html.contains("type=\"checkbox\" checked=\"\""));
+        assert!(payload.html.contains("type=\"checkbox\"/>"));
+    }
+
+    #[test]
+    fn unenabled_extensions_remain_literal_in_clipboard_html() {
+        let html = markdown_to_html("[[vault link]] H~2~O x^2^");
+        assert!(html.contains("[[vault link]] H~2~O x^2^"));
+        assert!(!html.contains("<a "));
+        assert!(!html.contains("<sub>"));
+        assert!(!html.contains("<sup>"));
+    }
+
+    #[test]
+    fn incomplete_markdown_remains_readable() {
+        let html = markdown_to_html("Café & tea **unfinished [link](\n\n```rust\na < b");
+        assert!(html.contains("Café &amp; tea **unfinished [link]("));
+        assert!(html.contains("a &lt; b"));
+    }
+
+    #[test]
     fn decodes_valid_png_base64() {
         let expected_pixels = vec![255_u8, 0, 0, 255];
         let mut png_bytes = Vec::new();
