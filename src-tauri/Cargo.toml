@@ -31,7 +31,7 @@ base64 = "0.23"
 image = { version = "0.25", default-features = false, features = ["png"] }
 tauri-plugin-dialog = "2.6.0"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 flate2 = "1"
 prost = "0.14"
 aes-gcm = "0.11"
