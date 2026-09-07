@@ -39,9 +39,13 @@ fn open_readonly_connection() -> Result<Connection, String> {
         return Err("Apple Notes import is unavailable in the isolated development profile".into());
     }
     let path = notes_db_path();
+    open_readonly_database(std::path::Path::new(&path))
+}
+
+fn open_readonly_database(path: &std::path::Path) -> Result<Connection, String> {
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
 
-    let conn = Connection::open_with_flags(&path, flags).map_err(|e| {
+    let conn = Connection::open_with_flags(path, flags).map_err(|e| {
         let msg = e.to_string();
         if msg.contains("unable to open") || msg.contains("permission") || msg.contains("denied") {
             "FULL_DISK_ACCESS_REQUIRED: Stik needs Full Disk Access to read Apple Notes. \
@@ -95,7 +99,11 @@ fn detect_account_column(conn: &Connection) -> &'static str {
 
 fn list_apple_notes_inner() -> Result<Vec<AppleNoteEntry>, String> {
     let conn = open_readonly_connection()?;
-    let account_col = detect_account_column(&conn);
+    list_notes_from_connection(&conn)
+}
+
+fn list_notes_from_connection(conn: &Connection) -> Result<Vec<AppleNoteEntry>, String> {
+    let account_col = detect_account_column(conn);
 
     let query = format!(
         "SELECT
@@ -153,7 +161,10 @@ fn list_apple_notes_inner() -> Result<Vec<AppleNoteEntry>, String> {
 
 pub fn import_apple_note_inner(note_id: i64) -> Result<String, String> {
     let conn = open_readonly_connection()?;
+    import_note_from_connection(&conn, note_id)
+}
 
+fn import_note_from_connection(conn: &Connection, note_id: i64) -> Result<String, String> {
     let compressed: Vec<u8> = conn
         .query_row(
             "SELECT nd.ZDATA
@@ -410,6 +421,69 @@ mod tests {
     // prost/flate2 upgrade. No personal Apple Notes data or new-version encoder.
     const LEGACY_COMPRESSED_NOTE: &str =
         "H4sIAAAAAAAAExNSkVISEvNJTU9MrlRITkw7vJLLKT8nRaEktaJEi4mDR4uFg1ODEQCSqQAfJgAAAA==";
+
+    #[test]
+    fn readonly_database_lists_and_imports_supported_schemas() {
+        for account_column in ["ZACCOUNT2", "ZACCOUNT3", "ZACCOUNT4", "ZACCOUNT7"] {
+            let path = std::env::temp_dir()
+                .join(format!("stik-apple-notes-{}.sqlite", uuid::Uuid::new_v4()));
+            let fixture = Connection::open(&path).unwrap();
+            fixture
+                .execute_batch(&format!(
+                    "CREATE TABLE ZICCLOUDSYNCINGOBJECT (
+                        Z_PK INTEGER PRIMARY KEY, ZTITLE1 TEXT, ZTITLE2 TEXT,
+                        ZSNIPPET TEXT, ZMODIFICATIONDATE1 REAL, {account_column} INTEGER,
+                        ZFOLDER INTEGER, ZNAME TEXT, ZMARKEDFORDELETION INTEGER,
+                        ZNOTEDATA INTEGER);
+                     CREATE TABLE ZICNOTEDATA (Z_PK INTEGER PRIMARY KEY, ZDATA BLOB);
+                     INSERT INTO ZICCLOUDSYNCINGOBJECT (Z_PK, ZTITLE2) VALUES (100, 'Work');
+                     INSERT INTO ZICCLOUDSYNCINGOBJECT (Z_PK, ZNAME) VALUES (200, 'Test account');
+                     INSERT INTO ZICCLOUDSYNCINGOBJECT
+                         (Z_PK, ZTITLE1, ZSNIPPET, ZMODIFICATIONDATE1, {account_column}, ZFOLDER, ZNOTEDATA)
+                         VALUES (1, 'Café', 'Preview', 20, 200, 100, 300),
+                                (2, 'Local note', NULL, 10, NULL, NULL, NULL);
+                     INSERT INTO ZICCLOUDSYNCINGOBJECT
+                         (Z_PK, ZTITLE1, ZMODIFICATIONDATE1, ZMARKEDFORDELETION)
+                         VALUES (3, 'Deleted', 30, 1);"
+                ))
+                .unwrap();
+            let compressed = base64::engine::general_purpose::STANDARD
+                .decode(LEGACY_COMPRESSED_NOTE)
+                .unwrap();
+            fixture
+                .execute("INSERT INTO ZICNOTEDATA VALUES (300, ?1)", [&compressed])
+                .unwrap();
+            fixture.close().unwrap();
+
+            let connection = open_readonly_database(&path).unwrap();
+            let notes = list_notes_from_connection(&connection).unwrap();
+            assert_eq!(
+                notes.iter().map(|note| note.note_id).collect::<Vec<_>>(),
+                [1, 2]
+            );
+            assert_eq!(notes[0].title, "Café");
+            assert_eq!(notes[0].snippet, "Preview");
+            assert_eq!(notes[0].folder_name, "Work");
+            assert_eq!(notes[0].account_name, "Test account");
+            assert_eq!(notes[0].modified_date, "2001-01-01T00:00:20Z");
+            assert_eq!(notes[1].snippet, "");
+            assert_eq!(notes[1].folder_name, "Notes");
+            assert_eq!(notes[1].account_name, "Local");
+            assert_eq!(
+                import_note_from_connection(&connection, 1).unwrap(),
+                "Legacy café\n**Bold text**"
+            );
+            assert_eq!(
+                import_note_from_connection(&connection, 999).unwrap_err(),
+                "Note 999 not found or has no data"
+            );
+            assert!(connection
+                .execute("DELETE FROM ZICCLOUDSYNCINGOBJECT", [])
+                .is_err());
+            connection.close().unwrap();
+            std::fs::remove_file(path).unwrap();
+        }
+    }
 
     #[test]
     fn legacy_compressed_note_preserves_text_and_formatting() {
