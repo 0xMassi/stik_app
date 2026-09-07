@@ -38,6 +38,7 @@ Chinese, makes privacy choices explicit, and reduces repeated work in search.
 
 ### Fixed
 
+- In the full editor, creating a note with no folders now opens the folder-name field instead of silently doing nothing. The empty state explains the prerequisite; cancelled setup does not recreate default folders. ([#109](https://github.com/0xMassi/stik_app/issues/109))
 - **Drafts during navigation and quit:** pending edits are saved before switching notes, file actions, or closing the full editor. Orderly application quit coordinates saves across capture, pinned, viewing, and full-editor windows; failed or unacknowledged saves cancel quit and leave drafts available for retry.
 - **Stale documents after reselecting a note:** explicitly reopening the same note now loads its latest saved revision into the editor. Folder/note lists and active search also refresh after native focus and external-file events without replacing a live draft.
 - **Unpinning into an occupied capture:** the original capture draft is saved before the incoming note is accepted. If that save or transfer fails, the source pin remains. Pin/unpin handoffs also preserve late input, prevent overlapping dictation, and retain retry state.

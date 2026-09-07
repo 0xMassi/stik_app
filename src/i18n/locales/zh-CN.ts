@@ -336,6 +336,7 @@ export const zhCN: Translations = {
   "editor.noFolders": "没有文件夹。",
   "editor.newFolder": "新建文件夹",
   "editor.selectOrCreate": "选择一条笔记，或新建一条。",
+  "editor.createFolderFirst": "创建文件夹以开始保存笔记。",
   "editor.newNote": "新建笔记",
   "editor.lockedNoteUnsupported": "此处暂不支持编辑已锁定的笔记。请使用“浏览笔记”安全地打开它们。",
   "postit.lockedPinBlocked": "请先解除此笔记的锁定再固定。固定的笔记以未加密形式存储。",
