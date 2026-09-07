@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { EditorView } from "@codemirror/view";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
+import { setLocale } from "@/i18n";
 import EditorWindow from "./EditorWindow";
 
 const native = vi.hoisted(() => ({
@@ -66,6 +67,7 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  setLocale("en");
   // jsdom has no layout; these are only used by CodeMirror's paint measurement.
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
   Range.prototype.getBoundingClientRect = () => new DOMRect();
@@ -138,7 +140,7 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); setLocale("en"); });
 
 async function open(title: string) {
   const button = await screen.findByRole("button", { name: new RegExp(`^${title}`) });
@@ -155,6 +157,56 @@ function documentText() { return screen.getByRole("textbox", { name: "Start writ
 async function autosave() { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 650)); }); }
 
 describe("full editor persistence", () => {
+  it("translates live editor controls without translating or replacing the draft", async () => {
+    render(<EditorWindow />);
+    await open("Alpha");
+    edit("An untranslated draft — Café 🔒");
+    act(() => setLocale("zh-CN"));
+    expect(screen.getByRole("button", { name: "设置" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "新建笔记" })).toBeInTheDocument();
+    expect(screen.getByText("3 条笔记")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "开始写作…" })).toHaveTextContent("An untranslated draft — Café 🔒");
+    fireEvent.click(screen.getByRole("button", { name: "Alpha 的操作" }));
+    expect(screen.getByRole("menuitem", { name: "置顶" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "重命名" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "归档" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "删除" }));
+    expect(screen.getByRole("menuitem", { name: "点击确认" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.change(screen.getByPlaceholderText("搜索笔记…"), { target: { value: "missing-query" } });
+    expect(await screen.findByText("没有匹配的笔记。")).toBeInTheDocument();
+    expect(screen.getByText("0 个匹配结果")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "清除搜索" }));
+    expect(screen.getByPlaceholderText("搜索笔记…")).toHaveValue("");
+    act(() => setLocale("en"));
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
+    expect(documentText()).toBe("An untranslated draft — Café 🔒");
+    await act(requestClose);
+    expect(files.get(alpha)).toBe("An untranslated draft — Café 🔒");
+  });
+
+  it("translates folder controls while preserving user folder names and metadata keys", async () => {
+    setLocale("zh-CN");
+    render(<EditorWindow />);
+    const folder = await screen.findByRole("button", { name: /Inbox$/ });
+    fireEvent.click(folder);
+    fireEvent.click(screen.getByRole("button", { name: "更改 Inbox 的颜色和图标" }));
+    fireEvent.click(screen.getByRole("button", { name: "蓝色文件夹颜色" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("save_settings", {
+      settings: expect.objectContaining({ folder_colors: { Inbox: "blue" } }),
+    }));
+    fireEvent.click(screen.getByTitle("星形"));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("save_settings", {
+      settings: expect.objectContaining({ folder_icons: { Inbox: "star" } }),
+    }));
+    fireEvent.click(screen.getByRole("button", { name: "在 Inbox 中新建子文件夹" }));
+    const name = screen.getByPlaceholderText("文件夹名称…");
+    fireEvent.change(name, { target: { value: "My 项目" } });
+    await act(async () => { fireEvent.keyDown(name, { key: "Enter" }); });
+    expect(invoke).toHaveBeenCalledWith("create_folder", { name: "Inbox/My 项目" });
+    expect(screen.getByRole("button", { name: /My 项目$/ })).toBeInTheDocument();
+  });
+
   it.each(["New note", "+ New folder"])("guides %s through explicit folder creation in an empty vault", async (action) => {
     folders = [];
     files.clear();

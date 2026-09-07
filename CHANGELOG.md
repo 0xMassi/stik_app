@@ -40,6 +40,7 @@ Chinese, makes privacy choices explicit, and reduces repeated work in search.
 
 ### Fixed
 
+- Full-editor search, note actions, folder appearance controls and status labels now follow the selected language without changing existing note text or folder paths.
 - **Search after note changes:** a query entered before a draft finishes saving now refreshes when the save succeeds, without requiring retyping or replacing the live editor document. Renaming, archiving, or deleting a result also refreshes the active query.
 - In the full editor, creating a note with no folders now opens the folder-name field instead of silently doing nothing. The empty state explains the prerequisite; cancelled setup does not recreate default folders. ([#109](https://github.com/0xMassi/stik_app/issues/109))
 - **Drafts during navigation and quit:** pending edits are saved before switching notes, file actions, or closing the full editor. Orderly application quit coordinates saves across capture, pinned, viewing, and full-editor windows; failed or unacknowledged saves cancel quit and leave drafts available for retry.
