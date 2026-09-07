@@ -166,7 +166,6 @@ export default function EditorWindow() {
   activeFolderRef.current = activeFolder;
   const saveQueue = useRef(createNoteSaveQueue(async (draft) => {
     await invoke("update_note", { ...draft, preserveEmpty: true });
-    setSearchRevision((revision) => revision + 1);
   }));
 
   const loadFolders = useCallback(async (): Promise<string[]> => {
@@ -208,6 +207,8 @@ export default function EditorWindow() {
   }, [loadFolders]);
 
   const refreshNotes = useCallback(async (folder: string) => {
+    // Mutations must refresh searched rows as well as the unfiltered list.
+    setSearchRevision((revision) => revision + 1);
     const gate = listRequestGate.current;
     const token = gate.begin();
     if (!folder) { setNotes([]); return; }
@@ -296,7 +297,6 @@ export default function EditorWindow() {
     const refresh = () => {
       void loadFolders();
       void refreshNotes(activeFolderRef.current);
-      setSearchRevision((revision) => revision + 1);
     };
     const listeners = [
       getCurrentWindow().onFocusChanged(({ payload: focused }) => { if (focused) refresh(); }),

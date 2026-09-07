@@ -260,6 +260,27 @@ describe("full editor persistence", () => {
     expect(documentText()).toContain("New searchable draft");
   });
 
+  it.each(["Rename", "Archive", "Delete"])("removes stale search matches after %s without pending edits", async (action) => {
+    render(<EditorWindow />);
+    await screen.findByRole("button", { name: /^Alpha/ });
+    fireEvent.change(screen.getByPlaceholderText("Search notes…"), { target: { value: "Alpha" } });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 220)); });
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Alpha" }));
+    await act(async () => { fireEvent.click(screen.getByRole("menuitem", { name: action })); });
+    if (action === "Rename") {
+      const input = screen.getAllByDisplayValue("Alpha").find(
+        (element) => element !== screen.getByPlaceholderText("Search notes…"),
+      )!;
+      fireEvent.change(input, { target: { value: "Renamed" } });
+      await act(async () => { fireEvent.keyDown(input, { key: "Enter" }); });
+    } else if (action === "Delete") {
+      await act(async () => { fireEvent.click(screen.getByRole("menuitem", { name: "Click to confirm" })); });
+    }
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 220)); });
+    expect(screen.queryByRole("button", { name: /^Alpha/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/No matches/)).toBeInTheDocument();
+  });
+
   it("saves A before switching to and editing B inside the debounce interval", async () => {
     render(<EditorWindow />);
     await open("Alpha");
