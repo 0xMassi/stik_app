@@ -335,6 +335,7 @@ export const en = {
   "editor.noFolders": "No folders.",
   "editor.newFolder": "New folder",
   "editor.selectOrCreate": "Select a note, or create one.",
+  "editor.createFolderFirst": "Create a folder to start saving notes.",
   "editor.newNote": "New note",
   "editor.lockedNoteUnsupported": "Locked notes cannot be edited here yet. Use Browse Notes to open them securely.",
   "postit.lockedPinBlocked": "Unlock this note before pinning it. Pinned notes are stored without encryption.",

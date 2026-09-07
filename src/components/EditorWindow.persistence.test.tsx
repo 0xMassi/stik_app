@@ -56,6 +56,7 @@ const alpha = "/vault/Inbox/alpha.md";
 const beta = "/vault/Inbox/beta.md";
 const locked = "/vault/Inbox/locked.md";
 let files: Map<string, string>;
+let folders: string[];
 let failSaves: boolean;
 
 function deferred<T>() {
@@ -69,6 +70,7 @@ beforeEach(() => {
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
   Range.prototype.getBoundingClientRect = () => new DOMRect();
   files = new Map([[alpha, "# Alpha\nOriginal A"], [beta, "# Beta\nOriginal B"], [locked, "---stik-locked---\nnonce: encrypted\nciphertext"]]);
+  folders = ["Inbox", "Other"];
   failSaves = false;
   native.closed = false;
   native.quitApproved = false;
@@ -83,7 +85,11 @@ beforeEach(() => {
       if (!saved) native.cancelQuitHandler?.({ payload: { id } });
       return null;
     }
-    if (command === "list_folders") return ["Inbox", "Other"];
+    if (command === "list_folders") return [...folders];
+    if (command === "create_folder") {
+      folders.push((args as { name: string }).name);
+      return null;
+    }
     if (command === "get_settings") return { folder_colors: {}, folder_icons: {}, load_remote_images: false };
     if (command === "list_notes") {
       const folder = (args as { folder: string }).folder;
@@ -149,6 +155,37 @@ function documentText() { return screen.getByRole("textbox", { name: "Start writ
 async function autosave() { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 650)); }); }
 
 describe("full editor persistence", () => {
+  it.each(["New note", "+ New folder"])("guides %s through explicit folder creation in an empty vault", async (action) => {
+    folders = [];
+    files.clear();
+    await act(async () => { render(<EditorWindow />); });
+    expect(invoke).not.toHaveBeenCalledWith("create_folder", expect.anything());
+    fireEvent.click(screen.getByRole("button", { name: action }));
+    const name = screen.getByPlaceholderText("Folder name…");
+    expect(name).toHaveFocus();
+    fireEvent.change(name, { target: { value: "My notes" } });
+    await act(async () => { fireEvent.keyDown(name, { key: "Enter" }); });
+    expect(screen.getByRole("button", { name: /My notes/ })).toBeInTheDocument();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "New note" })); });
+    expect(documentText()).toContain("Untitled");
+    edit("First note in my chosen folder");
+    await act(requestClose);
+    expect(files.get("/vault/My notes/new.md")).toBe("First note in my chosen folder");
+  });
+
+  it("does not create a folder when the empty-vault prompt is cancelled", async () => {
+    folders = [];
+    files.clear();
+    await act(async () => { render(<EditorWindow />); });
+    fireEvent.click(screen.getByRole("button", { name: "New note" }));
+    const name = screen.getByPlaceholderText("Folder name…");
+    fireEvent.change(name, { target: { value: "Cancelled folder" } });
+    fireEvent.keyDown(name, { key: "Escape" });
+    expect(screen.queryByPlaceholderText("Folder name…")).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("create_folder", expect.anything());
+    expect(invoke).not.toHaveBeenCalledWith("save_note", expect.anything());
+  });
+
   it("reloads the same note before editing a revision saved in another window", async () => {
     render(<EditorWindow />);
     await open("Alpha");

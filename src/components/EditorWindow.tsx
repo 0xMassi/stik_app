@@ -421,7 +421,12 @@ export default function EditorWindow() {
   );
 
   const handleNewNote = useCallback(async () => {
-    if (!activeFolder) return;
+    if (!activeFolder) {
+      setFolderMenuOpen(true);
+      setAddingUnder("");
+      setNewFolder("");
+      return;
+    }
     const seed = "# Untitled\n\n";
     try {
       await withSavedNote(async () => {
@@ -1046,8 +1051,8 @@ export default function EditorWindow() {
             <Editor key={`${activePath}:${noteRevision}`} ref={editorRef} initialContent={content} onChange={handleChange} placeholder="Start writing…" showFormatToolbar loadRemoteImages={loadRemoteImages} />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-stone">
-              <p className="text-sm">{t("editor.selectOrCreate")}</p>
-              <button onClick={handleNewNote} className="px-3 py-1.5 text-sm rounded-lg bg-coral/10 text-coral hover:bg-coral/20 transition-colors">+ {t("editor.newNote")}</button>
+              <p className="text-sm">{t(activeFolder ? "editor.selectOrCreate" : "editor.createFolderFirst")}</p>
+              <button type="button" onClick={handleNewNote} className="px-3 py-1.5 text-sm rounded-lg bg-coral/10 text-coral hover:bg-coral/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral">+ {t(activeFolder ? "editor.newNote" : "editor.newFolder")}</button>
             </div>
           )}
         </main>
