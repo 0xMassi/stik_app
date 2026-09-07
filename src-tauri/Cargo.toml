@@ -43,7 +43,6 @@ notify-debouncer-mini = "0.5"
 security-framework = "3"
 objc2 = { version = "0.6.3", default-features = false, features = ["std"] }
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSView", "NSBitmapImageRep", "NSImageRep", "NSApplication", "NSRunningApplication"] }
-core-graphics = "0.24"
 core-foundation = "0.10"
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["NSData", "NSDictionary", "NSGeometry"] }
 
