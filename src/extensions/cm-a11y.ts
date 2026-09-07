@@ -16,13 +16,28 @@ import {
   type Transaction,
 } from "@codemirror/state";
 import { EditorView, placeholder as cmPlaceholder } from "@codemirror/view";
+import { t } from "@/i18n";
+
+/** Cached widget DOM outlives the locale; relabel it without resetting fold state. */
+export function refreshTaskAndFoldLabels(root: ParentNode): void {
+  root.querySelectorAll<HTMLElement>(".cm-task-checkbox").forEach((node) => {
+    node.setAttribute("aria-label", t(node.getAttribute("aria-checked") === "true" ? "task.completed" : "task.incomplete"));
+  });
+  root.querySelectorAll<HTMLElement>(".cm-heading-chevron").forEach((node) => {
+    node.setAttribute("aria-label", t(node.classList.contains("cm-heading-chevron-folded") ? "heading.unfoldSection" : "heading.foldSection"));
+  });
+  root.querySelectorAll<HTMLElement>(".cm-heading-fold-placeholder").forEach((node) => {
+    node.title = t("heading.unfold");
+    node.setAttribute("aria-label", t("fold.foldedContent"));
+  });
+}
 
 /** Turn a deleted/inserted run into something a screen reader can speak aloud. */
 function speak(text: string): string {
-  if (text === "\n") return "new line";
-  if (text === " ") return "space";
-  if (text === "\t") return "tab";
-  return text.replace(/\n/g, " new line ").trim() || "blank";
+  if (text === "\n") return t("editor.a11y.newLine");
+  if (text === " ") return t("editor.a11y.space");
+  if (text === "\t") return t("editor.a11y.tab");
+  return text.replace(/\n/g, ` ${t("editor.a11y.newLine")} `).trim() || t("editor.a11y.blank");
 }
 
 /**
@@ -40,7 +55,7 @@ export function describeEdit(tr: Transaction): string | null {
     tr.changes.iterChanges((fromA, toA) => {
       if (toA > fromA) removed += tr.startState.doc.sliceString(fromA, toA);
     });
-    return removed ? `deleted ${speak(removed)}` : null;
+    return removed ? t("editor.a11y.deleted", { text: speak(removed) }) : null;
   }
 
   // Newline insertion (Enter).
@@ -49,7 +64,7 @@ export function describeEdit(tr: Transaction): string | null {
     tr.changes.iterChanges((_fromA, _toA, _fromB, _toB, ins) => {
       inserted += ins.toString();
     });
-    if (inserted === "\n") return "new line";
+    if (inserted === "\n") return t("editor.a11y.newLine");
   }
 
   return null;

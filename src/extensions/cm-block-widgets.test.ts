@@ -1,10 +1,27 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { setLocale } from "@/i18n";
 import {
   createImageWidgetDom,
   isRemoteImageSource,
+  refreshBlockWidgetLabels,
 } from "./cm-block-widgets";
 
+afterEach(() => setLocale("en"));
+
 describe("image widget privacy", () => {
+  it.each(["", "User-provided alt text"])("refreshes image failure labels but preserves user alt %j", (alt) => {
+    const root = document.createElement("div");
+    const widget = createImageWidgetDom("data:image/png;base64,invalid", alt, false);
+    root.append(widget);
+    widget.querySelector("img")!.dispatchEvent(new Event("error"));
+    const fallback = widget.querySelector(".cm-image-error-text")!;
+    expect(fallback).toHaveTextContent(alt || "Image failed to load");
+    setLocale("zh-CN");
+    refreshBlockWidgetLabels(root);
+    expect(fallback).toHaveTextContent(alt || "图片加载失败");
+    expect(widget.querySelector("img")).toBeNull();
+  });
+
   it("does not assign an HTTP image source before explicit consent", () => {
     const widget = createImageWidgetDom(
       "https://tracking.example/pixel.png",

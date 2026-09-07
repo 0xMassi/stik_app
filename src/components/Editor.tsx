@@ -39,6 +39,7 @@ import { slashCommandCompletionSource } from "@/extensions/cm-slash-commands";
 import {
   blockWidgetPlugin,
   remoteImagesAllowed,
+  refreshBlockWidgetLabels,
 } from "@/extensions/cm-block-widgets";
 import { bidiSupport } from "@/extensions/cm-bidi";
 import {
@@ -54,7 +55,7 @@ import { highlightExtension } from "@/extensions/cm-highlight";
 import { taskCheckboxPlugin, taskCheckboxHandler } from "@/extensions/cm-task-toggle";
 import { hideMarkersPlugin, autoCloseMarkup } from "@/extensions/cm-hide-markers";
 import { headingFoldPlugin } from "@/extensions/cm-heading-fold";
-import { accessibleEditor } from "@/extensions/cm-a11y";
+import { accessibleEditor, refreshTaskAndFoldLabels } from "@/extensions/cm-a11y";
 import { filenameToSlug } from "@/utils/wikiLink";
 import { normalizeUrl } from "@/utils/normalizeUrl";
 import { isImageUrl } from "@/utils/isImageUrl";
@@ -158,7 +159,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(
   ) => {
     // Subscribing to the locale is what makes this component re-render when
     // the language changes; the module-level `t` alone would not.
-    const { t: translate } = useTranslation();
+    const { t: translate, locale } = useTranslation();
     // `??` rather than `||`: an explicitly empty placeholder means draw
     // nothing (Zen mode), where undefined means "use the default".
     const placeholderText = placeholder ?? translate("editor.startTyping");
@@ -658,6 +659,15 @@ const Editor = forwardRef<EditorRef, EditorProps>(
         ),
       });
     }, [placeholderText, accessibleName]);
+
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      // Widgets are cached independently of React. Change labels, not their DOM
+      // identity: rebuilding would lose table focus and one-time image consent.
+      refreshTaskAndFoldLabels(view.dom);
+      refreshBlockWidgetLabels(view.dom);
+    }, [locale]);
 
     useEffect(() => {
       const view = viewRef.current;

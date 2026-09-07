@@ -1,6 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
+import { setLocale } from "@/i18n";
 import { EditorState, type TransactionSpec } from "@codemirror/state";
 import { describeEdit } from "./cm-a11y";
+
+afterEach(() => setLocale("en"));
 
 /** Build a transaction from a starting doc/selection so describeEdit can read it. */
 function makeTr(
@@ -12,6 +15,13 @@ function makeTr(
 }
 
 describe("describeEdit", () => {
+  it("uses the active language for edit announcements without translating deleted text", () => {
+    setLocale("zh-CN");
+    expect(describeEdit(makeTr("Hi", { changes: { from: 0, to: 2 }, userEvent: "delete.backward" }))).toBe("已删除Hi");
+    expect(describeEdit(makeTr("a b", { changes: { from: 1, to: 2 }, userEvent: "delete.backward" }))).toBe("已删除空格");
+    expect(describeEdit(makeTr("a", { changes: { from: 1, insert: "\n" }, userEvent: "input" }))).toBe("换行");
+  });
+
   it("announces a single deleted character", () => {
     const tr = makeTr("abc", {
       changes: { from: 2, to: 3 },
