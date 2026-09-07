@@ -5,7 +5,7 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
 };
 use base64::Engine;
-use rand::RngCore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
@@ -60,10 +60,10 @@ fn encrypt(plaintext: &str, key: &[u8; 32]) -> Result<String, String> {
 
     let mut nonce_bytes = [0u8; 12];
     rand::rng().fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
+    let nonce = Nonce::from(nonce_bytes);
 
     let ciphertext = cipher
-        .encrypt(nonce, plaintext.as_bytes())
+        .encrypt(&nonce, plaintext.as_bytes())
         .map_err(|e| format!("Encryption failed: {}", e))?;
 
     Ok(format!(
@@ -87,9 +87,8 @@ fn decrypt(locked_content: &str, key: &[u8; 32]) -> Result<String, String> {
     let nonce_bytes = B64
         .decode(nonce_b64)
         .map_err(|e| format!("Invalid nonce: {}", e))?;
-    if nonce_bytes.len() != 12 {
-        return Err("Invalid nonce length".to_string());
-    }
+    let nonce = <&Nonce<_>>::try_from(nonce_bytes.as_slice())
+        .map_err(|_| "Invalid nonce length".to_string())?;
 
     // Remaining lines are the ciphertext (join in case base64 wraps)
     let ciphertext_b64: String = lines[2..].join("");
@@ -98,8 +97,6 @@ fn decrypt(locked_content: &str, key: &[u8; 32]) -> Result<String, String> {
         .map_err(|e| format!("Invalid ciphertext: {}", e))?;
 
     let cipher = Aes256Gcm::new_from_slice(key).map_err(|e| e.to_string())?;
-    let nonce = Nonce::from_slice(&nonce_bytes);
-
     let plaintext = cipher
         .decrypt(nonce, ciphertext.as_ref())
         .map_err(|_| "Decryption failed — wrong key or corrupted data".to_string())?;
@@ -548,6 +545,41 @@ mod tests {
 
         let _ = fs::remove_dir_all(root);
         let _ = fs::remove_dir_all(outside_root);
+    }
+
+    #[test]
+    fn decrypts_legacy_locked_note_fixture() {
+        // Fixed AES-256-GCM vector (key [42; 32], nonce 0..11), verified with
+        // aes-gcm 0.10 before upgrading. Never regenerate with the tested version.
+        let locked = "---stik-locked---\nnonce: AAECAwQFBgcICQoL\nbw0YLftCQEe+XWmft7aPwEyMUSa56ybEuu8mgqNZgtskqSer8cPxACTw/gitno5vzg1WuPJnLPzFMvIy2g==";
+        assert_eq!(
+            decrypt(locked, &[42; 32]).unwrap(),
+            "# Legacy note\n\nCafé 🔒 — stays readable."
+        );
+        assert!(decrypt(locked, &[99; 32]).is_err());
+        let tampered = locked.replace("bw0YL", "aw0YL");
+        assert!(decrypt(&tampered, &[42; 32]).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_nonce_lengths() {
+        for length in [0, 11, 13, 24] {
+            let locked = format!(
+                "{LOCKED_HEADER}\nnonce: {}\nAA==",
+                B64.encode(vec![0; length])
+            );
+            assert_eq!(
+                decrypt(&locked, &[42; 32]).unwrap_err(),
+                "Invalid nonce length"
+            );
+        }
+    }
+
+    #[test]
+    fn repeated_encryption_uses_distinct_nonces() {
+        let first = encrypt("same note", &[42; 32]).unwrap();
+        let second = encrypt("same note", &[42; 32]).unwrap();
+        assert_ne!(first.lines().nth(1), second.lines().nth(1));
     }
 
     #[test]
