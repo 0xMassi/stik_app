@@ -25,7 +25,7 @@ toml = "0.8"
 chrono = "0.4"
 dirs = "5"
 uuid = { version = "1", features = ["v4"] }
-pulldown-cmark = "0.12"
+pulldown-cmark = "0.13"
 arboard = "3"
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["png"] }
