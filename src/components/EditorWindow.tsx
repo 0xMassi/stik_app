@@ -19,6 +19,7 @@ import SettingsModal from "./SettingsModal";
 import ActionToast from "./ActionToast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useTranslation } from "@/hooks/useTranslation";
+import type { TranslationKey } from "@/i18n";
 import { useAppQuit } from "@/hooks/useAppQuit";
 import { getFolderColor, FOLDER_COLORS, FOLDER_COLOR_KEYS } from "@/utils/folderColors";
 import {
@@ -59,6 +60,19 @@ const ICONS: Record<string, React.ReactNode> = {
   book: (<><path d="M5 4h13a1 1 0 0 1 1 1v12H6a2 2 0 0 0-2 2V6a2 2 0 0 1 1-2Z" /><path d="M4 19a2 2 0 0 0 2 2h13" /></>),
 };
 const ICON_KEYS = Object.keys(ICONS);
+const ICON_LABELS: Record<string, TranslationKey> = {
+  folder: "editor.icon.folder", doc: "editor.icon.doc", hash: "editor.icon.hash",
+  star: "editor.icon.star", bookmark: "editor.icon.bookmark", tag: "editor.icon.tag",
+  inbox: "editor.icon.inbox", calendar: "editor.icon.calendar", check: "editor.icon.check",
+  heart: "editor.icon.heart", zap: "editor.icon.zap", target: "editor.icon.target",
+  bulb: "editor.icon.bulb", briefcase: "editor.icon.briefcase", code: "editor.icon.code",
+  book: "editor.icon.book",
+};
+const COLOR_LABELS: Record<string, TranslationKey> = {
+  coral: "editor.color.coral", red: "editor.color.red", amber: "editor.color.amber",
+  green: "editor.color.green", teal: "editor.color.teal", blue: "editor.color.blue",
+  purple: "editor.color.purple", pink: "editor.color.pink",
+};
 
 type Row = { path: string; title: string; subtitle: string; created: string; locked: boolean };
 type TreeNode = { name: string; path: string; children: TreeNode[] };
@@ -207,6 +221,8 @@ export default function EditorWindow() {
   }, [loadFolders]);
 
   const refreshNotes = useCallback(async (folder: string) => {
+    // Mutations must refresh searched rows as well as the unfiltered list.
+    setSearchRevision((revision) => revision + 1);
     const gate = listRequestGate.current;
     const token = gate.begin();
     if (!folder) { setNotes([]); return; }
@@ -295,7 +311,6 @@ export default function EditorWindow() {
     const refresh = () => {
       void loadFolders();
       void refreshNotes(activeFolderRef.current);
-      setSearchRevision((revision) => revision + 1);
     };
     const listeners = [
       getCurrentWindow().onFocusChanged(({ payload: focused }) => { if (focused) refresh(); }),
@@ -427,7 +442,7 @@ export default function EditorWindow() {
       setNewFolder("");
       return;
     }
-    const seed = "# Untitled\n\n";
+    const seed = `# ${t("common.untitled")}\n\n`;
     try {
       await withSavedNote(async () => {
         const res = await invoke<{ path: string }>("save_note", { folder: activeFolder, content: seed });
@@ -662,7 +677,7 @@ export default function EditorWindow() {
           if (ap !== bp) return ap ? -1 : 1;
           return a.created < b.created ? 1 : -1;
         })
-        .map((n) => ({ path: n.path, title: noteTitle(n.content, n.filename), subtitle: n.content?.replace(/^#+\s*/, "").trim() || "Empty note", created: n.created, locked: n.locked ?? false }));
+        .map((n) => ({ path: n.path, title: noteTitle(n.content, n.filename), subtitle: n.content?.replace(/^#+\s*/, "").trim() || t("editor.emptyNote"), created: n.created, locked: n.locked ?? false }));
 
   const tree = buildTree(folders);
 
@@ -690,21 +705,21 @@ export default function EditorWindow() {
               key={k}
               type="button"
               onClick={() => setFolderColor(path, k)}
-              aria-label={`${k} folder colour`}
+              aria-label={t("editor.folderColor", { color: t(COLOR_LABELS[k]) })}
               aria-pressed={active}
               className={`w-6 h-6 rounded-full transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral ${active ? "ring-2 ring-offset-1 ring-offset-bg ring-ink/40 scale-110" : "hover:scale-110"}`}
               style={{ background: FOLDER_COLORS[k].dot }}
-              title={k}
+              title={t(COLOR_LABELS[k])}
             />
           );
         })}
       </div>
       <div className="grid grid-cols-8 gap-1">
-        <button onClick={() => setFolderIcon(path, "")} title="No icon" className={`h-7 flex items-center justify-center rounded text-stone hover:bg-line/60 ${!folderIcons[path] ? "bg-line/60" : ""}`}>
+        <button onClick={() => setFolderIcon(path, "")} title={t("editor.noIcon")} className={`h-7 flex items-center justify-center rounded text-stone hover:bg-line/60 ${!folderIcons[path] ? "bg-line/60" : ""}`}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill={ico} stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
         </button>
         {ICON_KEYS.map((k) => (
-          <button key={k} onClick={() => setFolderIcon(path, k)} title={k} className={`h-7 flex items-center justify-center rounded hover:bg-line/60 ${folderIcons[path] === k ? "bg-coral/20 text-coral" : "text-ink/80"}`}>
+          <button key={k} onClick={() => setFolderIcon(path, k)} title={t(ICON_LABELS[k])} className={`h-7 flex items-center justify-center rounded hover:bg-line/60 ${folderIcons[path] === k ? "bg-coral/20 text-coral" : "text-ink/80"}`}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{ICONS[k]}</svg>
           </button>
         ))}
@@ -734,7 +749,7 @@ export default function EditorWindow() {
             <button
               type="button"
               onClick={() => hasChildren && toggleExpand(node.path)}
-              aria-label={`${isOpen ? "Collapse" : "Expand"} ${node.name}`}
+              aria-label={t(isOpen ? "editor.collapseFolder" : "editor.expandFolder", { name: node.name })}
               aria-expanded={hasChildren ? isOpen : undefined}
               className={`w-6 h-6 flex items-center justify-center shrink-0 text-stone focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral ${hasChildren ? "" : "invisible"}`}
             >
@@ -758,7 +773,7 @@ export default function EditorWindow() {
               {glyph(node.path)}
               <span className={`truncate text-[13px] ${isActive ? "text-ink font-semibold" : "text-ink/90"}`}>{node.name}</span>
             </button>
-            <button type="button" onClick={() => { setConfirmFolderDelete(null); setEditingFolder(editingFolder === node.path ? null : node.path); }} title="Colour & icon" aria-label={`Change colour and icon for ${node.name}`} className={`w-6 h-6 flex items-center justify-center rounded text-stone hover:text-coral transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral ${editingFolder === node.path ? "opacity-100 text-coral" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"}`}>
+            <button type="button" onClick={() => { setConfirmFolderDelete(null); setEditingFolder(editingFolder === node.path ? null : node.path); }} title={t("editor.colorAndIcon")} aria-label={t("editor.changeFolderAppearance", { name: node.name })} className={`w-6 h-6 flex items-center justify-center rounded text-stone hover:text-coral transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral ${editingFolder === node.path ? "opacity-100 text-coral" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"}`}>
               <Palette />
             </button>
             <button
@@ -767,8 +782,8 @@ export default function EditorWindow() {
                 setAddingUnder(node.path);
                 setNewFolder("");
               }}
-              title="New subfolder"
-              aria-label={`New subfolder in ${node.name}`}
+              title={t("editor.newSubfolder")}
+              aria-label={t("editor.newSubfolderIn", { name: node.name })}
               className="w-6 h-6 flex items-center justify-center rounded text-stone hover:text-coral opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral"
             >
               <Plus />
@@ -785,7 +800,7 @@ export default function EditorWindow() {
                 if (e.key === "Enter") commitNewFolder();
                 if (e.key === "Escape") setAddingUnder(null);
               }}
-              placeholder="Folder name…"
+              placeholder={t("editor.folderName")}
               className="my-0.5 w-full bg-line/40 rounded-md text-[12px] text-ink outline-none py-1"
               style={{ paddingLeft: `${24 + depth * 12}px` }}
             />
@@ -815,10 +830,10 @@ export default function EditorWindow() {
       {/* Top bar — drag region; pl clears native traffic lights */}
       <header data-tauri-drag-region className="h-11 shrink-0 flex items-center gap-1 pl-[80px] pr-3 border-b border-line bg-line/20">
         <div data-tauri-drag-region className="flex-1 h-full" />
-        <button type="button" onClick={() => setSettingsOpen(true)} title="Settings" aria-label="Settings" className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-ink hover:bg-line/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral">
+        <button type="button" onClick={() => setSettingsOpen(true)} title={t("settings.title")} aria-label={t("settings.title")} className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-ink hover:bg-line/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral">
           <Cog />
         </button>
-        <button type="button" onClick={handleNewNote} title="New note" aria-label="New note" className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-coral hover:bg-coral/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral">
+        <button type="button" onClick={handleNewNote} title={t("editor.newNote")} aria-label={t("editor.newNote")} className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-stone hover:text-coral hover:bg-coral/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral">
           <Plus />
         </button>
       </header>
@@ -830,7 +845,7 @@ export default function EditorWindow() {
           <div className="relative px-2.5 py-2 border-b border-line/70">
             <button onClick={() => setFolderMenuOpen((o) => !o)} className="w-full flex items-center gap-2 px-2.5 h-8 rounded-lg hover:bg-line/40 transition-colors">
               {glyph(activeFolder, 15)}
-              <span className="flex-1 min-w-0 truncate text-left text-[13px] font-semibold text-ink">{activeFolder ? activeFolder.split("/").pop() : "Select folder"}</span>
+              <span className="flex-1 min-w-0 truncate text-left text-[13px] font-semibold text-ink">{activeFolder ? activeFolder.split("/").pop() : t("editor.selectFolder")}</span>
               <span className="text-stone shrink-0"><ChevronDown /></span>
             </button>
             {folderMenuOpen && (
@@ -857,7 +872,7 @@ export default function EditorWindow() {
                           if (e.key === "Enter") commitNewFolder();
                           if (e.key === "Escape") setAddingUnder(null);
                         }}
-                        placeholder="Folder name…"
+                        placeholder={t("editor.folderName")}
                         className="w-full bg-line/40 rounded-md text-[12px] text-ink outline-none px-2 py-1.5"
                       />
                     ) : (
@@ -883,8 +898,8 @@ export default function EditorWindow() {
           >
             <div className="flex items-center gap-2 px-2.5 h-8 rounded-lg bg-line/40 focus-within:bg-line/60 transition-colors">
               <span className="text-stone shrink-0"><Search /></span>
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search notes…" className="flex-1 min-w-0 bg-transparent text-[13px] text-ink placeholder:text-stone/60 outline-none" />
-              {query && <button onClick={() => setQuery("")} className="text-stone hover:text-ink text-xs shrink-0">✕</button>}
+              <input value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t("palette.searchLabel")} placeholder={t("editor.searchNotes")} className="flex-1 min-w-0 bg-transparent text-[13px] text-ink placeholder:text-stone/60 outline-none" />
+              {query && <button onClick={() => setQuery("")} aria-label={t("editor.clearSearch")} className="text-stone hover:text-ink text-xs shrink-0">✕</button>}
             </div>
           </div>
 
@@ -927,7 +942,7 @@ export default function EditorWindow() {
                 ))
               )
             ) : rows.length === 0 ? (
-              <p className="px-3 py-4 text-xs text-stone">{searching ? "No matches." : "No notes here."}</p>
+              <p className="px-3 py-4 text-xs text-stone">{t(searching ? "editor.noMatches" : "editor.noNotes")}</p>
             ) : (
               rows.map((r) => {
                 const isPinned = pinned.includes(r.path);
@@ -963,7 +978,7 @@ export default function EditorWindow() {
                         setConfirmDelete(null);
                         setRowMenu((cur) => (cur === r.path ? null : r.path));
                       }}
-                      aria-label={`Actions for ${r.title}`}
+                      aria-label={t("editor.noteActions", { title: r.title })}
                       aria-haspopup="menu"
                       aria-expanded={rowMenu === r.path}
                       className={`absolute top-2 right-1.5 w-6 h-6 flex items-center justify-center rounded-md text-stone hover:text-ink hover:bg-line/60 transition-[opacity,background-color,color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral ${rowMenu === r.path ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"}`}
@@ -977,7 +992,7 @@ export default function EditorWindow() {
                         <div
                           ref={rowMenuRef}
                           role="menu"
-                          aria-label={`Actions for ${r.title}`}
+                          aria-label={t("editor.noteActions", { title: r.title })}
                           onKeyDown={(event) => {
                             if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
                             const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='menuitem']"));
@@ -995,14 +1010,14 @@ export default function EditorWindow() {
                           }}
                           className="absolute top-8 right-1.5 min-w-[160px] bg-bg rounded-[10px] shadow-stik border border-line/50 overflow-hidden z-20 py-1"
                         >
-                          <MenuItem onClick={() => togglePin(r.path)} icon={<PinIcon />} label={isPinned ? "Unpin" : "Pin to top"} />
-                          <MenuItem onClick={() => startRename(r)} icon={<Pencil />} label="Rename" />
-                          <MenuItem onClick={() => archiveNote(r.path)} icon={<ArchiveIcon />} label="Archive" />
+                          <MenuItem onClick={() => togglePin(r.path)} icon={<PinIcon />} label={t(isPinned ? "editor.unpin" : "editor.pinToTop")} />
+                          <MenuItem onClick={() => startRename(r)} icon={<Pencil />} label={t("common.rename")} />
+                          <MenuItem onClick={() => archiveNote(r.path)} icon={<ArchiveIcon />} label={t("editor.archive")} />
                           <div className="my-1 border-t border-line/60" />
                           {confirmDelete === r.path ? (
-                            <MenuItem onClick={() => deleteNote(r.path)} icon={<Trash />} label="Click to confirm" danger />
+                            <MenuItem onClick={() => deleteNote(r.path)} icon={<Trash />} label={t("editor.confirmDelete")} danger />
                           ) : (
-                            <MenuItem onClick={() => setConfirmDelete(r.path)} icon={<Trash />} label="Delete" danger />
+                            <MenuItem onClick={() => setConfirmDelete(r.path)} icon={<Trash />} label={t("common.delete")} danger />
                           )}
                         </div>
                       </>
@@ -1018,10 +1033,10 @@ export default function EditorWindow() {
               {trashOpen
                 ? `${trashedNotes.length}`
                 : saving
-                  ? "Saving…"
+                  ? t("common.saving")
                   : searching
-                    ? `${rows.length} matches`
-                    : `${rows.length} notes`}
+                    ? t("editor.matchCount", { count: rows.length })
+                    : t("editor.noteCount", { count: rows.length })}
             </span>
             <button
               type="button"
@@ -1048,7 +1063,7 @@ export default function EditorWindow() {
               {trashedNotes.length === 0 && <p className="text-xs">{t("trash.empty")}</p>}
             </div>
           ) : activePath ? (
-            <Editor key={`${activePath}:${noteRevision}`} ref={editorRef} initialContent={content} onChange={handleChange} placeholder="Start writing…" showFormatToolbar loadRemoteImages={loadRemoteImages} />
+            <Editor key={`${activePath}:${noteRevision}`} ref={editorRef} initialContent={content} onChange={handleChange} placeholder={t("editor.startWriting")} showFormatToolbar loadRemoteImages={loadRemoteImages} />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-stone">
               <p className="text-sm">{t(activeFolder ? "editor.selectOrCreate" : "editor.createFolderFirst")}</p>

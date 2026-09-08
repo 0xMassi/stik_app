@@ -70,7 +70,7 @@ Use a scratch notes directory. Stable and beta builds can share settings, so nev
 - [ ] Confirm each `.app` declares macOS 14, contains the matching DarwinKit sidecar, and launches on a clean macOS 14+ account.
 - [ ] Verify global shortcuts, Accessibility permission flow, microphone permission, dictation, Finder “Open With,” tray behavior, and window restoration.
 - [ ] Verify signatures with `codesign`, notarization with `spctl`, and both DMGs before publishing.
-- [ ] Confirm updater archives and `latest.json` are signed with the updater key.
+- [ ] Verify both updater archives against the configured updater public key. Confirm `latest.json` contains the release version and both Darwin architecture entries, with working asset URLs and signatures matching their archives; the JSON metadata is not independently signed.
 
 ## 6. Publish and monitor
 

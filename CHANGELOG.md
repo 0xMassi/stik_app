@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Planned for **0.9.0**: a full editor for longer notes, recoverable deletion, and
+## [0.9.0] - 2026-09-08
+
+A full editor for longer notes, recoverable deletion, and
 more reliable saves across Stik's windows. This update also adds Simplified
 Chinese, makes privacy choices explicit, and reduces repeated work in search.
 
@@ -38,6 +40,9 @@ Chinese, makes privacy choices explicit, and reduces repeated work in search.
 
 ### Fixed
 
+- **Rendered table edits now save:** typing or pasting into a table cell updates the underlying Markdown and participates in autosave/quit. Edits before a table or in an earlier table keep later write positions correct; literal pipes, backslashes and pasted line breaks survive reopening without overwriting adjacent cells. Select All stays within the cell being edited instead of selecting the entire note.
+- Full-editor search, note actions, folder controls, Markdown widget labels and edit announcements now follow the selected language. Switching languages preserves note text, folder paths, folded sections, table focus and one-time image-loading consent.
+- **Search after note changes:** a query entered before a draft finishes saving now refreshes when the save succeeds, without requiring retyping or replacing the live editor document. Renaming, archiving, or deleting a result also refreshes the active query.
 - In the full editor, creating a note with no folders now opens the folder-name field instead of silently doing nothing. The empty state explains the prerequisite; cancelled setup does not recreate default folders. ([#109](https://github.com/0xMassi/stik_app/issues/109))
 - **Drafts during navigation and quit:** pending edits are saved before switching notes, file actions, or closing the full editor. Orderly application quit coordinates saves across capture, pinned, viewing, and full-editor windows; failed or unacknowledged saves cancel quit and leave drafts available for retry.
 - **Stale documents after reselecting a note:** explicitly reopening the same note now loads its latest saved revision into the editor. Folder/note lists and active search also refresh after native focus and external-file events without replacing a live draft.
@@ -64,8 +69,13 @@ Chinese, makes privacy choices explicit, and reduces repeated work in search.
 - `./scripts/build-dev.sh setup`, `doctor`, and `qa` provide a documented setup and native test workflow. The QA launcher builds the correct DarwinKit sidecar and uses disposable data; a Dev bundle refuses to launch without an isolated profile.
 - `./scripts/verify.sh` runs frontend, Rust, and Swift tests plus build, platform, bundle-budget, formatting, and strict Clippy checks. CI also runs dependency-security audits and builds/inspects a native Intel app and sidecar. Duplicate Rust library/binary test execution and unused dependencies were removed.
 - Coordinated native and JavaScript dependency updates keep Tauri plugins build-compatible. Fixed-format regression tests protect existing encrypted notes and compressed Apple Notes imports across crypto, protobuf, and compression upgrades. Intel CI now exercises the release action without signing or publishing.
+- Updated Markdown parsing, Base64 encoding, directory lookup, and bundled SQLite dependencies. Compatibility tests cover clipboard Markdown extensions and read-only Apple Notes listing/import across four synthetic schema variants. Removed an unused direct Core Graphics dependency; no SIMD or SQLite speedup is claimed from these version updates alone.
 - Beta tags point to the tested revision. Stable tags build a draft; Homebrew and landing-page updates wait for stable publication and reject incomplete assets, invalid checksums, or failed webhooks. The beta channel does not update the stable feed.
 - Added a [release checklist](docs/release-checklist.md) for data recovery, OS integrations, privacy, accessibility, both architectures, signing, notarization, installation, and updater verification. Automated checks do not replace these acceptance steps.
+
+### Known limitations
+
+- Shortcut bindings use physical key positions, but some displayed shortcut labels still assume QWERTY. Layout-aware labels and live AZERTY/layout-switch verification remain tracked in [#96](https://github.com/0xMassi/stik_app/issues/96).
 
 ## [0.8.0] - 2026-04-13
 Voice dictation, clipboard capture, and dev tooling
@@ -548,7 +558,8 @@ First release
 | 0.2.0 | 2026-02-06 | Security hardening, performance index, architecture refactor |
 | 0.1.0 | 2026-02-05 | Initial release - core capture, search, manager |
 
-[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/0xMassi/stik_app/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/0xMassi/stik_app/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/0xMassi/stik_app/compare/v0.7.9...v0.8.0
 [0.7.9]: https://github.com/0xMassi/stik_app/compare/v0.7.8...v0.7.9
 [0.7.8]: https://github.com/0xMassi/stik_app/compare/v0.7.7...v0.7.8
