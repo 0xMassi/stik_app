@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.9.0] - 2026-09-07
+## [0.9.0] - 2026-09-08
 
 A full editor for longer notes, recoverable deletion, and
 more reliable saves across Stik's windows. This update also adds Simplified

@@ -22,9 +22,19 @@ vi.mock("@tauri-apps/api/event", () => ({
   emit: vi.fn().mockResolvedValue(undefined),
 }));
 
+// jsdom omits these layout APIs, so spyOn cannot wrap an existing method.
+const originalRangeGeometry = {
+  getClientRects: Object.getOwnPropertyDescriptor(Range.prototype, "getClientRects"),
+  getBoundingClientRect: Object.getOwnPropertyDescriptor(Range.prototype, "getBoundingClientRect"),
+};
+
 afterEach(() => {
   setLocale("en");
   vi.restoreAllMocks();
+  for (const [key, descriptor] of Object.entries(originalRangeGeometry)) {
+    if (descriptor) Object.defineProperty(Range.prototype, key, descriptor);
+    else Reflect.deleteProperty(Range.prototype, key);
+  }
 });
 
 /// Regression guard for the placeholder surviving a language switch.
