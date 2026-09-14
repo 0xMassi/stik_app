@@ -4374,7 +4374,7 @@ dependencies = [
  "tauri-plugin-global-shortcut",
  "tauri-plugin-shell",
  "tauri-plugin-updater",
- "toml 0.8.2",
+ "toml 1.0.6+spec-1.1.0",
  "uuid",
 ]
 
