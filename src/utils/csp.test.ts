@@ -1,10 +1,12 @@
 /**
- * The CSP has to permit the sources the font code actually loads from.
+ * The CSP has to permit the sources the app actually loads from.
  *
- * This existed as a silent, total failure: there was no `font-src` at all, so it
+ * Fonts existed as a silent, total failure: there was no `font-src` at all, so it
  * fell back to `default-src 'self'` and every font — the bundled Google ones and
  * any user-imported file — was blocked with nothing but a console violation.
- * Parsing the real config keeps the two in sync.
+ * Local images were the same failure in `img-src`: only the non-macOS
+ * `http://asset.localhost` form was listed, so the `asset:` URLs the macOS
+ * webview actually gets were blocked. Parsing the real config keeps them in sync.
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -21,6 +23,26 @@ function directive(name: string): string[] | null {
   }
   return null;
 }
+
+describe("CSP image sources", () => {
+  it("allows the asset: scheme the macOS webview receives", () => {
+    // convertFileSrc() returns `asset://localhost/<encoded path>` on macOS and
+    // iOS; only Windows and Linux get the `http://asset.localhost` form. Stik
+    // ships macOS-only, so without `asset:` every pasted or dropped image is
+    // blocked by CSP and the editor renders "Image failed to load".
+    expect(directive("img-src")).toContain("asset:");
+  });
+
+  it("keeps the asset.localhost origins for the other webviews", () => {
+    // Guard against "fixing" macOS by swapping the platforms around.
+    expect(directive("img-src")).toContain("http://asset.localhost");
+    expect(directive("img-src")).toContain("https://asset.localhost");
+  });
+
+  it("allows data: URLs, which is how pasted images preview before they are saved", () => {
+    expect(directive("img-src")).toContain("data:");
+  });
+});
 
 describe("CSP font sources", () => {
   it("declares font-src explicitly rather than inheriting default-src", () => {
