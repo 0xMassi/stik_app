@@ -20,11 +20,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@codemirror/autocomplete": "^6.18.0",
-    "@codemirror/lang-markdown": "^6.3.0",
+    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/lang-markdown": "^6.5.2",
     "@codemirror/language-data": "^6.5.0",
-    "@codemirror/search": "^6.5.0",
-    "@replit/codemirror-vim": "^6.2.0",
+    "@codemirror/search": "^6.7.2",
+    "@replit/codemirror-vim": "^6.4.0",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.3",
     "@tauri-apps/plugin-shell": "^2.3.5",
