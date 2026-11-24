@@ -238,7 +238,7 @@ const headingFoldTheme = EditorView.theme({
     borderRadius: "3px",
   },
   ".cm-heading-chevron:hover": {
-    backgroundColor: "rgba(var(--color-ink), 0.06)",
+    backgroundColor: "rgb(var(--color-ink) / 0.06)",
   },
   ".cm-heading-line:hover .cm-heading-chevron": {
     opacity: "1",
@@ -256,14 +256,14 @@ const headingFoldTheme = EditorView.theme({
     margin: "0 2px",
     fontSize: "0.8em",
     color: "rgb(var(--color-stone))",
-    backgroundColor: "rgba(var(--color-ink), 0.05)",
+    backgroundColor: "rgb(var(--color-ink) / 0.05)",
     borderRadius: "4px",
     cursor: "pointer",
     verticalAlign: "middle",
     transition: "background-color 0.15s",
   },
   ".cm-heading-fold-placeholder:hover": {
-    backgroundColor: "rgba(var(--color-ink), 0.1)",
+    backgroundColor: "rgb(var(--color-ink) / 0.1)",
   },
 });
 

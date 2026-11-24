@@ -504,7 +504,7 @@ body,
 }
 
 .link-popover-save:hover {
-  background: rgba(var(--color-coral), 0.1);
+  background: rgb(var(--color-coral) / 0.1);
 }
 
 /* ── Formatting Toolbar ── */

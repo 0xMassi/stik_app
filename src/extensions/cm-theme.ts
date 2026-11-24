@@ -37,14 +37,14 @@ export const stikEditorTheme = EditorView.theme({
     borderLeftWidth: "2px",
   },
   ".cm-dropCursor": {
-    borderLeftColor: "rgba(var(--color-coral), 0.35)",
+    borderLeftColor: "rgb(var(--color-coral) / 0.35)",
     borderLeftWidth: "1px",
   },
   ".cm-selectionBackground": {
-    backgroundColor: "rgba(var(--color-coral), 0.15) !important",
+    backgroundColor: "rgb(var(--color-coral) / 0.15) !important",
   },
   "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
-    backgroundColor: "rgba(var(--color-coral), 0.2) !important",
+    backgroundColor: "rgb(var(--color-coral) / 0.2) !important",
   },
   ".cm-activeLine": {
     backgroundColor: "transparent",
@@ -69,7 +69,7 @@ export const stikEditorTheme = EditorView.theme({
     transition: "background-color 0.15s",
   },
   ".cm-wikilink:hover": {
-    backgroundColor: "rgba(var(--color-coral), 0.1)",
+    backgroundColor: "rgb(var(--color-coral) / 0.1)",
   },
   // Autocomplete panel
   ".cm-tooltip-autocomplete": {
@@ -100,7 +100,7 @@ export const stikEditorTheme = EditorView.theme({
     fontSize: "10px",
     fontWeight: "600",
     color: "rgb(var(--color-coral))",
-    backgroundColor: "rgba(var(--color-coral), 0.1)",
+    backgroundColor: "rgb(var(--color-coral) / 0.1)",
     padding: "1px 6px",
     borderRadius: "99px",
     marginLeft: "8px",
@@ -111,11 +111,11 @@ export const stikEditorTheme = EditorView.theme({
     borderBottom: "1px solid rgb(var(--color-line))",
   },
   ".cm-searchMatch": {
-    backgroundColor: "rgba(var(--color-coral), 0.2)",
+    backgroundColor: "rgb(var(--color-coral) / 0.2)",
     borderRadius: "2px",
   },
   ".cm-searchMatch.cm-searchMatch-selected": {
-    backgroundColor: "rgba(var(--color-coral), 0.35)",
+    backgroundColor: "rgb(var(--color-coral) / 0.35)",
   },
   // Horizontal rule widget
   ".cm-hr-widget": {
@@ -137,7 +137,7 @@ export const stikEditorTheme = EditorView.theme({
     fontSize: "inherit",
   },
   ".cm-table-widget th": {
-    backgroundColor: "rgba(var(--color-ink), 0.05)",
+    backgroundColor: "rgb(var(--color-ink) / 0.05)",
     fontWeight: "600",
     textAlign: "left",
     padding: "6px 12px",
@@ -178,7 +178,7 @@ export const stikEditorTheme = EditorView.theme({
     opacity: "1",
   },
   ".cm-table-add-row:hover": {
-    backgroundColor: "rgba(var(--color-coral), 0.1)",
+    backgroundColor: "rgb(var(--color-coral) / 0.1)",
     color: "rgb(var(--color-coral))",
   },
   // Add column button — vertical bar on right edge
@@ -201,7 +201,7 @@ export const stikEditorTheme = EditorView.theme({
     opacity: "1",
   },
   ".cm-table-add-col:hover": {
-    backgroundColor: "rgba(var(--color-coral), 0.1)",
+    backgroundColor: "rgb(var(--color-coral) / 0.1)",
     color: "rgb(var(--color-coral))",
   },
   // Table context menu (right-click)
@@ -228,7 +228,7 @@ export const stikEditorTheme = EditorView.theme({
     lineHeight: "1.4",
   },
   ".cm-table-menu-item:hover": {
-    backgroundColor: "rgba(var(--color-coral), 0.1)",
+    backgroundColor: "rgb(var(--color-coral) / 0.1)",
     color: "rgb(var(--color-coral))",
   },
   ".cm-table-menu-disabled": {
